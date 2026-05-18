@@ -6,23 +6,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.mundanej.mjjb.generator.api.GeneratorRequest;
 import io.github.mundanej.mjjb.generator.api.GeneratorResult;
-import java.io.ByteArrayOutputStream;
+import io.github.mundanej.mjjb.generator.core.generated.GeneratedSourceVerifier;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class CoreGeneratorTest {
   @TempDir Path tempDir;
+  private final GeneratedSourceVerifier generatedSourceVerifier = new GeneratedSourceVerifier();
 
   @Test
   void rejectsUnsupportedDraft202012KeywordWithDeterministicDiagnostic() throws IOException {
@@ -52,8 +49,10 @@ final class CoreGeneratorTest {
     assertTrue(result.successful());
     Path source = result.generatedSources().getFirst();
     assertEquals(golden("empty-object"), Files.readString(source));
-    assertGeneratedSourceCompiles(source);
-    assertGeneratedSourceUsesAllowedArchitectureTokens(source);
+    generatedSourceVerifier.verifyGolden("empty-object", source, goldenBytes("empty-object"));
+    generatedSourceVerifier.verifyAllowedTokens("empty-object", source);
+    generatedSourceVerifier.compileGeneratedSource(
+        "empty-object", source, tempDir.resolve("empty-object-classes"));
   }
 
   @Test
@@ -82,8 +81,10 @@ final class CoreGeneratorTest {
     assertTrue(result.successful());
     Path source = result.generatedSources().getFirst();
     assertEquals(golden("mixed-scalar"), Files.readString(source));
-    assertGeneratedSourceCompiles(source);
-    assertGeneratedSourceUsesAllowedArchitectureTokens(source);
+    generatedSourceVerifier.verifyGolden("mixed-scalar", source, goldenBytes("mixed-scalar"));
+    generatedSourceVerifier.verifyAllowedTokens("mixed-scalar", source);
+    generatedSourceVerifier.compileGeneratedSource(
+        "mixed-scalar", source, tempDir.resolve("mixed-scalar-classes"));
   }
 
   @Test
@@ -271,53 +272,14 @@ final class CoreGeneratorTest {
   }
 
   private static String golden(String name) throws IOException {
+    return new String(goldenBytes(name), StandardCharsets.UTF_8);
+  }
+
+  private static byte[] goldenBytes(String name) throws IOException {
     String resourceName = "/golden/" + name + "/GeneratedBindings.java.golden";
     try (InputStream stream = CoreGeneratorTest.class.getResourceAsStream(resourceName)) {
       Objects.requireNonNull(stream, "missing test resource " + resourceName);
-      return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-    }
-  }
-
-  private void assertGeneratedSourceCompiles(Path source) throws IOException {
-    JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-    assertTrue(compiler != null, "tests must run on a JDK with the system Java compiler");
-    Path classes = tempDir.resolve("classes");
-    Files.createDirectories(classes);
-    ByteArrayOutputStream errors = new ByteArrayOutputStream();
-    int result;
-    try (PrintStream errorStream = new PrintStream(errors, true, StandardCharsets.UTF_8)) {
-      result =
-          compiler.run(
-              null,
-              null,
-              errorStream,
-              "--release",
-              "21",
-              "-Xlint:all",
-              "-Werror",
-              "-d",
-              classes.toString(),
-              source.toString());
-    }
-    assertEquals(0, result, errors.toString(StandardCharsets.UTF_8));
-  }
-
-  private static void assertGeneratedSourceUsesAllowedArchitectureTokens(Path source)
-      throws IOException {
-    String content = Files.readString(source);
-    List<String> forbiddenTokens =
-        Arrays.asList(
-            "@",
-            "java.lang.reflect",
-            "MethodHandles",
-            "ServiceLoader",
-            "Class.forName",
-            "Proxy",
-            "io.github.mundanej.mjjb.generator",
-            "io.github.mundanej.mjjb.schema",
-            "io.github.mundanej.mjjb.parser");
-    for (String token : forbiddenTokens) {
-      assertFalse(content.contains(token), "generated source must not contain " + token);
+      return stream.readAllBytes();
     }
   }
 }

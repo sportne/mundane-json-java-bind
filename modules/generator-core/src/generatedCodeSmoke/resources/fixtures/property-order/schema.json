@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "zeta": {
+      "type": "string"
+    },
+    "alpha": {
+      "type": "boolean"
+    },
+    "middle": {
+      "type": "integer"
+    }
+  },
+  "required": ["middle"],
+  "additionalProperties": false
+}

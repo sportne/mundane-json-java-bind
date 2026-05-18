@@ -1,0 +1,14 @@
+package io.github.mundanej.mjjb.generated;
+
+import java.util.Objects;
+import java.util.Optional;
+
+public record GeneratedBindings(
+    Optional<String> zeta,
+    Optional<Boolean> alpha,
+    long middle) {
+  public GeneratedBindings {
+    zeta = Objects.requireNonNull(zeta, "zeta");
+    alpha = Objects.requireNonNull(alpha, "alpha");
+  }
+}

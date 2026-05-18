@@ -1,7 +1,7 @@
 # TASK-0008: Generated-Source Verification Harness
 
 Task ID: `TASK-0008`
-Status: `draft`
+Status: `complete`
 Gate: First binding slice
 Depends on: `TASK-0007`
 Specification references: Java 21 compiler behavior

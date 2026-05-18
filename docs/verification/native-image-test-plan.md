@@ -7,7 +7,7 @@ dynamic JVM behavior.
 
 1. Runtime primitive native tests for `runtime-core`.
 2. Parser native tests for `parser-core`.
-3. Generated-code smoke executable in `generator-core`.
+3. Generated-code Native Image smoke executable in `generator-core`.
 4. Example binding native tests for representative generated code.
 
 ## Policy
