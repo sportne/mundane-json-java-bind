@@ -70,6 +70,7 @@ public final class JsonStringWriter implements JsonWriter {
   @Override
   public void number(String literal) throws JsonWriteException {
     Objects.requireNonNull(literal, "literal");
+    validateNumberLiteral(literal);
     beforeValue();
     output.append(literal);
     afterValue();
@@ -154,6 +155,66 @@ public final class JsonStringWriter implements JsonWriter {
       }
     }
     output.append('"');
+  }
+
+  private static void validateNumberLiteral(String literal) throws JsonWriteException {
+    int index = 0;
+    if (literal.isEmpty()) {
+      throw new JsonWriteException("JSON number literal must not be empty.");
+    }
+    if (literal.charAt(index) == '-') {
+      index++;
+    }
+    if (index >= literal.length()) {
+      throw new JsonWriteException("JSON number literal must contain digits.");
+    }
+    if (literal.charAt(index) == '0') {
+      index++;
+      if (index < literal.length() && isDigit(literal.charAt(index))) {
+        throw new JsonWriteException("Leading zeroes are not valid JSON numbers.");
+      }
+    } else {
+      index = consumeDigits(literal, index);
+    }
+    if (index < literal.length() && literal.charAt(index) == '.') {
+      index++;
+      int fractionStart = index;
+      index = consumeDigits(literal, index);
+      if (index == fractionStart) {
+        throw new JsonWriteException("JSON number fraction must contain digits.");
+      }
+    }
+    if (index < literal.length()
+        && (literal.charAt(index) == 'e' || literal.charAt(index) == 'E')) {
+      index++;
+      if (index < literal.length()
+          && (literal.charAt(index) == '+' || literal.charAt(index) == '-')) {
+        index++;
+      }
+      int exponentStart = index;
+      index = consumeDigits(literal, index);
+      if (index == exponentStart) {
+        throw new JsonWriteException("JSON number exponent must contain digits.");
+      }
+    }
+    if (index != literal.length()) {
+      throw new JsonWriteException("Invalid JSON number literal.");
+    }
+  }
+
+  private static int consumeDigits(String literal, int index) throws JsonWriteException {
+    if (index >= literal.length() || !isDigit(literal.charAt(index))) {
+      throw new JsonWriteException("JSON number literal must contain digits.");
+    }
+    int next = index;
+    while (next < literal.length() && isDigit(literal.charAt(next))) {
+      next++;
+    }
+    return next;
+  }
+
+  private static boolean isDigit(char value) {
+    return value >= '0' && value <= '9';
   }
 
   private static final class Context {

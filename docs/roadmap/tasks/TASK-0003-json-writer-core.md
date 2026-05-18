@@ -1,7 +1,7 @@
 # TASK-0003: JSON Writer Core Completion
 
 Task ID: `TASK-0003`
-Status: `ready-for-implementation`
+Status: `complete`
 Gate: Runtime/parser foundation
 Depends on: `TASK-0002`
 Specification references: JSON string and value grammar from RFC 8259

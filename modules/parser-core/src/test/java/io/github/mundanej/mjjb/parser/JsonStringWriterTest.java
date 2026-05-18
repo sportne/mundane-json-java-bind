@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.mundanej.mjjb.runtime.JsonWriteException;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 final class JsonStringWriterTest {
@@ -25,6 +26,48 @@ final class JsonStringWriterTest {
   }
 
   @Test
+  void writesNestedObjectsArraysBooleansNullsAndNumbers() throws JsonWriteException {
+    JsonStringWriter writer = new JsonStringWriter();
+
+    writer.beginObject();
+    writer.name("first");
+    writer.beginArray();
+    writer.number("0");
+    writer.number("-1");
+    writer.number("12");
+    writer.number("3.50");
+    writer.number("6e7");
+    writer.number("-8.25E-3");
+    writer.endArray();
+    writer.name("second");
+    writer.beginObject();
+    writer.name("enabled");
+    writer.value(true);
+    writer.name("missing");
+    writer.nullValue();
+    writer.endObject();
+    writer.endObject();
+
+    assertEquals(
+        "{\"first\":[0,-1,12,3.50,6e7,-8.25E-3],\"second\":{\"enabled\":true,\"missing\":null}}",
+        writer.json());
+  }
+
+  @Test
+  void escapesStringsDeterministically() throws JsonWriteException {
+    JsonStringWriter writer = new JsonStringWriter();
+
+    writer.beginArray();
+    writer.value("\"\\\b\f\n\r\t");
+    writer.value("control-\u0001");
+    writer.value("unicode-\u20ac");
+    writer.endArray();
+
+    assertEquals(
+        "[\"\\\"\\\\\\b\\f\\n\\r\\t\",\"control-\\u0001\",\"unicode-\u20ac\"]", writer.json());
+  }
+
+  @Test
   void rejectsInvalidWriterStructure() throws JsonWriteException {
     JsonStringWriter writer = new JsonStringWriter();
 
@@ -33,6 +76,36 @@ final class JsonStringWriterTest {
     assertThrows(JsonWriteException.class, () -> writer.value("missing-name"));
     writer.name("id");
     assertThrows(JsonWriteException.class, writer::endObject);
+  }
+
+  @Test
+  void rejectsAdditionalInvalidWriterStructures() throws JsonWriteException {
+    JsonStringWriter nameOutsideObject = new JsonStringWriter();
+    assertThrows(JsonWriteException.class, () -> nameOutsideObject.name("id"));
+
+    JsonStringWriter nameBeforeValue = new JsonStringWriter();
+    nameBeforeValue.beginObject();
+    nameBeforeValue.name("id");
+    assertThrows(JsonWriteException.class, () -> nameBeforeValue.name("other"));
+
+    JsonStringWriter wrongContainerEnd = new JsonStringWriter();
+    wrongContainerEnd.beginArray();
+    assertThrows(JsonWriteException.class, wrongContainerEnd::endObject);
+
+    JsonStringWriter objectValueBeforeName = new JsonStringWriter();
+    objectValueBeforeName.beginObject();
+    assertThrows(JsonWriteException.class, () -> objectValueBeforeName.value("missing-name"));
+  }
+
+  @Test
+  void rejectsInvalidNumberLiterals() {
+    List<String> invalidNumbers =
+        List.of("", "-", "01", "-01", "1.", ".1", "1e", "1e+", "NaN", "Infinity");
+
+    for (String invalidNumber : invalidNumbers) {
+      JsonStringWriter writer = new JsonStringWriter();
+      assertThrows(JsonWriteException.class, () -> writer.number(invalidNumber), invalidNumber);
+    }
   }
 
   @Test

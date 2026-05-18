@@ -60,3 +60,21 @@ Parser failures throw `JsonReadException` with a `JsonDiagnostic` containing:
 - `JsonPath.ROOT` until generated readers add schema-aware instance paths.
 
 Locations are character offsets with one-based line and column coordinates.
+
+## Writer Contract
+
+`JsonStringWriter` is the dependency-free compact JSON writer used by generated
+writers. It writes one complete root value, rejects duplicate root values, and
+allows `json()` only after the document is complete.
+
+The writer preserves object property order exactly as callers provide names.
+Generated writers own deterministic schema property ordering.
+
+String escaping is deterministic: JSON short escapes are used for `"`, `\`,
+backspace, form feed, newline, carriage return, and tab; other control
+characters are emitted as lowercase unicode escapes; non-control unicode
+characters are left unchanged.
+
+Number literals are syntactically checked against the JSON number grammar before
+they are appended. Semantic numeric range checks belong to generated
+validators, not the writer.
