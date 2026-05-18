@@ -28,8 +28,6 @@ import java.util.Optional;
 
 /** Initial deterministic generator entry point. */
 public final class CoreGenerator implements Generator {
-  private static final String ROOT_TYPE_NAME = "GeneratedBindings";
-
   @Override
   public GeneratorResult generate(GeneratorRequest request) {
     Objects.requireNonNull(request, "request");
@@ -42,7 +40,8 @@ public final class CoreGenerator implements Generator {
       return GeneratorResult.failure(diagnostics);
     }
     for (Path schemaPath : request.schemaPaths()) {
-      ValidatedSchema validatedSchema = validateSchemaPath(schemaPath, request.defaultPackage());
+      ValidatedSchema validatedSchema =
+          validateSchemaPath(schemaPath, request.defaultPackage(), request.rootTypeName());
       diagnostics.addAll(validatedSchema.diagnostics());
       validatedSchema.model().ifPresent(models::add);
     }
@@ -63,9 +62,11 @@ public final class CoreGenerator implements Generator {
     }
   }
 
-  private ValidatedSchema validateSchemaPath(Path schemaPath, String packageName) {
+  private ValidatedSchema validateSchemaPath(
+      Path schemaPath, String packageName, String rootTypeName) {
     Objects.requireNonNull(schemaPath, "schemaPath");
     Objects.requireNonNull(packageName, "packageName");
+    Objects.requireNonNull(rootTypeName, "rootTypeName");
     ArrayList<GeneratorDiagnostic> diagnostics = new ArrayList<>();
     if (!Files.isRegularFile(schemaPath)) {
       diagnostics.add(
@@ -87,7 +88,7 @@ public final class CoreGenerator implements Generator {
         return ValidatedSchema.failure(diagnostics);
       }
       BindingBuildResult bindingResult =
-          new BindingModelBuilder().build(parseResult.root(), packageName, ROOT_TYPE_NAME);
+          new BindingModelBuilder().build(parseResult.root(), packageName, rootTypeName);
       diagnostics.addAll(toGeneratorBindingDiagnostics(bindingResult.diagnostics(), schemaPath));
       if (diagnostics.isEmpty()) {
         return ValidatedSchema.success(bindingResult.model().orElseThrow());

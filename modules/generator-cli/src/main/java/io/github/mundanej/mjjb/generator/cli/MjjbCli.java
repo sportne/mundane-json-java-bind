@@ -8,6 +8,7 @@ import io.github.mundanej.mjjb.generator.core.CoreGenerator;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Set;
 
 /** Command-line entry point for JSON Schema to Java binding generation. */
 public final class MjjbCli {
@@ -38,6 +39,7 @@ public final class MjjbCli {
                     parsed.outputDirectory,
                     parsed.profile,
                     parsed.defaultPackage,
+                    parsed.rootTypeName,
                     Map.of()));
     if (!result.successful()) {
       result.diagnostics().stream()
@@ -52,17 +54,71 @@ public final class MjjbCli {
   private static String usage() {
     return String.join(
         System.lineSeparator(),
-        "Usage: mjjb generate --schema <schema.json> --out <dir> [--package <package>] [--profile JSP-DATA-2020-12]",
+        "Usage: mjjb generate --schema <schema.json> --out <dir> [--package <package>] [--root-type <TypeName>] [--profile JSP-DATA-2020-12]",
         "",
         "Generates explicit Java bindings from supported JSON Schema Draft 2020-12 schemas.");
   }
 
   private static final class CliArguments {
+    private static final Set<String> JAVA_KEYWORDS =
+        Set.of(
+            "abstract",
+            "assert",
+            "boolean",
+            "break",
+            "byte",
+            "case",
+            "catch",
+            "char",
+            "class",
+            "const",
+            "continue",
+            "default",
+            "do",
+            "double",
+            "else",
+            "enum",
+            "extends",
+            "final",
+            "finally",
+            "float",
+            "for",
+            "goto",
+            "if",
+            "implements",
+            "import",
+            "instanceof",
+            "int",
+            "interface",
+            "long",
+            "native",
+            "new",
+            "package",
+            "private",
+            "protected",
+            "public",
+            "return",
+            "short",
+            "static",
+            "strictfp",
+            "super",
+            "switch",
+            "synchronized",
+            "this",
+            "throw",
+            "throws",
+            "transient",
+            "try",
+            "void",
+            "volatile",
+            "while",
+            "_");
     private final ArrayList<String> diagnostics = new ArrayList<>();
     private final ArrayList<Path> schemas = new ArrayList<>();
     private Path outputDirectory = Path.of("build/generated/sources/mjjb");
     private GeneratorProfile profile = GeneratorProfile.JSP_DATA_2020_12;
     private String defaultPackage = GeneratorRequest.DEFAULT_PACKAGE;
+    private String rootTypeName = GeneratorRequest.DEFAULT_ROOT_TYPE_NAME;
     private boolean help;
 
     private static CliArguments parse(String[] args) {
@@ -83,6 +139,7 @@ public final class MjjbCli {
           case "--out" ->
               parsed.outputDirectory = Path.of(requiredValue(args, index++, arg, parsed));
           case "--package" -> parsed.defaultPackage = requiredValue(args, index++, arg, parsed);
+          case "--root-type" -> parsed.rootTypeName = requiredValue(args, index++, arg, parsed);
           case "--profile" ->
               parsed.profile = parseProfile(requiredValue(args, index++, arg, parsed), parsed);
           default -> parsed.diagnostics.add("MJJB-CLI-001 | Unsupported argument " + arg + ".");
@@ -90,6 +147,9 @@ public final class MjjbCli {
       }
       if (parsed.schemas.isEmpty() && !parsed.help) {
         parsed.diagnostics.add("MJJB-CLI-002 | At least one --schema argument is required.");
+      }
+      if (parsed.diagnostics.isEmpty() && !parsed.help) {
+        parsed.validateJavaNames();
       }
       return parsed;
     }
@@ -110,6 +170,46 @@ public final class MjjbCli {
                 parsed.diagnostics.add("MJJB-CLI-004 | Unsupported profile " + token + ".");
                 return GeneratorProfile.JSP_DATA_2020_12;
               });
+    }
+
+    private void validateJavaNames() {
+      if (!isValidPackageName(defaultPackage)) {
+        diagnostics.add("MJJB-CLI-005 | Invalid package name " + defaultPackage + ".");
+      }
+      if (!isJavaIdentifier(rootTypeName)) {
+        diagnostics.add("MJJB-CLI-006 | Invalid root type name " + rootTypeName + ".");
+      }
+    }
+
+    private static boolean isValidPackageName(String packageName) {
+      if (packageName == null || packageName.isBlank()) {
+        return false;
+      }
+      String[] parts = packageName.split("\\.", -1);
+      for (String part : parts) {
+        if (!isJavaIdentifier(part)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    private static boolean isJavaIdentifier(String value) {
+      if (value == null || value.isBlank() || JAVA_KEYWORDS.contains(value)) {
+        return false;
+      }
+      int first = value.codePointAt(0);
+      if (!Character.isJavaIdentifierStart(first)) {
+        return false;
+      }
+      for (int offset = Character.charCount(first); offset < value.length(); ) {
+        int codePoint = value.codePointAt(offset);
+        if (!Character.isJavaIdentifierPart(codePoint)) {
+          return false;
+        }
+        offset += Character.charCount(codePoint);
+      }
+      return true;
     }
   }
 }

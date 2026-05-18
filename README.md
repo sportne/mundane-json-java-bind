@@ -41,3 +41,21 @@ Native Image smoke tests are separate because they require a GraalVM
 ```bash
 ./gradlew nativeSmoke --console=plain
 ```
+
+## CLI
+
+The CLI can generate the current basic object binding slice from a supported
+JSON Schema object:
+
+```bash
+mjjb generate \
+  --schema schema.json \
+  --out build/generated/sources/mjjb \
+  --package com.example.generated \
+  --root-type ExampleBinding \
+  --profile JSP-DATA-2020-12
+```
+
+The command writes `ExampleBinding.java`, `ExampleBindingJsonWriter.java`,
+`ExampleBindingJsonReader.java`, and `ExampleBindingJsonValidator.java` under
+the requested package directory.

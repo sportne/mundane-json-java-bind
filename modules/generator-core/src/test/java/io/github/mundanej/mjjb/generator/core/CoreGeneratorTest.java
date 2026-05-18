@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -139,6 +140,43 @@ final class CoreGeneratorTest {
     generatedSourceVerifier.verifyAllowedTokens("mixed-scalar", validatorSource);
     generatedSourceVerifier.compileGeneratedSources(
         "mixed-scalar", result.generatedSources(), tempDir.resolve("mixed-scalar-classes"));
+  }
+
+  @Test
+  void writesCustomRootTypeSources() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(
+        schema, "{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}");
+
+    GeneratorResult result =
+        new CoreGenerator()
+            .generate(
+                new GeneratorRequest(
+                    List.of(schema),
+                    tempDir.resolve("out"),
+                    null,
+                    "com.example.generated",
+                    "CustomRoot",
+                    Map.of()));
+
+    assertTrue(result.successful());
+    assertEquals(4, result.generatedSources().size());
+    Path modelSource = sourceNamed(result, "CustomRoot.java");
+    Path writerSource = sourceNamed(result, "CustomRootJsonWriter.java");
+    Path readerSource = sourceNamed(result, "CustomRootJsonReader.java");
+    Path validatorSource = sourceNamed(result, "CustomRootJsonValidator.java");
+    assertTrue(Files.readString(modelSource).contains("public record CustomRoot()"));
+    assertTrue(
+        Files.readString(writerSource)
+            .contains("public static void write(JsonWriter writer, CustomRoot value)"));
+    assertTrue(
+        Files.readString(readerSource)
+            .contains("public static CustomRoot read(JsonReader reader)"));
+    assertTrue(
+        Files.readString(validatorSource)
+            .contains("public static ValidationResult validate(CustomRoot value)"));
+    generatedSourceVerifier.compileGeneratedSources(
+        "custom-root-type", result.generatedSources(), tempDir.resolve("custom-root-classes"));
   }
 
   @Test

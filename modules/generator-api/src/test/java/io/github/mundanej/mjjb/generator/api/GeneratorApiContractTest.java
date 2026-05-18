@@ -17,6 +17,21 @@ final class GeneratorApiContractTest {
 
     assertEquals(GeneratorProfile.JSP_DATA_2020_12, request.profile());
     assertEquals(GeneratorRequest.DEFAULT_PACKAGE, request.defaultPackage());
+    assertEquals(GeneratorRequest.DEFAULT_ROOT_TYPE_NAME, request.rootTypeName());
+  }
+
+  @Test
+  void requestAcceptsCustomRootTypeName() {
+    GeneratorRequest request =
+        new GeneratorRequest(
+            List.of(Path.of("schema.json")),
+            Path.of("out"),
+            GeneratorProfile.JSP_DATA_2020_12,
+            "com.example",
+            "CustomRoot",
+            Map.of());
+
+    assertEquals("CustomRoot", request.rootTypeName());
   }
 
   @Test

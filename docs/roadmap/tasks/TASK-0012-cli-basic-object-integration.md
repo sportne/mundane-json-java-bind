@@ -1,7 +1,7 @@
 # TASK-0012: CLI Integration for Basic Object Binding
 
 Task ID: `TASK-0012`
-Status: `draft`
+Status: `complete`
 Gate: User tooling
 Depends on: `TASK-0011`
 Specification references: JSON Schema Draft 2020-12 Core schema resource identification and Validation object keywords
