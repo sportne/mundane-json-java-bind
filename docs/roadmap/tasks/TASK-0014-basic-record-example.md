@@ -1,7 +1,7 @@
 # TASK-0014: Basic Record Example
 
 Task ID: `TASK-0014`
-Status: `draft`
+Status: `complete`
 Gate: Example evidence
 Depends on: `TASK-0013`
 Specification references: JSON Schema Draft 2020-12 Validation keywords `type`, `properties`, `required`, `additionalProperties`

@@ -86,3 +86,18 @@ mjjb {
 
 When the Java plugin is present, `compileJava` depends on `generateMjjb` and
 compiles the generated source directory.
+
+## Basic Example
+
+The checked-in basic record example demonstrates the completed first binding
+slice: schema, generated model, reader, validator, writer, and deterministic
+failure diagnostics.
+
+```bash
+./gradlew :examples:basic-record:check --console=plain
+```
+
+The example schema lives at
+`examples/basic-record/src/main/schema/basic-record.schema.json`. Its generated
+sources are checked in under `examples/basic-record/generated-src/main/java`,
+and conformance tests verify they match current generator output.

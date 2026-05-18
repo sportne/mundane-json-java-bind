@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "count": {
+      "type": "integer"
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "score": {
+      "type": "number"
+    },
+    "active": {
+      "type": "boolean"
+    }
+  },
+  "required": ["id", "count"],
+  "additionalProperties": false
+}

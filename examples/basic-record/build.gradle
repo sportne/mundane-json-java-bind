@@ -7,6 +7,18 @@ plugins {
 
 description = 'Basic generated-record JSON Schema binding example.'
 
+sourceSets {
+    main {
+        java {
+            srcDir 'generated-src/main/java'
+        }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.errorprone.excludedPaths.set('.*/generated-src/.*')
+}
+
 dependencies {
     implementation project(':modules:runtime-core')
     implementation project(':modules:parser-core')
