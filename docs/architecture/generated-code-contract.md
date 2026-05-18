@@ -32,14 +32,24 @@ The first object binding slice maps scalar JSON Schema types as follows:
 | `number` | `double` | `Optional<Double>` |
 | `boolean` | `boolean` | `Optional<Boolean>` |
 
-## Example Shape
+## Basic Object Model Shape
+
+Generated basic object models are Java records. Record components are emitted in
+schema property order. Required reference fields and optional fields are checked
+in the compact constructor with `Objects.requireNonNull`; required primitive
+fields are not checked.
 
 ```java
-public record User(String id, Optional<String> name, JsonField<String> nickname) {
-  public User {
-    Objects.requireNonNull(id, "id");
+public record GeneratedBindings(String id, long count, Optional<String> name) {
+  public GeneratedBindings {
+    id = Objects.requireNonNull(id, "id");
     name = Objects.requireNonNull(name, "name");
-    nickname = Objects.requireNonNull(nickname, "nickname");
   }
 }
+```
+
+Future nullable or absent-vs-null-sensitive fields use `JsonField<T>`:
+
+```java
+public record User(String id, Optional<String> name, JsonField<String> nickname) {}
 ```

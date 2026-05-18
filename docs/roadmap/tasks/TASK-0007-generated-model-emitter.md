@@ -1,7 +1,7 @@
 # TASK-0007: Generated Model Emitter
 
 Task ID: `TASK-0007`
-Status: `draft`
+Status: `complete`
 Gate: First binding slice
 Depends on: `TASK-0006`
 Specification references: Java 21 language baseline; JSON Schema scalar type semantics for accepted types

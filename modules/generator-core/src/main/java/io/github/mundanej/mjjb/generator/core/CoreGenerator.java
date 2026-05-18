@@ -6,7 +6,9 @@ import io.github.mundanej.mjjb.generator.api.GeneratorRequest;
 import io.github.mundanej.mjjb.generator.api.GeneratorResult;
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingBuildResult;
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingDiagnostic;
+import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModel;
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModelBuilder;
+import io.github.mundanej.mjjb.generator.core.internal.emitter.ModelSourceEmitter;
 import io.github.mundanej.mjjb.schema.model.SchemaSupportDiagnostic;
 import io.github.mundanej.mjjb.schema.model.SchemaSupportProfile;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxDiagnostic;
@@ -19,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /** Initial deterministic generator entry point. */
 public final class CoreGenerator implements Generator {
@@ -28,6 +31,7 @@ public final class CoreGenerator implements Generator {
   public GeneratorResult generate(GeneratorRequest request) {
     Objects.requireNonNull(request, "request");
     ArrayList<GeneratorDiagnostic> diagnostics = new ArrayList<>();
+    ArrayList<BindingModel> models = new ArrayList<>();
     if (request.schemaPaths().isEmpty()) {
       diagnostics.add(
           new GeneratorDiagnostic(
@@ -35,14 +39,16 @@ public final class CoreGenerator implements Generator {
       return GeneratorResult.failure(diagnostics);
     }
     for (Path schemaPath : request.schemaPaths()) {
-      diagnostics.addAll(validateSchemaPath(schemaPath, request.defaultPackage()));
+      ValidatedSchema validatedSchema = validateSchemaPath(schemaPath, request.defaultPackage());
+      diagnostics.addAll(validatedSchema.diagnostics());
+      validatedSchema.model().ifPresent(models::add);
     }
     if (!diagnostics.isEmpty()) {
       return GeneratorResult.failure(diagnostics);
     }
     try {
       Files.createDirectories(request.outputDirectory());
-      Path source = writeScaffoldSource(request);
+      Path source = writeModelSource(request.outputDirectory(), models.getFirst());
       return GeneratorResult.success(List.of(source));
     } catch (IOException exception) {
       return GeneratorResult.failure(
@@ -55,7 +61,7 @@ public final class CoreGenerator implements Generator {
     }
   }
 
-  private List<GeneratorDiagnostic> validateSchemaPath(Path schemaPath, String packageName) {
+  private ValidatedSchema validateSchemaPath(Path schemaPath, String packageName) {
     Objects.requireNonNull(schemaPath, "schemaPath");
     Objects.requireNonNull(packageName, "packageName");
     ArrayList<GeneratorDiagnostic> diagnostics = new ArrayList<>();
@@ -63,24 +69,27 @@ public final class CoreGenerator implements Generator {
       diagnostics.add(
           new GeneratorDiagnostic(
               "MJJBG-GEN-003", "JSON Schema input does not exist.", schemaPath, ""));
-      return diagnostics;
+      return ValidatedSchema.failure(diagnostics);
     }
     try {
       String source = Files.readString(schemaPath);
       SchemaSyntaxParseResult parseResult = SchemaSyntaxParser.parse(source);
       if (!parseResult.diagnostics().isEmpty()) {
         diagnostics.addAll(toGeneratorDiagnostics(parseResult.diagnostics(), schemaPath));
-        return diagnostics;
+        return ValidatedSchema.failure(diagnostics);
       }
       diagnostics.addAll(
           toGeneratorSupportDiagnostics(
               SchemaSupportProfile.validate(parseResult.root()), schemaPath));
       if (!diagnostics.isEmpty()) {
-        return diagnostics;
+        return ValidatedSchema.failure(diagnostics);
       }
       BindingBuildResult bindingResult =
           new BindingModelBuilder().build(parseResult.root(), packageName, ROOT_TYPE_NAME);
       diagnostics.addAll(toGeneratorBindingDiagnostics(bindingResult.diagnostics(), schemaPath));
+      if (diagnostics.isEmpty()) {
+        return ValidatedSchema.success(bindingResult.model().orElseThrow());
+      }
     } catch (IOException exception) {
       diagnostics.add(
           new GeneratorDiagnostic(
@@ -94,7 +103,7 @@ public final class CoreGenerator implements Generator {
             .thenComparing(GeneratorDiagnostic::code)
             .thenComparing(GeneratorDiagnostic::message)
             .thenComparing(GeneratorDiagnostic::toManifestLine));
-    return diagnostics;
+    return ValidatedSchema.failure(diagnostics);
   }
 
   private List<GeneratorDiagnostic> toGeneratorBindingDiagnostics(
@@ -134,22 +143,27 @@ public final class CoreGenerator implements Generator {
         diagnostic.code(), diagnostic.message(), schemaPath, diagnostic.pointer().value());
   }
 
-  private Path writeScaffoldSource(GeneratorRequest request) throws IOException {
-    String packageName = request.defaultPackage();
-    Path packageDirectory = request.outputDirectory().resolve(packageName.replace('.', '/'));
+  private Path writeModelSource(Path outputDirectory, BindingModel model) throws IOException {
+    Path packageDirectory = outputDirectory.resolve(model.packageName().replace('.', '/'));
     Files.createDirectories(packageDirectory);
-    Path source = packageDirectory.resolve("GeneratedBindings.java");
-    String content =
-        String.join(
-            System.lineSeparator(),
-            "package " + packageName + ";",
-            "",
-            "/** Marker for generated JSON Schema bindings. */",
-            "public final class GeneratedBindings {",
-            "  private GeneratedBindings() {}",
-            "}",
-            "");
-    Files.writeString(source, content);
+    Path source = packageDirectory.resolve(model.rootTypeName() + ".java");
+    Files.writeString(source, new ModelSourceEmitter().emit(model));
     return source;
+  }
+
+  private record ValidatedSchema(
+      Optional<BindingModel> model, List<GeneratorDiagnostic> diagnostics) {
+    private ValidatedSchema {
+      Objects.requireNonNull(model, "model");
+      diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, "diagnostics"));
+    }
+
+    private static ValidatedSchema success(BindingModel model) {
+      return new ValidatedSchema(Optional.of(model), List.of());
+    }
+
+    private static ValidatedSchema failure(List<GeneratorDiagnostic> diagnostics) {
+      return new ValidatedSchema(Optional.empty(), diagnostics);
+    }
   }
 }

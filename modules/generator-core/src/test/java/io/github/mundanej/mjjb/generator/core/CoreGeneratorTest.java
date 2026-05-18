@@ -6,10 +6,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.mundanej.mjjb.generator.api.GeneratorRequest;
 import io.github.mundanej.mjjb.generator.api.GeneratorResult;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -32,7 +40,7 @@ final class CoreGeneratorTest {
   }
 
   @Test
-  void writesInitialGeneratedSourceForSupportedSchema() throws IOException {
+  void writesEmptyObjectRecordMatchingGoldenSource() throws IOException {
     Path schema = tempDir.resolve("schema.json");
     Files.writeString(
         schema,
@@ -42,11 +50,14 @@ final class CoreGeneratorTest {
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
     assertTrue(result.successful());
-    assertTrue(Files.isRegularFile(result.generatedSources().getFirst()));
+    Path source = result.generatedSources().getFirst();
+    assertEquals(golden("empty-object"), Files.readString(source));
+    assertGeneratedSourceCompiles(source);
+    assertGeneratedSourceUsesAllowedArchitectureTokens(source);
   }
 
   @Test
-  void writesInitialGeneratedSourceForSupportedScalarObjectSchema() throws IOException {
+  void writesScalarObjectRecordMatchingGoldenSource() throws IOException {
     Path schema = tempDir.resolve("schema.json");
     Files.writeString(
         schema,
@@ -56,6 +67,7 @@ final class CoreGeneratorTest {
           "properties": {
             "id": {"type": "string"},
             "count": {"type": "integer"},
+            "displayName": {"type": "string"},
             "score": {"type": "number"},
             "active": {"type": "boolean"}
           },
@@ -68,7 +80,10 @@ final class CoreGeneratorTest {
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
     assertTrue(result.successful());
-    assertTrue(Files.isRegularFile(result.generatedSources().getFirst()));
+    Path source = result.generatedSources().getFirst();
+    assertEquals(golden("mixed-scalar"), Files.readString(source));
+    assertGeneratedSourceCompiles(source);
+    assertGeneratedSourceUsesAllowedArchitectureTokens(source);
   }
 
   @Test
@@ -253,5 +268,56 @@ final class CoreGeneratorTest {
     assertFalse(result.successful());
     assertEquals("MJJBG-SCHEMA-INVALID-JSON", result.diagnostics().getFirst().code());
     assertEquals(pointer, result.diagnostics().getFirst().schemaPointer());
+  }
+
+  private static String golden(String name) throws IOException {
+    String resourceName = "/golden/" + name + "/GeneratedBindings.java.golden";
+    try (InputStream stream = CoreGeneratorTest.class.getResourceAsStream(resourceName)) {
+      Objects.requireNonNull(stream, "missing test resource " + resourceName);
+      return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+    }
+  }
+
+  private void assertGeneratedSourceCompiles(Path source) throws IOException {
+    JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+    assertTrue(compiler != null, "tests must run on a JDK with the system Java compiler");
+    Path classes = tempDir.resolve("classes");
+    Files.createDirectories(classes);
+    ByteArrayOutputStream errors = new ByteArrayOutputStream();
+    int result;
+    try (PrintStream errorStream = new PrintStream(errors, true, StandardCharsets.UTF_8)) {
+      result =
+          compiler.run(
+              null,
+              null,
+              errorStream,
+              "--release",
+              "21",
+              "-Xlint:all",
+              "-Werror",
+              "-d",
+              classes.toString(),
+              source.toString());
+    }
+    assertEquals(0, result, errors.toString(StandardCharsets.UTF_8));
+  }
+
+  private static void assertGeneratedSourceUsesAllowedArchitectureTokens(Path source)
+      throws IOException {
+    String content = Files.readString(source);
+    List<String> forbiddenTokens =
+        Arrays.asList(
+            "@",
+            "java.lang.reflect",
+            "MethodHandles",
+            "ServiceLoader",
+            "Class.forName",
+            "Proxy",
+            "io.github.mundanej.mjjb.generator",
+            "io.github.mundanej.mjjb.schema",
+            "io.github.mundanej.mjjb.parser");
+    for (String token : forbiddenTokens) {
+      assertFalse(content.contains(token), "generated source must not contain " + token);
+    }
   }
 }
