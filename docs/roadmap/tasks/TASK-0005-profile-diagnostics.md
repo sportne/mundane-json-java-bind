@@ -1,7 +1,7 @@
 # TASK-0005: Profile Validation Diagnostics
 
 Task ID: `TASK-0005`
-Status: `ready-for-implementation`
+Status: `complete`
 Gate: Schema frontend
 Depends on: `TASK-0004`
 Specification references: JSON Schema Draft 2020-12 Core and Validation keyword definitions

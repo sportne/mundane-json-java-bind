@@ -72,13 +72,14 @@ final class CoreGeneratorTest {
   @Test
   void reportsUnsupportedKeywordInsideArrayWithPointer() throws IOException {
     Path schema = tempDir.resolve("schema.json");
-    Files.writeString(schema, "{\"oneOf\":[{\"allOf\":[]}]}");
+    Files.writeString(schema, "{\"items\":{\"allOf\":[]}}");
 
     GeneratorResult result =
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
     assertFalse(result.successful());
-    assertEquals("/oneOf/0/allOf", result.diagnostics().getFirst().schemaPointer());
+    assertEquals("/items/allOf", result.diagnostics().getFirst().schemaPointer());
+    assertEquals("MJJBG-SCHEMA-UNSUPPORTED-KEYWORD", result.diagnostics().getFirst().code());
   }
 
   @Test
@@ -91,6 +92,49 @@ final class CoreGeneratorTest {
 
     assertFalse(result.successful());
     assertEquals("/properties/a~1b/not", result.diagnostics().getFirst().schemaPointer());
+  }
+
+  @Test
+  void reportsUnsupportedKeywordValuesBeforeEmission() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Path output = tempDir.resolve("out");
+    Files.writeString(schema, "{\"type\":\"object\",\"additionalProperties\":true}");
+
+    GeneratorResult result =
+        new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), output));
+
+    assertFalse(result.successful());
+    assertTrue(result.generatedSources().isEmpty());
+    assertFalse(
+        Files.exists(output.resolve("io/github/mundanej/mjjb/generated/GeneratedBindings.java")));
+    assertEquals("MJJBG-SCHEMA-UNSUPPORTED-KEYWORD-VALUE", result.diagnostics().getFirst().code());
+    assertEquals("/additionalProperties", result.diagnostics().getFirst().schemaPointer());
+  }
+
+  @Test
+  void reportsInvalidKeywordValuesBeforeEmission() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(schema, "{\"type\":\"object\",\"required\":\"id\"}");
+
+    GeneratorResult result =
+        new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
+
+    assertFalse(result.successful());
+    assertEquals("MJJBG-SCHEMA-INVALID-KEYWORD-VALUE", result.diagnostics().getFirst().code());
+    assertEquals("/required", result.diagnostics().getFirst().schemaPointer());
+  }
+
+  @Test
+  void reportsProfileDiagnosticsInDeterministicOrder() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(schema, "{\"properties\":{\"b\":{\"$ref\":\"x\"},\"a\":{\"allOf\":[]}}}");
+
+    GeneratorResult result =
+        new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
+
+    assertFalse(result.successful());
+    assertEquals("/properties/a/allOf", result.diagnostics().get(0).schemaPointer());
+    assertEquals("/properties/b/$ref", result.diagnostics().get(1).schemaPointer());
   }
 
   @Test

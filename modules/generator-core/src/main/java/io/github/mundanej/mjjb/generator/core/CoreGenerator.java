@@ -4,12 +4,11 @@ import io.github.mundanej.mjjb.generator.api.Generator;
 import io.github.mundanej.mjjb.generator.api.GeneratorDiagnostic;
 import io.github.mundanej.mjjb.generator.api.GeneratorRequest;
 import io.github.mundanej.mjjb.generator.api.GeneratorResult;
-import io.github.mundanej.mjjb.schema.model.JsonSchemaKeyword;
+import io.github.mundanej.mjjb.schema.model.SchemaSupportDiagnostic;
 import io.github.mundanej.mjjb.schema.model.SchemaSupportProfile;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxDiagnostic;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxParseResult;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxParser;
-import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -67,7 +66,9 @@ public final class CoreGenerator implements Generator {
         diagnostics.addAll(toGeneratorDiagnostics(parseResult.diagnostics(), schemaPath));
         return diagnostics;
       }
-      collectUnsupportedKeywordDiagnostics(parseResult.root(), schemaPath, diagnostics);
+      diagnostics.addAll(
+          toGeneratorSupportDiagnostics(
+              SchemaSupportProfile.validate(parseResult.root()), schemaPath));
     } catch (IOException exception) {
       diagnostics.add(
           new GeneratorDiagnostic(
@@ -77,6 +78,15 @@ public final class CoreGenerator implements Generator {
               ""));
     }
     diagnostics.sort(Comparator.comparing(GeneratorDiagnostic::toManifestLine));
+    return diagnostics;
+  }
+
+  private List<GeneratorDiagnostic> toGeneratorSupportDiagnostics(
+      List<SchemaSupportDiagnostic> schemaDiagnostics, Path schemaPath) {
+    ArrayList<GeneratorDiagnostic> diagnostics = new ArrayList<>();
+    for (SchemaSupportDiagnostic diagnostic : schemaDiagnostics) {
+      diagnostics.add(toGeneratorDiagnostic(diagnostic, schemaPath));
+    }
     return diagnostics;
   }
 
@@ -91,37 +101,8 @@ public final class CoreGenerator implements Generator {
     return diagnostics;
   }
 
-  private void collectUnsupportedKeywordDiagnostics(
-      SchemaSyntaxValue value, Path schemaPath, List<GeneratorDiagnostic> diagnostics) {
-    switch (value) {
-      case SchemaSyntaxValue.ObjectValue object -> {
-        for (SchemaSyntaxValue.Member member : object.members()) {
-          JsonSchemaKeyword.fromKeyword(member.name())
-              .filter(keyword -> !keyword.supportedInV1())
-              .ifPresent(
-                  keyword ->
-                      diagnostics.add(
-                          toGeneratorDiagnostic(
-                              SchemaSupportProfile.unsupportedKeyword(
-                                  keyword.keyword(), member.pointer()),
-                              schemaPath)));
-          collectUnsupportedKeywordDiagnostics(member.value(), schemaPath, diagnostics);
-        }
-      }
-      case SchemaSyntaxValue.ArrayValue array -> {
-        for (SchemaSyntaxValue item : array.items()) {
-          collectUnsupportedKeywordDiagnostics(item, schemaPath, diagnostics);
-        }
-      }
-      case SchemaSyntaxValue.StringValue ignored -> {}
-      case SchemaSyntaxValue.NumberValue ignored -> {}
-      case SchemaSyntaxValue.BooleanValue ignored -> {}
-      case SchemaSyntaxValue.NullValue ignored -> {}
-    }
-  }
-
   private GeneratorDiagnostic toGeneratorDiagnostic(
-      io.github.mundanej.mjjb.schema.model.SchemaSupportDiagnostic diagnostic, Path schemaPath) {
+      SchemaSupportDiagnostic diagnostic, Path schemaPath) {
     return new GeneratorDiagnostic(
         diagnostic.code(), diagnostic.message(), schemaPath, diagnostic.pointer().value());
   }

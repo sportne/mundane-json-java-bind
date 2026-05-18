@@ -1,0 +1,64 @@
+package io.github.mundanej.mjjb.conformance;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import io.github.mundanej.mjjb.generator.api.GeneratorRequest;
+import io.github.mundanej.mjjb.generator.api.GeneratorResult;
+import io.github.mundanej.mjjb.generator.core.CoreGenerator;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+final class ProfileDiagnosticsConformanceTest {
+  @TempDir Path tempDir;
+
+  @Test
+  void acceptsSupportedAndIgnoredProfileKeywordsThroughGenerator() throws IOException {
+    GeneratorResult result =
+        generate(
+            """
+            {
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "title": "Accepted",
+              "description": "Accepted ignored annotation",
+              "type": "object",
+              "properties": {"id": {"type": "string", "format": "uuid"}},
+              "required": ["id"],
+              "additionalProperties": false
+            }
+            """);
+
+    assertTrue(result.successful());
+  }
+
+  @Test
+  void rejectsKnownUnsupportedKeywordThroughGenerator() throws IOException {
+    GeneratorResult result = generate("{\"$ref\":\"schema.json\"}");
+
+    assertFalse(result.successful());
+    assertEquals("MJJBG-SCHEMA-UNSUPPORTED-KEYWORD", result.diagnostics().getFirst().code());
+    assertEquals("/$ref", result.diagnostics().getFirst().schemaPointer());
+  }
+
+  @Test
+  void rejectsUnsupportedProfileKeywordValueThroughGenerator() throws IOException {
+    GeneratorResult result = generate("{\"type\":\"object\",\"additionalProperties\":true}");
+
+    assertFalse(result.successful());
+    assertEquals("MJJBG-SCHEMA-UNSUPPORTED-KEYWORD-VALUE", result.diagnostics().getFirst().code());
+    assertEquals("/additionalProperties", result.diagnostics().getFirst().schemaPointer());
+  }
+
+  private GeneratorResult generate(String source) throws IOException {
+    Path schema = Files.createTempFile(tempDir, "schema", ".json");
+    Files.writeString(schema, source);
+
+    return new CoreGenerator()
+        .generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("generated")));
+  }
+}

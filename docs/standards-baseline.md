@@ -21,3 +21,14 @@ Schema document syntax parsing lives in `schema-model`. It parses JSON Schema
 documents as JSON syntax values with schema JSON Pointer locations; runtime JSON
 instance parsing remains the responsibility of `parser-core` and generated
 readers.
+
+## JSP-DATA-2020-12 Support Matrix
+
+| Category | Keywords |
+|---|---|
+| Supported binding keywords | `type`, `properties`, `required`, `additionalProperties`, `enum`, `const`, `default`, `items`, `minItems`, `maxItems`, `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `minLength`, `maxLength`, `pattern`, `format`, `oneOf` |
+| Accepted ignored annotations and dialect markers | `$schema`, `title`, `description`, `$comment`, `examples`, `deprecated`, `readOnly`, `writeOnly` |
+| Known rejected Draft 2020-12 keywords | `$id`, `$anchor`, `$dynamicAnchor`, `$vocabulary`, `$ref`, `$dynamicRef`, `$defs`, `allOf`, `anyOf`, `not`, `if`, `then`, `else`, `dependentSchemas`, `prefixItems`, `contains`, `patternProperties`, `propertyNames`, `unevaluatedItems`, `unevaluatedProperties`, `multipleOf`, `uniqueItems`, `maxContains`, `minContains`, `maxProperties`, `minProperties`, `dependentRequired`, `contentEncoding`, `contentMediaType`, `contentSchema` |
+
+Unknown non-Draft extension keywords are ignored as annotations. Known Draft
+2020-12 keywords are always classified explicitly by the profile matrix.
