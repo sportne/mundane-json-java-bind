@@ -15,8 +15,8 @@ Each fixture contains:
 
 - `schema.json`: the JSON Schema input.
 - `*.java.golden`: exact expected generated Java source files.
-- `WriterBehaviorProbe.java` when generated writer behavior should be compiled
-  and executed against the fixture.
+- `BindingBehaviorProbe.java` when generated binding behavior should be
+  compiled and executed against the fixture.
 
 Golden files use fixed `\n` line endings. The verifier compares generated
 source bytes directly against the golden resources.
@@ -40,9 +40,10 @@ Java source set with:
 `generator-core:check` depends on `generatedCodeSmoke`, so the default
 `qualityGate` includes generated-source smoke verification.
 
-Writer behavior probes are test-only Java sources compiled after the generated
-sources. They may use `JsonStringWriter` to observe compact output, but generated
-source itself must depend only on `runtime-core` writer interfaces.
+Binding behavior probes are test-only Java sources compiled after the generated
+sources. They may use parser-core implementations such as `JsonStreamReader` and
+`JsonStringWriter` to exercise generated readers and writers, but generated
+source itself must depend only on `runtime-core` interfaces.
 
 ## Forbidden Tokens
 
@@ -52,7 +53,6 @@ packages, schema-model packages, or parser implementation packages.
 
 ## Extension Policy
 
-Reader, validator, nullable, array, and tagged `oneOf` generated-code fixtures
-should extend this same harness. New fixtures should keep failure messages
-actionable by including the fixture name, generated source path, and specific
-reason.
+Validator, nullable, array, and tagged `oneOf` generated-code fixtures should
+extend this same harness. New fixtures should keep failure messages actionable
+by including the fixture name, generated source path, and specific reason.

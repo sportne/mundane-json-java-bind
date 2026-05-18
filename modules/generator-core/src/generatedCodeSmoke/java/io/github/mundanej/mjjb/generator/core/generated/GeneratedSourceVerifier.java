@@ -137,7 +137,7 @@ public final class GeneratedSourceVerifier {
 
   private void verifyBehaviorProbe(String fixtureName, byte[] probeSource, Path classesDirectory)
       throws IOException {
-    Path probe = classesDirectory.resolve("WriterBehaviorProbe.java");
+    Path probe = classesDirectory.resolve("BindingBehaviorProbe.java");
     Files.write(probe, probeSource);
     compileJava(
         fixtureName, probe, List.of(probe), classesDirectory, classpathWith(classesDirectory));
@@ -155,7 +155,7 @@ public final class GeneratedSourceVerifier {
         new URLClassLoader(
             urls.toArray(URL[]::new), GeneratedSourceVerifier.class.getClassLoader())) {
       Object instance =
-          classLoader.loadClass("WriterBehaviorProbe").getDeclaredConstructor().newInstance();
+          classLoader.loadClass("BindingBehaviorProbe").getDeclaredConstructor().newInstance();
       ((GeneratedSourceBehaviorProbe) instance).run();
     } catch (ReflectiveOperationException | ClassCastException exception) {
       throw failure(fixtureName, probe, "behavior probe failed: " + exception.getMessage());

@@ -10,7 +10,8 @@ Generated source must be production-quality Java 21.
 4. Optional non-null values use `Optional<T>`.
 5. Nullable or absent-vs-null-sensitive values use `JsonField<T>`.
 6. Arrays use immutable `List<T>` values with defensive copies.
-7. Readers use explicit token handling and reject duplicate properties.
+7. Readers use explicit token handling, reject duplicate properties, and require
+   full-document consumption.
 8. Writers emit deterministic schema property order.
 9. Validators accumulate errors by default and support fail-fast mode.
 10. No binding annotations, reflection, ServiceLoader, runtime scanning,
@@ -90,3 +91,39 @@ present; absent optionals are skipped rather than serialized as `null`.
 `number` fields use `Double.toString` after an explicit `Double.isFinite` check.
 `integer` fields use `Long.toString`. Semantic numeric constraints remain
 validator responsibility.
+
+## Basic Object Reader Shape
+
+Generated basic object readers are final, stateless utility classes named after
+the generated model, such as `GeneratedBindingsJsonReader`. Readers accept the
+project-owned `JsonReader` interface from `runtime-core`; generated source does
+not construct or import parser implementations.
+
+```java
+public final class GeneratedBindingsJsonReader {
+  private GeneratedBindingsJsonReader() {}
+
+  public static GeneratedBindings read(JsonReader reader) throws JsonReadException {
+    Objects.requireNonNull(reader, "reader");
+    // Generated source checks the root token, dispatches known properties with
+    // a switch, rejects duplicates and unknowns, and requires END_DOCUMENT.
+  }
+}
+```
+
+Readers accept object properties in any input order and construct the generated
+record directly. Required fields are tracked with generated `seen` flags;
+optional scalar fields default to `Optional.empty()` and become
+`Optional.of(value)` when present. JSON `null` is not accepted for non-null
+fields in this slice.
+
+Reader diagnostics use stable `MJJBR-*` codes for generated-binding failures:
+root type mismatch, trailing root content, duplicate property, unknown property,
+missing required property, and scalar type mismatch. Parser failures retain
+their `MJJBP-*` codes; generated scalar readers re-path those failures to the
+active JSON instance field path where the reader knows it.
+
+`integer` fields parse JSON number literals as Java `long` values and reject
+decimal, exponent, and out-of-range literals. `number` fields parse Java
+`double` values and reject non-finite results. Semantic numeric constraints
+remain validator responsibility.

@@ -1,7 +1,7 @@
 # TASK-0010: Generated Reader for Basic Objects
 
 Task ID: `TASK-0010`
-Status: `draft`
+Status: `complete`
 Gate: First round trip
 Depends on: `TASK-0009`, `TASK-0002`
 Specification references: JSON object/scalar grammar and accepted JSON Schema type validation behavior

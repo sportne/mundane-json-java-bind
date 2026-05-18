@@ -9,6 +9,7 @@ import io.github.mundanej.mjjb.generator.core.internal.binding.BindingDiagnostic
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModel;
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModelBuilder;
 import io.github.mundanej.mjjb.generator.core.internal.emitter.ModelSourceEmitter;
+import io.github.mundanej.mjjb.generator.core.internal.emitter.ReaderSourceEmitter;
 import io.github.mundanej.mjjb.generator.core.internal.emitter.WriterSourceEmitter;
 import io.github.mundanej.mjjb.schema.model.SchemaSupportDiagnostic;
 import io.github.mundanej.mjjb.schema.model.SchemaSupportProfile;
@@ -151,7 +152,10 @@ public final class CoreGenerator implements Generator {
     Path writerSource =
         packageDirectory.resolve(WriterSourceEmitter.writerTypeName(model) + ".java");
     Files.writeString(writerSource, new WriterSourceEmitter().emit(model));
-    return List.of(modelSource, writerSource);
+    Path readerSource =
+        packageDirectory.resolve(ReaderSourceEmitter.readerTypeName(model) + ".java");
+    Files.writeString(readerSource, new ReaderSourceEmitter().emit(model));
+    return List.of(modelSource, writerSource, readerSource);
   }
 
   private record ValidatedSchema(
