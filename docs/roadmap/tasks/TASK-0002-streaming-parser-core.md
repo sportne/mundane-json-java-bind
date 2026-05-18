@@ -1,7 +1,7 @@
 # TASK-0002: Streaming Parser Core Completion
 
 Task ID: `TASK-0002`
-Status: `ready-for-implementation`
+Status: `complete`
 Gate: Runtime/parser foundation
 Depends on: `TASK-0001`, `TASK-0002A`
 Specification references: JSON data model and grammar from RFC 8259, as used by JSON Schema
