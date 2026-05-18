@@ -1,0 +1,35 @@
+# Gradle caches and build outputs
+.gradle/
+**/.gradle/
+build/
+**/build/
+
+# Java build outputs
+out/
+**/out/
+target/
+**/target/
+*.class
+
+# Local tool and IDE metadata
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Native Image scratch/output files when run manually
+*.build_artifacts.txt
+*.native-image.args

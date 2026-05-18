@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+  <Match>
+    <Bug pattern="EI_EXPOSE_REP"/>
+    <Class name="~io\.github\.mundanej\.mjjb\.generator\.gradle\.Mjjb(Extension|GenerateTask)"/>
+  </Match>
+</FindBugsFilter>

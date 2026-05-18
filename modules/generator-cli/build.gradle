@@ -1,0 +1,26 @@
+plugins {
+    id 'mjjb.application-conventions'
+    id 'mjjb.quality-conventions'
+    id 'mjjb.coverage-conventions'
+    id 'mjjb.publishing-conventions'
+    id 'mjjb.native-conventions'
+}
+
+description = 'Command-line generator entry point for JSON Schema to Java generation.'
+
+application {
+    mainClass = 'io.github.mundanej.mjjb.generator.cli.MjjbCli'
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = 'mjjb-cli'
+        }
+    }
+}
+
+dependencies {
+    implementation project(':modules:generator-api')
+    implementation project(':modules:generator-core')
+}

@@ -1,0 +1,13 @@
+plugins {
+    id 'mjjb.java-conventions'
+    id 'mjjb.quality-conventions'
+    id 'mjjb.coverage-conventions'
+    id 'mjjb.native-conventions'
+}
+
+description = 'Tagged oneOf JSON Schema binding example.'
+
+dependencies {
+    implementation project(':modules:runtime-core')
+    implementation project(':modules:parser-core')
+}

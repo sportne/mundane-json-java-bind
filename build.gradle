@@ -1,0 +1,67 @@
+plugins {
+    id 'base'
+    id 'mjjb.docs-validation-conventions'
+    id 'mjjb.offline-conventions'
+}
+
+group = 'io.github.mundanej'
+version = providers.gradleProperty('mjjb.version').getOrElse('0.1.0-SNAPSHOT')
+
+def checkedProjects = [
+    ':modules:mjjb-bom',
+    ':modules:runtime-core',
+    ':modules:parser-core',
+    ':modules:schema-model',
+    ':modules:generator-api',
+    ':modules:generator-core',
+    ':modules:generator-cli',
+    ':modules:generator-gradle-plugin',
+    ':modules:testing-support',
+    ':modules:conformance-tests',
+    ':examples:basic-record',
+    ':examples:tagged-oneof',
+]
+
+def qualityProjects = checkedProjects.findAll { it != ':modules:mjjb-bom' }
+
+tasks.register('checkAll') {
+    group = 'verification'
+    description = 'Runs check tasks across all included mundane JSON Java Bind projects.'
+    dependsOn checkedProjects.collect { "${it}:check" }
+}
+
+tasks.register('qualityGate') {
+    group = 'verification'
+    description = 'Runs the default local quality gate.'
+    dependsOn 'validateDesignControlPack', 'checkAll'
+    dependsOn qualityProjects.collect { "${it}:spotlessCheck" }
+    dependsOn qualityProjects.collect { "${it}:jacocoTestCoverageVerification" }
+}
+
+tasks.register('nativeSmoke') {
+    group = 'verification'
+    description = 'Runs the representative GraalVM Native Image smoke lane.'
+    dependsOn ':modules:runtime-core:nativeTest'
+    dependsOn ':modules:parser-core:nativeTest'
+    dependsOn ':modules:generator-core:generatedCodeNativeSmoke'
+    dependsOn ':examples:basic-record:nativeTest'
+    dependsOn ':examples:tagged-oneof:nativeTest'
+}
+
+tasks.register('printPublishedArtifacts') {
+    group = 'help'
+    description = 'Prints planned artifact coordinates.'
+    doLast {
+        println '''
+:modules:mjjb-bom                -> io.github.mundanej:mjjb-bom
+:modules:runtime-core            -> io.github.mundanej:mjjb-runtime-core
+:modules:parser-core             -> io.github.mundanej:mjjb-parser-core
+:modules:schema-model            -> io.github.mundanej:mjjb-schema-model
+:modules:generator-api           -> io.github.mundanej:mjjb-generator-api
+:modules:generator-core          -> io.github.mundanej:mjjb-generator-core
+:modules:generator-cli           -> io.github.mundanej:mjjb-cli
+:modules:generator-gradle-plugin -> io.github.mundanej:mjjb-gradle-plugin
+:modules:testing-support         -> io.github.mundanej:mjjb-testing-support
+'''.stripIndent()
+    }
+}

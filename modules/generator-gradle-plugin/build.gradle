@@ -1,0 +1,32 @@
+plugins {
+    id 'mjjb.java-conventions'
+    id 'java-gradle-plugin'
+    id 'mjjb.quality-conventions'
+    id 'mjjb.coverage-conventions'
+    id 'mjjb.publishing-conventions'
+}
+
+description = 'Gradle integration for JSON Schema to Java generation.'
+
+gradlePlugin {
+    plugins {
+        mjjb {
+            id = 'io.github.mundanej.mjjb'
+            implementationClass = 'io.github.mundanej.mjjb.generator.gradle.MjjbGradlePlugin'
+        }
+    }
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = 'mjjb-gradle-plugin'
+        }
+    }
+}
+
+dependencies {
+    implementation project(':modules:generator-api')
+    implementation project(':modules:generator-core')
+    testImplementation gradleTestKit()
+}

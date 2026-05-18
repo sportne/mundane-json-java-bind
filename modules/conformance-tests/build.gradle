@@ -1,0 +1,14 @@
+plugins {
+    id 'mjjb.java-conventions'
+    id 'mjjb.quality-conventions'
+    id 'mjjb.coverage-conventions'
+}
+
+description = 'Internal JSON Schema subset conformance test harness; not published.'
+
+dependencies {
+    testImplementation project(':modules:generator-core')
+    testImplementation project(':modules:parser-core')
+    testImplementation project(':modules:schema-model')
+    testImplementation project(':modules:testing-support')
+}

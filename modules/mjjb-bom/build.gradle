@@ -1,0 +1,26 @@
+plugins {
+    id 'mjjb.platform-conventions'
+}
+
+description = 'Dependency alignment BOM for mundane JSON Java Bind.'
+
+dependencies {
+    constraints {
+        api project(':modules:runtime-core')
+        api project(':modules:parser-core')
+        api project(':modules:schema-model')
+        api project(':modules:generator-api')
+        api project(':modules:generator-core')
+        api project(':modules:generator-cli')
+        api project(':modules:generator-gradle-plugin')
+        api project(':modules:testing-support')
+    }
+}
+
+publishing {
+    publications {
+        mavenBom(MavenPublication) {
+            artifactId = 'mjjb-bom'
+        }
+    }
+}

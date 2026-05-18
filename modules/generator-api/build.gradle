@@ -1,0 +1,16 @@
+plugins {
+    id 'mjjb.java-conventions'
+    id 'mjjb.quality-conventions'
+    id 'mjjb.coverage-conventions'
+    id 'mjjb.publishing-conventions'
+}
+
+description = 'Public generator configuration and API.'
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = 'mjjb-generator-api'
+        }
+    }
+}

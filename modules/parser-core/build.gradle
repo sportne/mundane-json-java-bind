@@ -1,0 +1,21 @@
+plugins {
+    id 'mjjb.java-conventions'
+    id 'mjjb.quality-conventions'
+    id 'mjjb.coverage-conventions'
+    id 'mjjb.publishing-conventions'
+    id 'mjjb.native-conventions'
+}
+
+description = 'Dependency-free streaming JSON tokenizer, parser, and writer.'
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = 'mjjb-parser-core'
+        }
+    }
+}
+
+dependencies {
+    api project(':modules:runtime-core')
+}

@@ -1,0 +1,29 @@
+def requiredFiles = [
+    'LICENSE',
+    'NOTICE',
+    'README.md',
+    'docs/charter.md',
+    'docs/standards-baseline.md',
+    'docs/architecture/module-boundaries.md',
+    'docs/architecture/generated-code-contract.md',
+    'docs/architecture/architecture-rule-catalog.md',
+    'docs/verification/native-image-test-plan.md',
+]
+def rootDirectory = rootProject.layout.projectDirectory.asFile
+
+tasks.register('validateDesignControlPack') {
+    group = 'verification'
+    description = 'Verifies that the design-control scaffold is present.'
+    doLast {
+        def missing = requiredFiles.findAll { !new File(rootDirectory, it).isFile() }
+        if (!missing.isEmpty()) {
+            throw new GradleException('Missing design-control files: ' + missing.join(', '))
+        }
+    }
+}
+
+tasks.register('designControlStatus') {
+    group = 'help'
+    description = 'Compatibility alias for validateDesignControlPack.'
+    dependsOn tasks.named('validateDesignControlPack')
+}

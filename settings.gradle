@@ -1,0 +1,43 @@
+pluginManagement {
+    def offlineRepoPath = providers.gradleProperty('mjjb.offlineRepo').orNull
+
+    includeBuild 'build-logic'
+
+    repositories {
+        if (offlineRepoPath != null && !offlineRepoPath.isBlank()) {
+            maven { url = uri(offlineRepoPath) }
+        } else {
+            gradlePluginPortal()
+            mavenCentral()
+        }
+    }
+}
+
+dependencyResolutionManagement {
+    def offlineRepoPath = providers.gradleProperty('mjjb.offlineRepo').orNull
+
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        if (offlineRepoPath != null && !offlineRepoPath.isBlank()) {
+            maven { url = uri(offlineRepoPath) }
+        } else {
+            mavenCentral()
+        }
+    }
+}
+
+rootProject.name = 'mundane-json-java-bind'
+
+include ':modules:mjjb-bom'
+include ':modules:runtime-core'
+include ':modules:parser-core'
+include ':modules:schema-model'
+include ':modules:generator-api'
+include ':modules:generator-core'
+include ':modules:generator-cli'
+include ':modules:generator-gradle-plugin'
+include ':modules:testing-support'
+include ':modules:conformance-tests'
+
+include ':examples:basic-record'
+include ':examples:tagged-oneof'

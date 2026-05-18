@@ -1,0 +1,20 @@
+plugins {
+    id 'mjjb.java-conventions'
+    id 'mjjb.quality-conventions'
+    id 'mjjb.coverage-conventions'
+    id 'mjjb.publishing-conventions'
+}
+
+description = 'JSON Schema Draft 2020-12 subset vocabulary and profile model.'
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = 'mjjb-schema-model'
+        }
+    }
+}
+
+dependencies {
+    api project(':modules:runtime-core')
+}

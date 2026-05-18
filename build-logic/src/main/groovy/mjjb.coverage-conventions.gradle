@@ -1,0 +1,75 @@
+import org.gradle.api.artifacts.VersionCatalogsExtension
+
+plugins {
+    id 'jacoco'
+}
+
+def libs = extensions.getByType(VersionCatalogsExtension).named('libs')
+def mainClasses = sourceSets.main.output.classesDirs
+
+def coverageThresholdsByProject = [
+    ':modules:runtime-core': [line: '0.80', branch: '0.60', sourceLine: '0.60'],
+    ':modules:parser-core': [line: '0.80', branch: '0.60', sourceLine: '0.60'],
+    ':modules:schema-model': [line: '0.75', branch: '0.55', sourceLine: '0.55'],
+    ':modules:generator-api': [line: '0.70', branch: '0.50', sourceLine: '0.50'],
+    ':modules:generator-core': [line: '0.70', branch: '0.50', sourceLine: '0.50'],
+    ':modules:generator-cli': [line: '0.60', branch: '0.40', sourceLine: '0.40'],
+    ':modules:generator-gradle-plugin': [line: '0.60', branch: '0.40', sourceLine: '0.40'],
+    ':modules:testing-support': [line: '0.60', branch: '0.40', sourceLine: '0.40'],
+    ':modules:conformance-tests': [line: '0.60', branch: '0.40', sourceLine: '0.40'],
+    ':examples:basic-record': [line: '0.50', branch: '0.30', sourceLine: '0.30'],
+    ':examples:tagged-oneof': [line: '0.50', branch: '0.30', sourceLine: '0.30'],
+]
+def coverageThresholds = coverageThresholdsByProject.get(project.path)
+
+jacoco {
+    toolVersion = libs.findVersion('jacoco').get().requiredVersion
+}
+
+tasks.withType(Test).configureEach {
+    finalizedBy tasks.named('jacocoTestReport')
+}
+
+tasks.named('jacocoTestReport') {
+    dependsOn tasks.named('test')
+    onlyIf { mainClasses.files.any { it.exists() && it.listFiles() } }
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+}
+
+tasks.named('jacocoTestCoverageVerification') {
+    dependsOn tasks.named('test')
+    onlyIf { coverageThresholds != null && mainClasses.files.any { it.exists() && it.listFiles() } }
+    violationRules {
+        rule {
+            enabled = true
+            element = 'BUNDLE'
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = new BigDecimal(coverageThresholds.line)
+            }
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = new BigDecimal(coverageThresholds.branch)
+            }
+        }
+        rule {
+            enabled = true
+            element = 'SOURCEFILE'
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = new BigDecimal(coverageThresholds.sourceLine)
+            }
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('jacocoTestCoverageVerification')
+}

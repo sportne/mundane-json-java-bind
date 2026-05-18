@@ -1,0 +1,17 @@
+plugins {
+    id 'mjjb.identity-conventions'
+    id 'java-platform'
+    id 'maven-publish'
+}
+
+javaPlatform {
+    allowDependencies()
+}
+
+publishing {
+    publications {
+        mavenBom(MavenPublication) {
+            from components.javaPlatform
+        }
+    }
+}

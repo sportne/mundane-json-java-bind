@@ -1,0 +1,7 @@
+tasks.register('printOfflineBuildInstructions') {
+    group = 'help'
+    description = 'Prints offline build instructions.'
+    doLast {
+        println 'Use -Pmjjb.offlineRepo=/path/to/hydrated/maven-repo to resolve plugins and dependencies without internet access.'
+    }
+}

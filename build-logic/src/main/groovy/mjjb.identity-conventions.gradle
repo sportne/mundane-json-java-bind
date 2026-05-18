@@ -1,0 +1,11 @@
+plugins {
+    id 'base'
+}
+
+group = 'io.github.mundanej'
+version = rootProject.version
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}

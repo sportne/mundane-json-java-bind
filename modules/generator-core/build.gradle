@@ -1,0 +1,28 @@
+plugins {
+    id 'mjjb.java-conventions'
+    id 'mjjb.quality-conventions'
+    id 'mjjb.coverage-conventions'
+    id 'mjjb.publishing-conventions'
+}
+
+description = 'JSON Schema to Java binding generator implementation.'
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = 'mjjb-generator-core'
+        }
+    }
+}
+
+dependencies {
+    api project(':modules:generator-api')
+    implementation project(':modules:schema-model')
+    testImplementation project(':modules:runtime-core')
+}
+
+tasks.register('generatedCodeNativeSmoke') {
+    group = 'verification'
+    description = 'Placeholder for generated-code Native Image smoke checks.'
+    dependsOn tasks.named('test')
+}

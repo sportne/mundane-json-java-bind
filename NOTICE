@@ -1,0 +1,7 @@
+mundane-json-java-bind
+
+This repository is licensed under the BSD 3-Clause License.
+
+No third-party implementation source code has been copied into this repository.
+The official JSON Schema Draft 2020-12 specifications and JSON Schema Test Suite
+are truth-driving references for behavior and conformance planning.

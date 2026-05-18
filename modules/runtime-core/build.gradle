@@ -1,0 +1,17 @@
+plugins {
+    id 'mjjb.java-conventions'
+    id 'mjjb.quality-conventions'
+    id 'mjjb.coverage-conventions'
+    id 'mjjb.publishing-conventions'
+    id 'mjjb.native-conventions'
+}
+
+description = 'Runtime core API and primitives; no third-party dependencies.'
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = 'mjjb-runtime-core'
+        }
+    }
+}

@@ -1,0 +1,4 @@
+plugins {
+    id 'mjjb.java-conventions'
+    id 'application'
+}

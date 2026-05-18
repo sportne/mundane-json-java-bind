@@ -1,0 +1,53 @@
+import org.gradle.api.artifacts.VersionCatalogsExtension
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+
+plugins {
+    id 'mjjb.identity-conventions'
+    id 'java-library'
+    id 'net.ltgt.errorprone'
+}
+
+def libs = extensions.getByType(VersionCatalogsExtension).named('libs')
+def javaRelease = providers.gradleProperty('mjjb.javaRelease')
+    .map { Integer.parseInt(it) }
+    .getOrElse(Integer.parseInt(libs.findVersion('javaBaseline').get().requiredVersion))
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(javaRelease)
+    }
+    withSourcesJar()
+    withJavadocJar()
+}
+
+dependencies {
+    testImplementation platform(libs.findLibrary('junit-bom').get())
+    testImplementation libs.findLibrary('junit-jupiter').get()
+    testRuntimeOnly libs.findLibrary('junit-platform-launcher').get()
+    testImplementation libs.findLibrary('archunit-junit5').get()
+    errorprone libs.findLibrary('errorprone-core').get()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = javaRelease
+    options.compilerArgs.addAll(['-Xlint:all', '-Werror'])
+    options.errorprone.disableWarningsInGeneratedCode.set(true)
+    options.errorprone.excludedPaths.set('.*/build/generated/.*')
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform {
+        excludeTags 'integration', 'interop', 'native-image', 'slow', 'fuzz'
+    }
+    systemProperty 'file.encoding', 'UTF-8'
+    testLogging {
+        events 'failed', 'skipped'
+        exceptionFormat = TestExceptionFormat.FULL
+    }
+}
+
+javadoc {
+    options.encoding = 'UTF-8'
+    options.addStringOption('Xdoclint:all,-missing', '-quiet')
+}
