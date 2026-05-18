@@ -26,6 +26,7 @@ dependencies {
     api project(':modules:generator-api')
     implementation project(':modules:schema-model')
     generatedCodeSmokeImplementation project(':modules:generator-api')
+    generatedCodeSmokeImplementation project(':modules:parser-core')
     testImplementation project(':modules:runtime-core')
     testImplementation sourceSets.generatedCodeSmoke.output
 }
@@ -35,6 +36,9 @@ tasks.register('generatedCodeSmoke', JavaExec) {
     description = 'Compiles and verifies generated Java source fixtures.'
     mainClass = 'io.github.mundanej.mjjb.generator.core.generated.GeneratedCodeSmoke'
     classpath = sourceSets.generatedCodeSmoke.runtimeClasspath
+    systemProperty(
+            'mjjb.generatedSourceCompileClasspath',
+            sourceSets.generatedCodeSmoke.runtimeClasspath.asPath)
     args layout.buildDirectory.dir('generated-code-smoke').get().asFile.absolutePath
     dependsOn tasks.named('generatedCodeSmokeClasses')
 }

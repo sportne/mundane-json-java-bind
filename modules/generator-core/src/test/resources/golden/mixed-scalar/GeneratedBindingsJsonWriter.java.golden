@@ -1,0 +1,41 @@
+package io.github.mundanej.mjjb.generated;
+
+import io.github.mundanej.mjjb.runtime.JsonWriteException;
+import io.github.mundanej.mjjb.runtime.JsonWriter;
+import java.util.Objects;
+
+public final class GeneratedBindingsJsonWriter {
+  private GeneratedBindingsJsonWriter() {}
+
+  public static void write(JsonWriter writer, GeneratedBindings value) throws JsonWriteException {
+    Objects.requireNonNull(writer, "writer");
+    Objects.requireNonNull(value, "value");
+    if (value.score().isPresent()) {
+      requireFinite(value.score().orElseThrow(), "score");
+    }
+    writer.beginObject();
+    writer.name("id");
+    writer.value(value.id());
+    writer.name("count");
+    writer.number(Long.toString(value.count()));
+    if (value.displayName().isPresent()) {
+      writer.name("displayName");
+      writer.value(value.displayName().orElseThrow());
+    }
+    if (value.score().isPresent()) {
+      writer.name("score");
+      writer.number(Double.toString(value.score().orElseThrow()));
+    }
+    if (value.active().isPresent()) {
+      writer.name("active");
+      writer.value(value.active().orElseThrow());
+    }
+    writer.endObject();
+  }
+
+  private static void requireFinite(double value, String name) throws JsonWriteException {
+    if (!Double.isFinite(value)) {
+      throw new JsonWriteException("JSON number field '" + name + "' must be finite.");
+    }
+  }
+}

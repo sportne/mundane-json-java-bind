@@ -1,7 +1,7 @@
 # TASK-0009: Generated Writer for Basic Objects
 
 Task ID: `TASK-0009`
-Status: `draft`
+Status: `complete`
 Gate: First round trip
 Depends on: `TASK-0008`, `TASK-0003`
 Specification references: JSON object and scalar serialization grammar

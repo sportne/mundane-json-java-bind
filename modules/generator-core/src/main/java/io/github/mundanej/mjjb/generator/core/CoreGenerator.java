@@ -9,6 +9,7 @@ import io.github.mundanej.mjjb.generator.core.internal.binding.BindingDiagnostic
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModel;
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModelBuilder;
 import io.github.mundanej.mjjb.generator.core.internal.emitter.ModelSourceEmitter;
+import io.github.mundanej.mjjb.generator.core.internal.emitter.WriterSourceEmitter;
 import io.github.mundanej.mjjb.schema.model.SchemaSupportDiagnostic;
 import io.github.mundanej.mjjb.schema.model.SchemaSupportProfile;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxDiagnostic;
@@ -48,8 +49,7 @@ public final class CoreGenerator implements Generator {
     }
     try {
       Files.createDirectories(request.outputDirectory());
-      Path source = writeModelSource(request.outputDirectory(), models.getFirst());
-      return GeneratorResult.success(List.of(source));
+      return GeneratorResult.success(writeSources(request.outputDirectory(), models.getFirst()));
     } catch (IOException exception) {
       return GeneratorResult.failure(
           List.of(
@@ -143,12 +143,15 @@ public final class CoreGenerator implements Generator {
         diagnostic.code(), diagnostic.message(), schemaPath, diagnostic.pointer().value());
   }
 
-  private Path writeModelSource(Path outputDirectory, BindingModel model) throws IOException {
+  private List<Path> writeSources(Path outputDirectory, BindingModel model) throws IOException {
     Path packageDirectory = outputDirectory.resolve(model.packageName().replace('.', '/'));
     Files.createDirectories(packageDirectory);
-    Path source = packageDirectory.resolve(model.rootTypeName() + ".java");
-    Files.writeString(source, new ModelSourceEmitter().emit(model));
-    return source;
+    Path modelSource = packageDirectory.resolve(model.rootTypeName() + ".java");
+    Files.writeString(modelSource, new ModelSourceEmitter().emit(model));
+    Path writerSource =
+        packageDirectory.resolve(WriterSourceEmitter.writerTypeName(model) + ".java");
+    Files.writeString(writerSource, new WriterSourceEmitter().emit(model));
+    return List.of(modelSource, writerSource);
   }
 
   private record ValidatedSchema(

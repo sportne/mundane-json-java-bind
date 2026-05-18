@@ -53,3 +53,40 @@ Future nullable or absent-vs-null-sensitive fields use `JsonField<T>`:
 ```java
 public record User(String id, Optional<String> name, JsonField<String> nickname) {}
 ```
+
+## Basic Object Writer Shape
+
+Generated basic object writers are final, stateless utility classes named after
+the generated model, such as `GeneratedBindingsJsonWriter`. Writers accept the
+project-owned `JsonWriter` interface from `runtime-core`; generated source does
+not construct or import parser implementations.
+
+```java
+public final class GeneratedBindingsJsonWriter {
+  private GeneratedBindingsJsonWriter() {}
+
+  public static void write(JsonWriter writer, GeneratedBindings value)
+      throws JsonWriteException {
+    Objects.requireNonNull(writer, "writer");
+    Objects.requireNonNull(value, "value");
+    writer.beginObject();
+    writer.name("id");
+    writer.value(value.id());
+    writer.name("count");
+    writer.number(Long.toString(value.count()));
+    if (value.name().isPresent()) {
+      writer.name("name");
+      writer.value(value.name().orElseThrow());
+    }
+    writer.endObject();
+  }
+}
+```
+
+Writers emit object properties in schema order. Required scalar fields are always
+written. Optional scalar fields are written only when their `Optional<T>` is
+present; absent optionals are skipped rather than serialized as `null`.
+
+`number` fields use `Double.toString` after an explicit `Double.isFinite` check.
+`integer` fields use `Long.toString`. Semantic numeric constraints remain
+validator responsibility.

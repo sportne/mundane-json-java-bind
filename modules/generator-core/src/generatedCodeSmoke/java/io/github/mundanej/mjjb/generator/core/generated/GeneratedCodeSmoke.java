@@ -1,7 +1,9 @@
 package io.github.mundanej.mjjb.generator.core.generated;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 
 /** Entry point for generated-source smoke verification. */
@@ -10,10 +12,23 @@ public final class GeneratedCodeSmoke {
 
   public static void main(String[] args) throws IOException {
     Path workspace = args.length == 0 ? Path.of("build/generated-code-smoke") : Path.of(args[0]);
-    GeneratedSourceVerifier verifier = new GeneratedSourceVerifier();
+    GeneratedSourceVerifier verifier =
+        new GeneratedSourceVerifier(compileClasspathFromSystemProperty());
     for (GeneratedSourceFixture fixture : fixtures()) {
       verifier.verifyFixture(fixture, workspace);
     }
+  }
+
+  private static List<Path> compileClasspathFromSystemProperty() {
+    String classpath = System.getProperty("mjjb.generatedSourceCompileClasspath", "");
+    if (classpath.isBlank()) {
+      return List.of();
+    }
+    return Arrays.stream(classpath.split(java.io.File.pathSeparator))
+        .filter(entry -> !entry.isBlank())
+        .map(Path::of)
+        .filter(Files::exists)
+        .toList();
   }
 
   private static List<GeneratedSourceFixture> fixtures() {

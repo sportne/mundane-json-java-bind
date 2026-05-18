@@ -47,12 +47,22 @@ final class CoreGeneratorTest {
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
     assertTrue(result.successful());
-    Path source = result.generatedSources().getFirst();
-    assertEquals(golden("empty-object"), Files.readString(source));
-    generatedSourceVerifier.verifyGolden("empty-object", source, goldenBytes("empty-object"));
-    generatedSourceVerifier.verifyAllowedTokens("empty-object", source);
-    generatedSourceVerifier.compileGeneratedSource(
-        "empty-object", source, tempDir.resolve("empty-object-classes"));
+    assertEquals(2, result.generatedSources().size());
+    Path modelSource = sourceNamed(result, "GeneratedBindings.java");
+    Path writerSource = sourceNamed(result, "GeneratedBindingsJsonWriter.java");
+    assertEquals(golden("empty-object", "GeneratedBindings.java"), Files.readString(modelSource));
+    assertEquals(
+        golden("empty-object", "GeneratedBindingsJsonWriter.java"), Files.readString(writerSource));
+    generatedSourceVerifier.verifyGolden(
+        "empty-object", modelSource, goldenBytes("empty-object", "GeneratedBindings.java"));
+    generatedSourceVerifier.verifyGolden(
+        "empty-object",
+        writerSource,
+        goldenBytes("empty-object", "GeneratedBindingsJsonWriter.java"));
+    generatedSourceVerifier.verifyAllowedTokens("empty-object", modelSource);
+    generatedSourceVerifier.verifyAllowedTokens("empty-object", writerSource);
+    generatedSourceVerifier.compileGeneratedSources(
+        "empty-object", result.generatedSources(), tempDir.resolve("empty-object-classes"));
   }
 
   @Test
@@ -79,12 +89,22 @@ final class CoreGeneratorTest {
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
     assertTrue(result.successful());
-    Path source = result.generatedSources().getFirst();
-    assertEquals(golden("mixed-scalar"), Files.readString(source));
-    generatedSourceVerifier.verifyGolden("mixed-scalar", source, goldenBytes("mixed-scalar"));
-    generatedSourceVerifier.verifyAllowedTokens("mixed-scalar", source);
-    generatedSourceVerifier.compileGeneratedSource(
-        "mixed-scalar", source, tempDir.resolve("mixed-scalar-classes"));
+    assertEquals(2, result.generatedSources().size());
+    Path modelSource = sourceNamed(result, "GeneratedBindings.java");
+    Path writerSource = sourceNamed(result, "GeneratedBindingsJsonWriter.java");
+    assertEquals(golden("mixed-scalar", "GeneratedBindings.java"), Files.readString(modelSource));
+    assertEquals(
+        golden("mixed-scalar", "GeneratedBindingsJsonWriter.java"), Files.readString(writerSource));
+    generatedSourceVerifier.verifyGolden(
+        "mixed-scalar", modelSource, goldenBytes("mixed-scalar", "GeneratedBindings.java"));
+    generatedSourceVerifier.verifyGolden(
+        "mixed-scalar",
+        writerSource,
+        goldenBytes("mixed-scalar", "GeneratedBindingsJsonWriter.java"));
+    generatedSourceVerifier.verifyAllowedTokens("mixed-scalar", modelSource);
+    generatedSourceVerifier.verifyAllowedTokens("mixed-scalar", writerSource);
+    generatedSourceVerifier.compileGeneratedSources(
+        "mixed-scalar", result.generatedSources(), tempDir.resolve("mixed-scalar-classes"));
   }
 
   @Test
@@ -113,6 +133,9 @@ final class CoreGeneratorTest {
     assertTrue(result.generatedSources().isEmpty());
     assertFalse(
         Files.exists(output.resolve("io/github/mundanej/mjjb/generated/GeneratedBindings.java")));
+    assertFalse(
+        Files.exists(
+            output.resolve("io/github/mundanej/mjjb/generated/GeneratedBindingsJsonWriter.java")));
     assertEquals(
         List.of("MJJBG-BINDING-UNSUPPORTED-PROPERTY-TYPE", "MJJBG-BINDING-MISSING-PROPERTY-TYPE"),
         result.diagnostics().stream().map(diagnostic -> diagnostic.code()).toList());
@@ -191,6 +214,9 @@ final class CoreGeneratorTest {
     assertTrue(result.generatedSources().isEmpty());
     assertFalse(
         Files.exists(output.resolve("io/github/mundanej/mjjb/generated/GeneratedBindings.java")));
+    assertFalse(
+        Files.exists(
+            output.resolve("io/github/mundanej/mjjb/generated/GeneratedBindingsJsonWriter.java")));
     assertEquals("MJJBG-SCHEMA-UNSUPPORTED-KEYWORD-VALUE", result.diagnostics().getFirst().code());
     assertEquals("/additionalProperties", result.diagnostics().getFirst().schemaPointer());
   }
@@ -271,12 +297,24 @@ final class CoreGeneratorTest {
     assertEquals(pointer, result.diagnostics().getFirst().schemaPointer());
   }
 
-  private static String golden(String name) throws IOException {
-    return new String(goldenBytes(name), StandardCharsets.UTF_8);
+  private static Path sourceNamed(GeneratorResult result, String fileName) {
+    return result.generatedSources().stream()
+        .filter(source -> fileName.equals(sourceFileName(source)))
+        .findFirst()
+        .orElseThrow();
   }
 
-  private static byte[] goldenBytes(String name) throws IOException {
-    String resourceName = "/golden/" + name + "/GeneratedBindings.java.golden";
+  private static String sourceFileName(Path source) {
+    Path sourceFileName = source.getFileName();
+    return sourceFileName == null ? "" : sourceFileName.toString();
+  }
+
+  private static String golden(String name, String fileName) throws IOException {
+    return new String(goldenBytes(name, fileName), StandardCharsets.UTF_8);
+  }
+
+  private static byte[] goldenBytes(String name, String fileName) throws IOException {
+    String resourceName = "/golden/" + name + "/" + fileName + ".golden";
     try (InputStream stream = CoreGeneratorTest.class.getResourceAsStream(resourceName)) {
       Objects.requireNonNull(stream, "missing test resource " + resourceName);
       return stream.readAllBytes();
