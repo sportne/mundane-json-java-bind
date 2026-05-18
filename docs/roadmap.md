@@ -26,7 +26,7 @@ The project is complete when it can:
 
 | Milestone | Tasks | Complete when |
 |---|---|---|
-| Foundation | `TASK-0001` to `TASK-0005` | Runtime JSON primitives, parser/writer foundations, schema syntax modeling, and profile diagnostics are testable. |
+| Foundation | `TASK-0001` to `TASK-0005` | Runtime JSON primitives, infrastructure alignment, parser/writer foundations, schema syntax modeling, and profile diagnostics are testable. |
 | Basic object binding | `TASK-0006` to `TASK-0014` | A basic object schema generates model, reader, writer, validator, CLI/Gradle output, and an executable example. |
 | Collections and value constraints | `TASK-0015` to `TASK-0018` | Arrays, scalar facets, enum/const/default, and nullable handling work through generated code. |
 | Object shape expansion | `TASK-0019` to `TASK-0021` | Object diagnostics, tagged `oneOf`, and optional metadata helpers are supported without runtime reflection. |
@@ -37,6 +37,7 @@ The project is complete when it can:
 | Task | Title | Milestone |
 |---|---|---|
 | [TASK-0001](roadmap/tasks/TASK-0001-roadmap-and-governance-baseline.md) | Roadmap and governance baseline | Planning |
+| [TASK-0002A](roadmap/tasks/TASK-0002A-infrastructure-alignment.md) | Infrastructure alignment before parser work | Planning |
 | [TASK-0002](roadmap/tasks/TASK-0002-streaming-parser-core.md) | Streaming parser core completion | Runtime foundation |
 | [TASK-0003](roadmap/tasks/TASK-0003-json-writer-core.md) | JSON writer core completion | Runtime foundation |
 | [TASK-0004](roadmap/tasks/TASK-0004-schema-syntax-model.md) | Schema syntax model and parser | Schema frontend |

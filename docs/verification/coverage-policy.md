@@ -1,10 +1,14 @@
 # Coverage Policy
 
-| Module type | Aggregate line | Aggregate branch | Per-file line |
-|---|---:|---:|---:|
-| Runtime/parser core | 80% | 60% | 60% |
-| Schema/generator core | 70% | 50% | 50% |
-| CLI/plugin/test support | 60% | 40% | 40% |
+All Java projects with compiled production classes use the same initial JaCoCo
+verification thresholds.
 
-Thresholds are intentionally moderate for the first scaffold and should rise as
-production behavior replaces placeholders.
+| Aggregate line | Aggregate branch | Per-file line |
+|---:|---:|---:|
+| 60% | 40% | 40% |
+
+Modules with no compiled production classes skip coverage verification.
+
+The single threshold set is intentional. This project prefers simple,
+predictable build rules over module-specific policy unless a later governance
+task proves that extra complexity is necessary.
