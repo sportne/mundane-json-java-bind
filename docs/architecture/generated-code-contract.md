@@ -127,3 +127,36 @@ active JSON instance field path where the reader knows it.
 decimal, exponent, and out-of-range literals. `number` fields parse Java
 `double` values and reject non-finite results. Semantic numeric constraints
 remain validator responsibility.
+
+## Basic Object Validator Shape
+
+Generated basic object validators are final, stateless utility classes named
+after the generated model, such as `GeneratedBindingsJsonValidator`. Validators
+operate on generated model instances and return `ValidationResult` values
+instead of throwing for normal validation failures.
+
+```java
+public final class GeneratedBindingsJsonValidator {
+  private GeneratedBindingsJsonValidator() {}
+
+  public static ValidationResult validate(GeneratedBindings value) {
+    return validate(value, ValidationMode.ACCUMULATE);
+  }
+
+  public static ValidationResult validate(GeneratedBindings value, ValidationMode mode) {
+    Objects.requireNonNull(mode, "mode");
+    ValidationErrors errors = ValidationErrors.create(mode);
+    // Generated source validates object-level invariants and returns errors.
+  }
+}
+```
+
+The first validator slice checks root null values, required reference-field null
+values, optional `Optional<T>` container null values, and finite `number` field
+values. Primitive required scalar fields do not need null checks. Schema
+locations may remain unknown in this slice.
+
+Validators use stable `MJJBV-*` codes for generated-validator failures:
+`MJJBV-001` for root object null, `MJJBV-002` for required null reference
+fields, `MJJBV-003` for null optional containers, and `MJJBV-004` for non-finite
+number values.

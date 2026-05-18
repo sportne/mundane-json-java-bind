@@ -20,7 +20,8 @@ public record GeneratedSourceFixture(
         List.of(
             "fixtures/" + name + "/GeneratedBindings.java.golden",
             "fixtures/" + name + "/GeneratedBindingsJsonWriter.java.golden",
-            "fixtures/" + name + "/GeneratedBindingsJsonReader.java.golden"),
+            "fixtures/" + name + "/GeneratedBindingsJsonReader.java.golden",
+            "fixtures/" + name + "/GeneratedBindingsJsonValidator.java.golden"),
         Optional.of("fixtures/" + name + "/BindingBehaviorProbe.java"),
         GeneratorRequest.DEFAULT_PACKAGE);
   }

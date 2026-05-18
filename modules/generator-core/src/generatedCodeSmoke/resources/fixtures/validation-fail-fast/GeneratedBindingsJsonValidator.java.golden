@@ -1,0 +1,39 @@
+package io.github.mundanej.mjjb.generated;
+
+import io.github.mundanej.mjjb.runtime.JsonPath;
+import io.github.mundanej.mjjb.runtime.ValidationError;
+import io.github.mundanej.mjjb.runtime.ValidationErrors;
+import io.github.mundanej.mjjb.runtime.ValidationMode;
+import io.github.mundanej.mjjb.runtime.ValidationResult;
+import java.util.Objects;
+
+public final class GeneratedBindingsJsonValidator {
+  private GeneratedBindingsJsonValidator() {}
+
+  public static ValidationResult validate(GeneratedBindings value) {
+    return validate(value, ValidationMode.ACCUMULATE);
+  }
+
+  public static ValidationResult validate(GeneratedBindings value, ValidationMode mode) {
+    Objects.requireNonNull(mode, "mode");
+    ValidationErrors errors = ValidationErrors.create(mode);
+    if (value == null) {
+      errors.add(ValidationError.of("MJJBV-001", "Expected generated object value.", JsonPath.ROOT));
+      return errors.toResult();
+    }
+    if (!validateFinite(errors, value.firstScore(), JsonPath.ROOT.property("firstScore"))) {
+      return errors.toResult();
+    }
+    if (!validateFinite(errors, value.secondScore(), JsonPath.ROOT.property("secondScore"))) {
+      return errors.toResult();
+    }
+    return errors.toResult();
+  }
+
+  private static boolean validateFinite(ValidationErrors errors, double value, JsonPath path) {
+    if (Double.isFinite(value)) {
+      return true;
+    }
+    return errors.add(ValidationError.of("MJJBV-004", "Expected finite JSON number.", path));
+  }
+}

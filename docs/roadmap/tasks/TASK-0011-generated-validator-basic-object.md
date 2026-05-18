@@ -1,7 +1,7 @@
 # TASK-0011: Generated Validator for Basic Objects
 
 Task ID: `TASK-0011`
-Status: `draft`
+Status: `complete`
 Gate: First round trip
 Depends on: `TASK-0010`
 Specification references: JSON Schema Draft 2020-12 Validation keywords `type`, `required`, `properties`, `additionalProperties`

@@ -1,11 +1,13 @@
 import io.github.mundanej.mjjb.generated.GeneratedBindings;
 import io.github.mundanej.mjjb.generated.GeneratedBindingsJsonReader;
+import io.github.mundanej.mjjb.generated.GeneratedBindingsJsonValidator;
 import io.github.mundanej.mjjb.generated.GeneratedBindingsJsonWriter;
 import io.github.mundanej.mjjb.generator.core.generated.GeneratedSourceBehaviorProbe;
 import io.github.mundanej.mjjb.parser.JsonStreamReader;
 import io.github.mundanej.mjjb.parser.JsonStringWriter;
 import io.github.mundanej.mjjb.runtime.JsonReadException;
 import io.github.mundanej.mjjb.runtime.JsonWriteException;
+import io.github.mundanej.mjjb.runtime.ValidationResult;
 import java.util.Optional;
 
 public final class BindingBehaviorProbe implements GeneratedSourceBehaviorProbe {
@@ -20,6 +22,13 @@ public final class BindingBehaviorProbe implements GeneratedSourceBehaviorProbe 
         GeneratedBindingsJsonReader.read(
             new JsonStreamReader("{\"middle\":9,\"alpha\":false,\"zeta\":\"last\"}"));
     assertBinding(new GeneratedBindings(Optional.of("last"), Optional.of(false), 9L), read);
+    assertValid(GeneratedBindingsJsonValidator.validate(read));
+  }
+
+  private static void assertValid(ValidationResult result) {
+    if (!result.isValid()) {
+      throw new AssertionError("expected valid result but got " + result.errors());
+    }
   }
 
   private static void assertBinding(GeneratedBindings expected, GeneratedBindings actual) {

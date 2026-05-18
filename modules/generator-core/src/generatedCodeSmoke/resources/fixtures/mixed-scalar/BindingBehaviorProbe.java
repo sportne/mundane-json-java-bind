@@ -1,11 +1,13 @@
 import io.github.mundanej.mjjb.generated.GeneratedBindings;
 import io.github.mundanej.mjjb.generated.GeneratedBindingsJsonReader;
+import io.github.mundanej.mjjb.generated.GeneratedBindingsJsonValidator;
 import io.github.mundanej.mjjb.generated.GeneratedBindingsJsonWriter;
 import io.github.mundanej.mjjb.generator.core.generated.GeneratedSourceBehaviorProbe;
 import io.github.mundanej.mjjb.parser.JsonStreamReader;
 import io.github.mundanej.mjjb.parser.JsonStringWriter;
 import io.github.mundanej.mjjb.runtime.JsonReadException;
 import io.github.mundanej.mjjb.runtime.JsonWriteException;
+import io.github.mundanej.mjjb.runtime.ValidationResult;
 import java.util.Optional;
 
 public final class BindingBehaviorProbe implements GeneratedSourceBehaviorProbe {
@@ -31,12 +33,14 @@ public final class BindingBehaviorProbe implements GeneratedSourceBehaviorProbe 
         new GeneratedBindings(
             "u-1", 42L, Optional.of("Ada"), Optional.of(2.25D), Optional.of(false)),
         outOfOrder);
+    assertValid(GeneratedBindingsJsonValidator.validate(outOfOrder));
 
     GeneratedBindings requiredOnly =
         GeneratedBindingsJsonReader.read(new JsonStreamReader("{\"id\":\"u-2\",\"count\":3}"));
     assertBinding(
         new GeneratedBindings("u-2", 3L, Optional.empty(), Optional.empty(), Optional.empty()),
         requiredOnly);
+    assertValid(GeneratedBindingsJsonValidator.validate(requiredOnly));
 
     assertReadFailure("{\"count\":1}", "MJJBR-005", "$.id");
     assertReadFailure("{\"id\":\"u\",\"count\":1,\"id\":\"again\"}", "MJJBR-003", "$.id");
@@ -78,6 +82,12 @@ public final class BindingBehaviorProbe implements GeneratedSourceBehaviorProbe 
       if (!path.equals(expected.diagnostic().path().value())) {
         throw new AssertionError("expected path " + path + " but was " + expected.diagnostic());
       }
+    }
+  }
+
+  private static void assertValid(ValidationResult result) {
+    if (!result.isValid()) {
+      throw new AssertionError("expected valid result but got " + result.errors());
     }
   }
 

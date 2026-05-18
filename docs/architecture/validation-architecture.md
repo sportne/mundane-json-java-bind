@@ -9,3 +9,13 @@ exception-driven.
 
 Each validation error carries a stable code, human message, JSON instance path,
 optional JSON location, and schema location where available.
+
+The first generated-validator slice validates generated model instances rather
+than raw JSON input. Generated readers own parse and type diagnostics for raw
+JSON. Generated validators own model-level invariants that can still be broken
+by direct Java construction, reflection, or future generated shapes.
+
+Generated validators expose an accumulating default mode and an explicit
+fail-fast mode. Both modes use `ValidationErrors`; generated code must stop
+after the first failed `add` call in fail-fast mode and return all accumulated
+errors in accumulate mode.

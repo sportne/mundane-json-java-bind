@@ -1,0 +1,6 @@
+package io.github.mundanej.mjjb.generated;
+
+public record GeneratedBindings(
+    double firstScore,
+    double secondScore) {
+}

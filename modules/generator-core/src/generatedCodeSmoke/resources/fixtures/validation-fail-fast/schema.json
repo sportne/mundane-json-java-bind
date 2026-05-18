@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "firstScore": {
+      "type": "number"
+    },
+    "secondScore": {
+      "type": "number"
+    }
+  },
+  "required": ["firstScore", "secondScore"],
+  "additionalProperties": false
+}

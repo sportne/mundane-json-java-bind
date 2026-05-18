@@ -1,0 +1,28 @@
+package io.github.mundanej.mjjb.generated;
+
+import io.github.mundanej.mjjb.runtime.JsonWriteException;
+import io.github.mundanej.mjjb.runtime.JsonWriter;
+import java.util.Objects;
+
+public final class GeneratedBindingsJsonWriter {
+  private GeneratedBindingsJsonWriter() {}
+
+  public static void write(JsonWriter writer, GeneratedBindings value) throws JsonWriteException {
+    Objects.requireNonNull(writer, "writer");
+    Objects.requireNonNull(value, "value");
+    requireFinite(value.firstScore(), "firstScore");
+    requireFinite(value.secondScore(), "secondScore");
+    writer.beginObject();
+    writer.name("firstScore");
+    writer.number(Double.toString(value.firstScore()));
+    writer.name("secondScore");
+    writer.number(Double.toString(value.secondScore()));
+    writer.endObject();
+  }
+
+  private static void requireFinite(double value, String name) throws JsonWriteException {
+    if (!Double.isFinite(value)) {
+      throw new JsonWriteException("JSON number field '" + name + "' must be finite.");
+    }
+  }
+}

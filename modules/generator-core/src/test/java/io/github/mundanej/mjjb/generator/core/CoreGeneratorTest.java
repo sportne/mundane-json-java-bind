@@ -47,15 +47,19 @@ final class CoreGeneratorTest {
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
     assertTrue(result.successful());
-    assertEquals(3, result.generatedSources().size());
+    assertEquals(4, result.generatedSources().size());
     Path modelSource = sourceNamed(result, "GeneratedBindings.java");
     Path writerSource = sourceNamed(result, "GeneratedBindingsJsonWriter.java");
     Path readerSource = sourceNamed(result, "GeneratedBindingsJsonReader.java");
+    Path validatorSource = sourceNamed(result, "GeneratedBindingsJsonValidator.java");
     assertEquals(golden("empty-object", "GeneratedBindings.java"), Files.readString(modelSource));
     assertEquals(
         golden("empty-object", "GeneratedBindingsJsonWriter.java"), Files.readString(writerSource));
     assertEquals(
         golden("empty-object", "GeneratedBindingsJsonReader.java"), Files.readString(readerSource));
+    assertEquals(
+        golden("empty-object", "GeneratedBindingsJsonValidator.java"),
+        Files.readString(validatorSource));
     generatedSourceVerifier.verifyGolden(
         "empty-object", modelSource, goldenBytes("empty-object", "GeneratedBindings.java"));
     generatedSourceVerifier.verifyGolden(
@@ -66,9 +70,14 @@ final class CoreGeneratorTest {
         "empty-object",
         readerSource,
         goldenBytes("empty-object", "GeneratedBindingsJsonReader.java"));
+    generatedSourceVerifier.verifyGolden(
+        "empty-object",
+        validatorSource,
+        goldenBytes("empty-object", "GeneratedBindingsJsonValidator.java"));
     generatedSourceVerifier.verifyAllowedTokens("empty-object", modelSource);
     generatedSourceVerifier.verifyAllowedTokens("empty-object", writerSource);
     generatedSourceVerifier.verifyAllowedTokens("empty-object", readerSource);
+    generatedSourceVerifier.verifyAllowedTokens("empty-object", validatorSource);
     generatedSourceVerifier.compileGeneratedSources(
         "empty-object", result.generatedSources(), tempDir.resolve("empty-object-classes"));
   }
@@ -97,15 +106,19 @@ final class CoreGeneratorTest {
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
     assertTrue(result.successful());
-    assertEquals(3, result.generatedSources().size());
+    assertEquals(4, result.generatedSources().size());
     Path modelSource = sourceNamed(result, "GeneratedBindings.java");
     Path writerSource = sourceNamed(result, "GeneratedBindingsJsonWriter.java");
     Path readerSource = sourceNamed(result, "GeneratedBindingsJsonReader.java");
+    Path validatorSource = sourceNamed(result, "GeneratedBindingsJsonValidator.java");
     assertEquals(golden("mixed-scalar", "GeneratedBindings.java"), Files.readString(modelSource));
     assertEquals(
         golden("mixed-scalar", "GeneratedBindingsJsonWriter.java"), Files.readString(writerSource));
     assertEquals(
         golden("mixed-scalar", "GeneratedBindingsJsonReader.java"), Files.readString(readerSource));
+    assertEquals(
+        golden("mixed-scalar", "GeneratedBindingsJsonValidator.java"),
+        Files.readString(validatorSource));
     generatedSourceVerifier.verifyGolden(
         "mixed-scalar", modelSource, goldenBytes("mixed-scalar", "GeneratedBindings.java"));
     generatedSourceVerifier.verifyGolden(
@@ -116,9 +129,14 @@ final class CoreGeneratorTest {
         "mixed-scalar",
         readerSource,
         goldenBytes("mixed-scalar", "GeneratedBindingsJsonReader.java"));
+    generatedSourceVerifier.verifyGolden(
+        "mixed-scalar",
+        validatorSource,
+        goldenBytes("mixed-scalar", "GeneratedBindingsJsonValidator.java"));
     generatedSourceVerifier.verifyAllowedTokens("mixed-scalar", modelSource);
     generatedSourceVerifier.verifyAllowedTokens("mixed-scalar", writerSource);
     generatedSourceVerifier.verifyAllowedTokens("mixed-scalar", readerSource);
+    generatedSourceVerifier.verifyAllowedTokens("mixed-scalar", validatorSource);
     generatedSourceVerifier.compileGeneratedSources(
         "mixed-scalar", result.generatedSources(), tempDir.resolve("mixed-scalar-classes"));
   }
@@ -155,6 +173,10 @@ final class CoreGeneratorTest {
     assertFalse(
         Files.exists(
             output.resolve("io/github/mundanej/mjjb/generated/GeneratedBindingsJsonReader.java")));
+    assertFalse(
+        Files.exists(
+            output.resolve(
+                "io/github/mundanej/mjjb/generated/GeneratedBindingsJsonValidator.java")));
     assertEquals(
         List.of("MJJBG-BINDING-UNSUPPORTED-PROPERTY-TYPE", "MJJBG-BINDING-MISSING-PROPERTY-TYPE"),
         result.diagnostics().stream().map(diagnostic -> diagnostic.code()).toList());
@@ -239,6 +261,10 @@ final class CoreGeneratorTest {
     assertFalse(
         Files.exists(
             output.resolve("io/github/mundanej/mjjb/generated/GeneratedBindingsJsonReader.java")));
+    assertFalse(
+        Files.exists(
+            output.resolve(
+                "io/github/mundanej/mjjb/generated/GeneratedBindingsJsonValidator.java")));
     assertEquals("MJJBG-SCHEMA-UNSUPPORTED-KEYWORD-VALUE", result.diagnostics().getFirst().code());
     assertEquals("/additionalProperties", result.diagnostics().getFirst().schemaPointer());
   }

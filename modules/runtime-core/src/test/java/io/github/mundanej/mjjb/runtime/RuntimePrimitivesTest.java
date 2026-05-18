@@ -49,6 +49,22 @@ final class RuntimePrimitivesTest {
   }
 
   @Test
+  void accumulateAccumulatorSignalsContinueAfterEachError() {
+    ValidationErrors errors = ValidationErrors.create(ValidationMode.ACCUMULATE);
+
+    assertTrue(errors.add(ValidationError.of("MJJBT-001", "Broken value.", JsonPath.ROOT)));
+    assertTrue(
+        errors.add(
+            ValidationError.of("MJJBT-002", "Also broken.", JsonPath.ROOT.property("field"))));
+
+    ValidationResult result = errors.toResult();
+    assertFalse(result.isValid());
+    assertEquals(
+        List.of("MJJBT-001", "MJJBT-002"),
+        result.errors().stream().map(ValidationError::code).toList());
+  }
+
+  @Test
   void diagnosticsAndReadExceptionsCarryStableValues() {
     JsonDiagnostic diagnostic =
         JsonDiagnostic.error(
