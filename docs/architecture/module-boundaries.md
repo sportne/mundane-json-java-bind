@@ -4,7 +4,7 @@
 |---|---|---|
 | `runtime-core` | JSON paths, locations, diagnostics, validation values, reader/writer interfaces, nullable field state. | No third-party dependencies. |
 | `parser-core` | Dependency-free streaming JSON tokenizer/parser and writer implementation. | Depends only on `runtime-core`. |
-| `schema-model` | Draft 2020-12 subset model, vocabulary/profile tokens, schema locations, JSON Pointer helpers. | Depends only on `runtime-core`. |
+| `schema-model` | Draft 2020-12 subset model, vocabulary/profile tokens, schema syntax parsing, schema locations, JSON Pointer helpers. | Depends only on `runtime-core`; does not depend on runtime JSON parser implementations. |
 | `generator-api` | Public immutable generator request/result/profile API. | No implementation parser or IR exposure. |
 | `generator-core` | Schema frontend, profile validation, binding IR, deterministic Java emitters. | Generator-only dependencies may not leak to generated code. |
 | `generator-cli` | CLI entry point. | Depends on generator API/core only. |

@@ -4,9 +4,12 @@ import io.github.mundanej.mjjb.generator.api.Generator;
 import io.github.mundanej.mjjb.generator.api.GeneratorDiagnostic;
 import io.github.mundanej.mjjb.generator.api.GeneratorRequest;
 import io.github.mundanej.mjjb.generator.api.GeneratorResult;
-import io.github.mundanej.mjjb.schema.model.JsonPointer;
 import io.github.mundanej.mjjb.schema.model.JsonSchemaKeyword;
 import io.github.mundanej.mjjb.schema.model.SchemaSupportProfile;
+import io.github.mundanej.mjjb.schema.model.SchemaSyntaxDiagnostic;
+import io.github.mundanej.mjjb.schema.model.SchemaSyntaxParseResult;
+import io.github.mundanej.mjjb.schema.model.SchemaSyntaxParser;
+import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -59,31 +62,12 @@ public final class CoreGenerator implements Generator {
     }
     try {
       String source = Files.readString(schemaPath);
-      SchemaKeywordScan scan = SchemaKeywordScanner.scan(source);
-      if (!scan.diagnostics().isEmpty()) {
-        for (SchemaScanDiagnostic diagnostic : scan.diagnostics()) {
-          diagnostics.add(
-              new GeneratorDiagnostic(
-                  diagnostic.code(),
-                  diagnostic.message(),
-                  schemaPath,
-                  diagnostic.pointer().value()));
-        }
-      }
-      for (KeywordOccurrence occurrence : scan.keywords()) {
-        JsonSchemaKeyword.fromKeyword(occurrence.keyword())
-            .filter(keyword -> !keyword.supportedInV1())
-            .ifPresent(
-                keyword ->
-                    diagnostics.add(
-                        toGeneratorDiagnostic(
-                            SchemaSupportProfile.unsupportedKeyword(
-                                keyword.keyword(), occurrence.pointer()),
-                            schemaPath)));
-      }
-      if (!scan.diagnostics().isEmpty()) {
+      SchemaSyntaxParseResult parseResult = SchemaSyntaxParser.parse(source);
+      if (!parseResult.diagnostics().isEmpty()) {
+        diagnostics.addAll(toGeneratorDiagnostics(parseResult.diagnostics(), schemaPath));
         return diagnostics;
       }
+      collectUnsupportedKeywordDiagnostics(parseResult.root(), schemaPath, diagnostics);
     } catch (IOException exception) {
       diagnostics.add(
           new GeneratorDiagnostic(
@@ -94,6 +78,46 @@ public final class CoreGenerator implements Generator {
     }
     diagnostics.sort(Comparator.comparing(GeneratorDiagnostic::toManifestLine));
     return diagnostics;
+  }
+
+  private List<GeneratorDiagnostic> toGeneratorDiagnostics(
+      List<SchemaSyntaxDiagnostic> schemaDiagnostics, Path schemaPath) {
+    ArrayList<GeneratorDiagnostic> diagnostics = new ArrayList<>();
+    for (SchemaSyntaxDiagnostic diagnostic : schemaDiagnostics) {
+      diagnostics.add(
+          new GeneratorDiagnostic(
+              diagnostic.code(), diagnostic.message(), schemaPath, diagnostic.pointer().value()));
+    }
+    return diagnostics;
+  }
+
+  private void collectUnsupportedKeywordDiagnostics(
+      SchemaSyntaxValue value, Path schemaPath, List<GeneratorDiagnostic> diagnostics) {
+    switch (value) {
+      case SchemaSyntaxValue.ObjectValue object -> {
+        for (SchemaSyntaxValue.Member member : object.members()) {
+          JsonSchemaKeyword.fromKeyword(member.name())
+              .filter(keyword -> !keyword.supportedInV1())
+              .ifPresent(
+                  keyword ->
+                      diagnostics.add(
+                          toGeneratorDiagnostic(
+                              SchemaSupportProfile.unsupportedKeyword(
+                                  keyword.keyword(), member.pointer()),
+                              schemaPath)));
+          collectUnsupportedKeywordDiagnostics(member.value(), schemaPath, diagnostics);
+        }
+      }
+      case SchemaSyntaxValue.ArrayValue array -> {
+        for (SchemaSyntaxValue item : array.items()) {
+          collectUnsupportedKeywordDiagnostics(item, schemaPath, diagnostics);
+        }
+      }
+      case SchemaSyntaxValue.StringValue ignored -> {}
+      case SchemaSyntaxValue.NumberValue ignored -> {}
+      case SchemaSyntaxValue.BooleanValue ignored -> {}
+      case SchemaSyntaxValue.NullValue ignored -> {}
+    }
   }
 
   private GeneratorDiagnostic toGeneratorDiagnostic(
@@ -119,275 +143,5 @@ public final class CoreGenerator implements Generator {
             "");
     Files.writeString(source, content);
     return source;
-  }
-
-  private record KeywordOccurrence(String keyword, JsonPointer pointer) {}
-
-  private record SchemaScanDiagnostic(String code, String message, JsonPointer pointer) {}
-
-  private record SchemaKeywordScan(
-      List<KeywordOccurrence> keywords, List<SchemaScanDiagnostic> diagnostics) {}
-
-  private static final class SchemaKeywordScanner {
-    private final String source;
-    private final ArrayList<KeywordOccurrence> keywords = new ArrayList<>();
-    private final ArrayList<SchemaScanDiagnostic> diagnostics = new ArrayList<>();
-    private int index;
-
-    private SchemaKeywordScanner(String source) {
-      this.source = Objects.requireNonNull(source, "source");
-    }
-
-    private static SchemaKeywordScan scan(String source) {
-      SchemaKeywordScanner scanner = new SchemaKeywordScanner(source);
-      scanner.parse();
-      return new SchemaKeywordScan(List.copyOf(scanner.keywords), List.copyOf(scanner.diagnostics));
-    }
-
-    private void parse() {
-      skipWhitespace();
-      parseValue(JsonPointer.ROOT);
-      skipWhitespace();
-      if (diagnostics.isEmpty() && index < source.length()) {
-        addError(
-            "MJJBG-SCHEMA-INVALID-JSON",
-            "Unexpected content after JSON Schema document.",
-            JsonPointer.ROOT);
-      }
-    }
-
-    private void parseValue(JsonPointer pointer) {
-      skipWhitespace();
-      if (diagnosticsPresent() || index >= source.length()) {
-        addError("MJJBG-SCHEMA-INVALID-JSON", "Unexpected end of JSON Schema document.", pointer);
-        return;
-      }
-      char current = source.charAt(index);
-      switch (current) {
-        case '{' -> parseObject(pointer);
-        case '[' -> parseArray(pointer);
-        case '"' -> parseString(pointer);
-        case 't' -> parseLiteral("true", pointer);
-        case 'f' -> parseLiteral("false", pointer);
-        case 'n' -> parseLiteral("null", pointer);
-        default -> {
-          if (current == '-' || Character.isDigit(current)) {
-            parseNumber(pointer);
-          } else {
-            addError("MJJBG-SCHEMA-INVALID-JSON", "Unexpected JSON token in schema.", pointer);
-          }
-        }
-      }
-    }
-
-    private void parseObject(JsonPointer pointer) {
-      index++;
-      skipWhitespace();
-      if (consumeIf('}')) {
-        return;
-      }
-      boolean first = true;
-      while (!diagnosticsPresent()) {
-        if (!first && !consumeIf(',')) {
-          addError(
-              "MJJBG-SCHEMA-INVALID-JSON", "Expected comma between object properties.", pointer);
-          return;
-        }
-        skipWhitespace();
-        if (index >= source.length() || source.charAt(index) != '"') {
-          addError("MJJBG-SCHEMA-INVALID-JSON", "Expected object property name.", pointer);
-          return;
-        }
-        String name = parseString(pointer);
-        if (diagnosticsPresent()) {
-          return;
-        }
-        JsonPointer propertyPointer = pointer.property(name);
-        keywords.add(new KeywordOccurrence(name, propertyPointer));
-        skipWhitespace();
-        if (!consumeIf(':')) {
-          addError(
-              "MJJBG-SCHEMA-INVALID-JSON",
-              "Expected colon after object property name.",
-              propertyPointer);
-          return;
-        }
-        parseValue(propertyPointer);
-        skipWhitespace();
-        if (consumeIf('}')) {
-          return;
-        }
-        first = false;
-      }
-    }
-
-    private void parseArray(JsonPointer pointer) {
-      index++;
-      skipWhitespace();
-      if (consumeIf(']')) {
-        return;
-      }
-      int itemIndex = 0;
-      boolean first = true;
-      while (!diagnosticsPresent()) {
-        if (!first && !consumeIf(',')) {
-          addError("MJJBG-SCHEMA-INVALID-JSON", "Expected comma between array items.", pointer);
-          return;
-        }
-        parseValue(pointer.index(itemIndex));
-        itemIndex++;
-        skipWhitespace();
-        if (consumeIf(']')) {
-          return;
-        }
-        first = false;
-      }
-    }
-
-    private String parseString(JsonPointer pointer) {
-      index++;
-      StringBuilder builder = new StringBuilder();
-      while (index < source.length()) {
-        char current = source.charAt(index++);
-        if (current == '"') {
-          return builder.toString();
-        }
-        if (current == '\\') {
-          builder.append(parseEscapedCharacter(pointer));
-          if (diagnosticsPresent()) {
-            return "";
-          }
-        } else if (current <= 0x1f) {
-          addError(
-              "MJJBG-SCHEMA-INVALID-JSON", "Unescaped control character in JSON string.", pointer);
-          return "";
-        } else {
-          builder.append(current);
-        }
-      }
-      addError("MJJBG-SCHEMA-INVALID-JSON", "Unterminated JSON string.", pointer);
-      return "";
-    }
-
-    private char parseEscapedCharacter(JsonPointer pointer) {
-      if (index >= source.length()) {
-        addError("MJJBG-SCHEMA-INVALID-JSON", "Unterminated JSON escape.", pointer);
-        return '\0';
-      }
-      char escaped = source.charAt(index++);
-      if (escaped != 'u') {
-        return switch (escaped) {
-          case '"', '\\', '/' -> escaped;
-          case 'b' -> '\b';
-          case 'f' -> '\f';
-          case 'n' -> '\n';
-          case 'r' -> '\r';
-          case 't' -> '\t';
-          default -> {
-            addError("MJJBG-SCHEMA-INVALID-JSON", "Invalid JSON escape.", pointer);
-            yield '\0';
-          }
-        };
-      }
-      if (index + 4 > source.length()) {
-        addError("MJJBG-SCHEMA-INVALID-JSON", "Incomplete unicode escape.", pointer);
-        return '\0';
-      }
-      int value = 0;
-      for (int i = 0; i < 4; i++) {
-        int hex = Character.digit(source.charAt(index++), 16);
-        if (hex < 0) {
-          addError("MJJBG-SCHEMA-INVALID-JSON", "Invalid unicode escape digit.", pointer);
-          return '\0';
-        }
-        value = (value << 4) + hex;
-      }
-      return (char) value;
-    }
-
-    private void parseNumber(JsonPointer pointer) {
-      consumeIf('-');
-      if (index >= source.length() || !isDigit(source.charAt(index))) {
-        addError("MJJBG-SCHEMA-INVALID-JSON", "Expected digit in JSON number.", pointer);
-        return;
-      }
-      if (consumeIf('0')) {
-        if (index < source.length() && isDigit(source.charAt(index))) {
-          addError(
-              "MJJBG-SCHEMA-INVALID-JSON", "Leading zeroes are not valid JSON numbers.", pointer);
-          return;
-        }
-      } else {
-        consumeDigits();
-      }
-      if (consumeIf('.')) {
-        if (index >= source.length() || !isDigit(source.charAt(index))) {
-          addError(
-              "MJJBG-SCHEMA-INVALID-JSON",
-              "Expected digit after decimal point in JSON number.",
-              pointer);
-          return;
-        }
-        consumeDigits();
-      }
-      if (index < source.length() && (source.charAt(index) == 'e' || source.charAt(index) == 'E')) {
-        index++;
-        if (index < source.length()
-            && (source.charAt(index) == '+' || source.charAt(index) == '-')) {
-          index++;
-        }
-        if (index >= source.length() || !isDigit(source.charAt(index))) {
-          addError("MJJBG-SCHEMA-INVALID-JSON", "Expected exponent digit in JSON number.", pointer);
-          return;
-        }
-        consumeDigits();
-      }
-    }
-
-    private void consumeDigits() {
-      while (index < source.length() && isDigit(source.charAt(index))) {
-        index++;
-      }
-    }
-
-    private static boolean isDigit(char value) {
-      return value >= '0' && value <= '9';
-    }
-
-    private void parseLiteral(String literal, JsonPointer pointer) {
-      if (!source.startsWith(literal, index)) {
-        addError("MJJBG-SCHEMA-INVALID-JSON", "Invalid JSON literal.", pointer);
-        return;
-      }
-      index += literal.length();
-    }
-
-    private boolean consumeIf(char expected) {
-      if (index < source.length() && source.charAt(index) == expected) {
-        index++;
-        return true;
-      }
-      return false;
-    }
-
-    private void skipWhitespace() {
-      while (index < source.length()) {
-        char current = source.charAt(index);
-        if (current != ' ' && current != '\n' && current != '\r' && current != '\t') {
-          return;
-        }
-        index++;
-      }
-    }
-
-    private boolean diagnosticsPresent() {
-      return !diagnostics.isEmpty();
-    }
-
-    private void addError(String code, String message, JsonPointer pointer) {
-      if (diagnostics.isEmpty()) {
-        diagnostics.add(new SchemaScanDiagnostic(code, message, pointer));
-      }
-    }
   }
 }

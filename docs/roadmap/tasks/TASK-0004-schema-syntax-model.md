@@ -1,7 +1,7 @@
 # TASK-0004: Schema Syntax Model and Parser
 
 Task ID: `TASK-0004`
-Status: `ready-for-implementation`
+Status: `complete`
 Gate: Schema frontend
 Depends on: `TASK-0002`
 Specification references: JSON Schema Draft 2020-12 Core sections on schema documents, vocabularies, and JSON Pointers

@@ -36,7 +36,7 @@ final class CoreGeneratorTest {
     Path schema = tempDir.resolve("schema.json");
     Files.writeString(
         schema,
-        "{\"type\":\"object\",\"description\":\"mentions $ref as text\",\"properties\":{},\"additionalProperties\":false}");
+        "{\"type\":\"object\",\"description\":\"mentions $ref and allOf as text\",\"properties\":{},\"additionalProperties\":false}");
 
     GeneratorResult result =
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
@@ -82,22 +82,39 @@ final class CoreGeneratorTest {
   }
 
   @Test
+  void reportsUnsupportedKeywordWithEscapedPointer() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(schema, "{\"properties\":{\"a/b\":{\"not\":{}}}}");
+
+    GeneratorResult result =
+        new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
+
+    assertFalse(result.successful());
+    assertEquals("/properties/a~1b/not", result.diagnostics().getFirst().schemaPointer());
+  }
+
+  @Test
   void reportsInvalidJsonSchemaInput() throws IOException {
-    assertInvalidSchema("{\"type\":\"object\"");
+    assertInvalidSchema("{\"type\":\"object\"", "");
   }
 
   @Test
   void reportsInvalidJsonNumbersInSchemaInput() throws IOException {
-    assertInvalidSchema("{\"minimum\":1.}");
-    assertInvalidSchema("{\"minimum\":1e}");
-    assertInvalidSchema("{\"minimum\":-}");
-    assertInvalidSchema("{\"minimum\":01}");
+    assertInvalidSchema("{\"minimum\":1.}", "/minimum");
+    assertInvalidSchema("{\"minimum\":1e}", "/minimum");
+    assertInvalidSchema("{\"minimum\":-}", "/minimum");
+    assertInvalidSchema("{\"minimum\":01}", "/minimum");
   }
 
   @Test
   void reportsInvalidJsonStringsInSchemaInput() throws IOException {
-    assertInvalidSchema("{\"description\":\"bad\\q\"}");
-    assertInvalidSchema("{\"description\":\"bad\nstring\"}");
+    assertInvalidSchema("{\"description\":\"bad\\q\"}", "/description");
+    assertInvalidSchema("{\"description\":\"bad\nstring\"}", "/description");
+  }
+
+  @Test
+  void reportsTrailingJsonSchemaInputWithRootPointer() throws IOException {
+    assertInvalidSchema("{\"type\":\"object\"} []", "");
   }
 
   @Test
@@ -114,7 +131,7 @@ final class CoreGeneratorTest {
     assertEquals("MJJBG-GEN-003", missing.diagnostics().getFirst().code());
   }
 
-  private void assertInvalidSchema(String source) throws IOException {
+  private void assertInvalidSchema(String source, String pointer) throws IOException {
     Path schema = Files.createTempFile(tempDir, "schema", ".json");
     Files.writeString(schema, source);
 
@@ -123,5 +140,6 @@ final class CoreGeneratorTest {
 
     assertFalse(result.successful());
     assertEquals("MJJBG-SCHEMA-INVALID-JSON", result.diagnostics().getFirst().code());
+    assertEquals(pointer, result.diagnostics().getFirst().schemaPointer());
   }
 }
