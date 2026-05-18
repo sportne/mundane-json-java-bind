@@ -13,6 +13,7 @@ public class MjjbExtension {
   private final DirectoryProperty outputDirectory;
   private final Property<String> profile;
   private final Property<String> defaultPackage;
+  private final Property<String> rootTypeName;
   private final MapProperty<String, String> packageMappings;
 
   public MjjbExtension(ObjectFactory objects) {
@@ -20,6 +21,8 @@ public class MjjbExtension {
     outputDirectory = objects.directoryProperty();
     profile = objects.property(String.class).convention("JSP-DATA-2020-12");
     defaultPackage = objects.property(String.class).convention(GeneratorRequest.DEFAULT_PACKAGE);
+    rootTypeName =
+        objects.property(String.class).convention(GeneratorRequest.DEFAULT_ROOT_TYPE_NAME);
     packageMappings = objects.mapProperty(String.class, String.class);
   }
 
@@ -45,6 +48,10 @@ public class MjjbExtension {
 
   public Property<String> getDefaultPackage() {
     return defaultPackage;
+  }
+
+  public Property<String> getRootTypeName() {
+    return rootTypeName;
   }
 
   public MapProperty<String, String> getPackageMappings() {

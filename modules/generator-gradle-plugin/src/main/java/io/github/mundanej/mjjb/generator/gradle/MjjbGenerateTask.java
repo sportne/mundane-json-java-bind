@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import javax.inject.Inject;
 import org.gradle.api.DefaultTask;
@@ -35,7 +36,61 @@ public class MjjbGenerateTask extends DefaultTask {
   private final DirectoryProperty outputDirectory;
   private final Property<String> profile;
   private final Property<String> defaultPackage;
+  private final Property<String> rootTypeName;
   private final MapProperty<String, String> packageMappings;
+  private static final Set<String> JAVA_KEYWORDS =
+      Set.of(
+          "abstract",
+          "assert",
+          "boolean",
+          "break",
+          "byte",
+          "case",
+          "catch",
+          "char",
+          "class",
+          "const",
+          "continue",
+          "default",
+          "do",
+          "double",
+          "else",
+          "enum",
+          "extends",
+          "final",
+          "finally",
+          "float",
+          "for",
+          "goto",
+          "if",
+          "implements",
+          "import",
+          "instanceof",
+          "int",
+          "interface",
+          "long",
+          "native",
+          "new",
+          "package",
+          "private",
+          "protected",
+          "public",
+          "return",
+          "short",
+          "static",
+          "strictfp",
+          "super",
+          "switch",
+          "synchronized",
+          "this",
+          "throw",
+          "throws",
+          "transient",
+          "try",
+          "void",
+          "volatile",
+          "while",
+          "_");
 
   @Inject
   public MjjbGenerateTask(ObjectFactory objects) {
@@ -43,11 +98,14 @@ public class MjjbGenerateTask extends DefaultTask {
     outputDirectory = objects.directoryProperty();
     profile = objects.property(String.class).convention("JSP-DATA-2020-12");
     defaultPackage = objects.property(String.class).convention(GeneratorRequest.DEFAULT_PACKAGE);
+    rootTypeName =
+        objects.property(String.class).convention(GeneratorRequest.DEFAULT_ROOT_TYPE_NAME);
     packageMappings = objects.mapProperty(String.class, String.class);
   }
 
   @TaskAction
   public void generate() {
+    validateJavaNames();
     Path temporaryOutput = getTemporaryDir().toPath().resolve("generated");
     Path finalOutput = outputDirectory.get().getAsFile().toPath();
     try {
@@ -65,6 +123,7 @@ public class MjjbGenerateTask extends DefaultTask {
                     temporaryOutput,
                     parsedProfile(),
                     defaultPackage.get(),
+                    rootTypeName.get(),
                     sortedMap(packageMappings.get())));
     if (!result.successful()) {
       throw new GradleException(formatDiagnostics(result.diagnostics()));
@@ -100,8 +159,26 @@ public class MjjbGenerateTask extends DefaultTask {
   }
 
   @Input
+  public Property<String> getRootTypeName() {
+    return rootTypeName;
+  }
+
+  @Input
   public MapProperty<String, String> getPackageMappings() {
     return packageMappings;
+  }
+
+  private void validateJavaNames() {
+    String packageName = defaultPackage.get();
+    if (!isValidPackageName(packageName)) {
+      throw new GradleException(
+          "MJJB-GRADLE-002 | defaultPackage | Invalid Java package name " + packageName + ".");
+    }
+    String rootType = rootTypeName.get();
+    if (!isJavaIdentifier(rootType)) {
+      throw new GradleException(
+          "MJJB-GRADLE-003 | rootTypeName | Invalid Java root type name " + rootType + ".");
+    }
   }
 
   private GeneratorProfile parsedProfile() {
@@ -122,6 +199,37 @@ public class MjjbGenerateTask extends DefaultTask {
 
   private Map<String, String> sortedMap(Map<String, String> values) {
     return Map.copyOf(new TreeMap<>(values));
+  }
+
+  private boolean isValidPackageName(String packageName) {
+    if (packageName == null || packageName.isBlank()) {
+      return false;
+    }
+    String[] parts = packageName.split("\\.", -1);
+    for (String part : parts) {
+      if (!isJavaIdentifier(part)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private boolean isJavaIdentifier(String value) {
+    if (value == null || value.isBlank() || JAVA_KEYWORDS.contains(value)) {
+      return false;
+    }
+    int first = value.codePointAt(0);
+    if (!Character.isJavaIdentifierStart(first)) {
+      return false;
+    }
+    for (int offset = Character.charCount(first); offset < value.length(); ) {
+      int codePoint = value.codePointAt(offset);
+      if (!Character.isJavaIdentifierPart(codePoint)) {
+        return false;
+      }
+      offset += Character.charCount(codePoint);
+    }
+    return true;
   }
 
   private String formatDiagnostics(List<GeneratorDiagnostic> diagnostics) {

@@ -59,3 +59,30 @@ mjjb generate \
 The command writes `ExampleBinding.java`, `ExampleBindingJsonWriter.java`,
 `ExampleBindingJsonReader.java`, and `ExampleBindingJsonValidator.java` under
 the requested package directory.
+
+## Gradle Plugin
+
+Gradle projects can generate the same basic object binding slice during Java
+compilation:
+
+```groovy
+plugins {
+  id 'java'
+  id 'io.github.mundanej.mjjb'
+}
+
+dependencies {
+  implementation 'io.github.mundanej:mjjb-runtime-core:0.1.0-SNAPSHOT'
+}
+
+mjjb {
+  schema('src/main/schema/example.schema.json')
+  outputDirectory.set(layout.buildDirectory.dir('generated/sources/mjjb/main/java'))
+  defaultPackage.set('com.example.generated')
+  rootTypeName.set('ExampleBinding')
+  profile.set('JSP-DATA-2020-12')
+}
+```
+
+When the Java plugin is present, `compileJava` depends on `generateMjjb` and
+compiles the generated source directory.
