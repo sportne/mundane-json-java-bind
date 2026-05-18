@@ -9,6 +9,7 @@ import java.util.Objects;
 public final class JsonStringWriter implements JsonWriter {
   private final StringBuilder output = new StringBuilder();
   private final ArrayDeque<Context> stack = new ArrayDeque<>();
+  private boolean rootComplete;
 
   @Override
   public void beginObject() throws JsonWriteException {
@@ -88,12 +89,18 @@ public final class JsonStringWriter implements JsonWriter {
     afterValue();
   }
 
-  public String json() {
+  public String json() throws JsonWriteException {
+    if (!rootComplete || !stack.isEmpty()) {
+      throw new JsonWriteException("JSON document is not complete.");
+    }
     return output.toString();
   }
 
   private void beforeValue() throws JsonWriteException {
     if (stack.isEmpty()) {
+      if (rootComplete) {
+        throw new JsonWriteException("JSON document already has a root value.");
+      }
       return;
     }
     Context context = stack.peek();
@@ -108,6 +115,7 @@ public final class JsonStringWriter implements JsonWriter {
 
   private void afterValue() {
     if (stack.isEmpty()) {
+      rootComplete = true;
       return;
     }
     Context context = stack.peek();

@@ -18,6 +18,13 @@ public record JsonPointer(String value) {
     return new JsonPointer(value + "/" + escape(token));
   }
 
+  public JsonPointer index(int index) {
+    if (index < 0) {
+      throw new IllegalArgumentException("index must be non-negative");
+    }
+    return new JsonPointer(value + "/" + index);
+  }
+
   private static String escape(String token) {
     return token.replace("~", "~0").replace("/", "~1");
   }

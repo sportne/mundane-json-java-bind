@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.mundanej.mjjb.runtime.JsonReadException;
 import java.io.IOException;
+import java.io.Reader;
 import java.io.StringReader;
 import org.junit.jupiter.api.Test;
 
@@ -97,5 +98,42 @@ final class JsonStreamReaderTest {
     JsonStreamReader reader = JsonStreamReader.fromReader("test.json", new StringReader("\"ok\""));
 
     assertEquals("ok", reader.nextString());
+  }
+
+  @Test
+  void fromReaderDoesNotEagerlyDrainInput() throws JsonReadException {
+    CountingReader source = new CountingReader("\"ok\"");
+    JsonStreamReader reader = JsonStreamReader.fromReader("test.json", source);
+
+    assertEquals(0, source.readCount());
+    assertEquals("ok", reader.nextString());
+    assertTrue(source.readCount() > 0);
+  }
+
+  private static final class CountingReader extends Reader {
+    private final String source;
+    private int index;
+    private int readCount;
+
+    private CountingReader(String source) {
+      this.source = source;
+    }
+
+    @Override
+    public int read(char[] buffer, int offset, int length) {
+      if (index >= source.length()) {
+        return -1;
+      }
+      buffer[offset] = source.charAt(index++);
+      readCount++;
+      return 1;
+    }
+
+    @Override
+    public void close() {}
+
+    private int readCount() {
+      return readCount;
+    }
   }
 }

@@ -15,8 +15,10 @@ import java.util.Objects;
 /** Dependency-free streaming JSON reader for generated bindings. */
 public final class JsonStreamReader implements JsonReader {
   private final String sourceName;
-  private final String input;
+  private final StringBuilder input = new StringBuilder();
+  private final Reader reader;
   private final ArrayDeque<Context> stack = new ArrayDeque<>();
+  private boolean endOfInput;
   private int index;
   private int line = 1;
   private int column = 1;
@@ -27,37 +29,37 @@ public final class JsonStreamReader implements JsonReader {
 
   public JsonStreamReader(String sourceName, String input) {
     this.sourceName = Objects.requireNonNull(sourceName, "sourceName");
-    this.input = Objects.requireNonNull(input, "input");
+    this.reader = null;
+    this.input.append(Objects.requireNonNull(input, "input"));
+    this.endOfInput = true;
   }
 
-  public static JsonStreamReader fromReader(String sourceName, Reader reader) throws IOException {
-    Objects.requireNonNull(reader, "reader");
-    StringBuilder builder = new StringBuilder();
-    char[] buffer = new char[4096];
-    int read;
-    while ((read = reader.read(buffer)) != -1) {
-      builder.append(buffer, 0, read);
-    }
-    return new JsonStreamReader(sourceName, builder.toString());
+  private JsonStreamReader(String sourceName, Reader reader) {
+    this.sourceName = Objects.requireNonNull(sourceName, "sourceName");
+    this.reader = Objects.requireNonNull(reader, "reader");
   }
 
   public static JsonStreamReader fromStringReader(String input) throws IOException {
     return fromReader("<string>", new StringReader(input));
   }
 
+  public static JsonStreamReader fromReader(String sourceName, Reader reader) {
+    return new JsonStreamReader(sourceName, reader);
+  }
+
   @Override
   public JsonToken peek() throws JsonReadException {
     skipWhitespace();
-    if (index >= input.length()) {
+    if (!hasChar(index)) {
       return JsonToken.END_DOCUMENT;
     }
     if (!stack.isEmpty() && stack.peek().kind == ContextKind.OBJECT && stack.peek().expectingName) {
-      if (input.charAt(index) == '}') {
+      if (charAt(index) == '}') {
         return JsonToken.END_OBJECT;
       }
       return JsonToken.NAME;
     }
-    return switch (input.charAt(index)) {
+    return switch (charAt(index)) {
       case '{' -> JsonToken.BEGIN_OBJECT;
       case '}' -> JsonToken.END_OBJECT;
       case '[' -> JsonToken.BEGIN_ARRAY;
@@ -66,7 +68,7 @@ public final class JsonStreamReader implements JsonReader {
       case 't', 'f' -> JsonToken.BOOLEAN;
       case 'n' -> JsonToken.NULL;
       default -> {
-        if (isNumberStart(input.charAt(index))) {
+        if (isNumberStart(charAt(index))) {
           yield JsonToken.NUMBER;
         }
         throw error("MJJBP-001", "Unexpected JSON token.");
@@ -271,7 +273,7 @@ public final class JsonStreamReader implements JsonReader {
     skipWhitespace();
     expect('"');
     StringBuilder builder = new StringBuilder();
-    while (index < input.length()) {
+    while (hasChar(index)) {
       char current = advance();
       if (current == '"') {
         return builder.toString();
@@ -289,7 +291,7 @@ public final class JsonStreamReader implements JsonReader {
   }
 
   private char parseEscape() throws JsonReadException {
-    if (index >= input.length()) {
+    if (!hasChar(index)) {
       throw error("MJJBP-012", "Unterminated JSON escape.");
     }
     char escaped = advance();
@@ -306,7 +308,7 @@ public final class JsonStreamReader implements JsonReader {
   }
 
   private char parseUnicodeEscape() throws JsonReadException {
-    if (index + 4 > input.length()) {
+    if (!hasChar(index + 3)) {
       throw error("MJJBP-014", "Incomplete unicode escape.");
     }
     int value = 0;
@@ -322,17 +324,17 @@ public final class JsonStreamReader implements JsonReader {
   }
 
   private void parseDigits() throws JsonReadException {
-    if (index >= input.length() || !Character.isDigit(input.charAt(index))) {
+    if (!hasChar(index) || !Character.isDigit(charAt(index))) {
       throw error("MJJBP-016", "Expected digit in JSON number.");
     }
-    if (input.charAt(index) == '0') {
+    if (charAt(index) == '0') {
       advance();
-      if (index < input.length() && Character.isDigit(input.charAt(index))) {
+      if (hasChar(index) && Character.isDigit(charAt(index))) {
         throw error("MJJBP-017", "Leading zeroes are not valid JSON numbers.");
       }
       return;
     }
-    while (index < input.length() && Character.isDigit(input.charAt(index))) {
+    while (hasChar(index) && Character.isDigit(charAt(index))) {
       advance();
     }
   }
@@ -346,8 +348,13 @@ public final class JsonStreamReader implements JsonReader {
     }
   }
 
-  private boolean startsWith(String literal) {
-    return input.startsWith(literal, index);
+  private boolean startsWith(String literal) throws JsonReadException {
+    for (int i = 0; i < literal.length(); i++) {
+      if (!hasChar(index + i) || charAt(index + i) != literal.charAt(i)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private void expect(char expected) throws JsonReadException {
@@ -373,13 +380,13 @@ public final class JsonStreamReader implements JsonReader {
     return stack.peek();
   }
 
-  private boolean peekChar(char expected) {
-    return index < input.length() && input.charAt(index) == expected;
+  private boolean peekChar(char expected) throws JsonReadException {
+    return hasChar(index) && charAt(index) == expected;
   }
 
-  private void skipWhitespace() {
-    while (index < input.length()) {
-      char current = input.charAt(index);
+  private void skipWhitespace() throws JsonReadException {
+    while (hasChar(index)) {
+      char current = charAt(index);
       if (current != ' ' && current != '\n' && current != '\r' && current != '\t') {
         return;
       }
@@ -387,8 +394,8 @@ public final class JsonStreamReader implements JsonReader {
     }
   }
 
-  private char advance() {
-    char current = input.charAt(index++);
+  private char advance() throws JsonReadException {
+    char current = charAt(index++);
     if (current == '\n') {
       line++;
       column = 1;
@@ -396,6 +403,29 @@ public final class JsonStreamReader implements JsonReader {
       column++;
     }
     return current;
+  }
+
+  private char charAt(int position) throws JsonReadException {
+    if (!hasChar(position)) {
+      throw error("MJJBP-022", "Unexpected end of JSON input.");
+    }
+    return input.charAt(position);
+  }
+
+  private boolean hasChar(int position) throws JsonReadException {
+    while (position >= input.length() && !endOfInput) {
+      try {
+        int read = reader.read();
+        if (read == -1) {
+          endOfInput = true;
+        } else {
+          input.append((char) read);
+        }
+      } catch (IOException exception) {
+        throw error("MJJBP-023", "Unable to read JSON input: " + exception.getMessage());
+      }
+    }
+    return position < input.length();
   }
 
   private JsonReadException error(String code, String message) {

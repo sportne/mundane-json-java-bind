@@ -29,8 +29,18 @@ final class JsonStringWriterTest {
     JsonStringWriter writer = new JsonStringWriter();
 
     writer.beginObject();
+    assertThrows(JsonWriteException.class, writer::json);
     assertThrows(JsonWriteException.class, () -> writer.value("missing-name"));
     writer.name("id");
     assertThrows(JsonWriteException.class, writer::endObject);
+  }
+
+  @Test
+  void rejectsMultipleRootValues() throws JsonWriteException {
+    JsonStringWriter writer = new JsonStringWriter();
+
+    writer.value("one");
+    assertEquals("\"one\"", writer.json());
+    assertThrows(JsonWriteException.class, () -> writer.value("two"));
   }
 }
