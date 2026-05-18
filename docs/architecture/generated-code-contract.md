@@ -17,6 +17,21 @@ Generated source must be production-quality Java 21.
     dynamic proxies, runtime code generation, or third-party generated-code
     dependencies.
 
+## Initial Binding IR
+
+`generator-core` owns an internal binding IR used between schema profile
+validation and Java source emission. The IR is not part of the public generator
+API and generated source must not depend on it.
+
+The first object binding slice maps scalar JSON Schema types as follows:
+
+| JSON Schema type | Required Java type | Optional Java type |
+| --- | --- | --- |
+| `string` | `String` | `Optional<String>` |
+| `integer` | `long` | `Optional<Long>` |
+| `number` | `double` | `Optional<Double>` |
+| `boolean` | `boolean` | `Optional<Boolean>` |
+
 ## Example Shape
 
 ```java

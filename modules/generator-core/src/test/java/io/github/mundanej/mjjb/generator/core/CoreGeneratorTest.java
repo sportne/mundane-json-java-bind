@@ -46,8 +46,35 @@ final class CoreGeneratorTest {
   }
 
   @Test
-  void acceptsSupportedSchemaWithArraysLiteralsAndNumbers() throws IOException {
+  void writesInitialGeneratedSourceForSupportedScalarObjectSchema() throws IOException {
     Path schema = tempDir.resolve("schema.json");
+    Files.writeString(
+        schema,
+        """
+        {
+          "type": "object",
+          "properties": {
+            "id": {"type": "string"},
+            "count": {"type": "integer"},
+            "score": {"type": "number"},
+            "active": {"type": "boolean"}
+          },
+          "required": ["id", "count"],
+          "additionalProperties": false
+        }
+        """);
+
+    GeneratorResult result =
+        new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
+
+    assertTrue(result.successful());
+    assertTrue(Files.isRegularFile(result.generatedSources().getFirst()));
+  }
+
+  @Test
+  void reportsUnsupportedBindingShapesBeforeEmission() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Path output = tempDir.resolve("out");
     Files.writeString(
         schema,
         """
@@ -64,9 +91,50 @@ final class CoreGeneratorTest {
         """);
 
     GeneratorResult result =
+        new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), output));
+
+    assertFalse(result.successful());
+    assertTrue(result.generatedSources().isEmpty());
+    assertFalse(
+        Files.exists(output.resolve("io/github/mundanej/mjjb/generated/GeneratedBindings.java")));
+    assertEquals(
+        List.of("MJJBG-BINDING-UNSUPPORTED-PROPERTY-TYPE", "MJJBG-BINDING-MISSING-PROPERTY-TYPE"),
+        result.diagnostics().stream().map(diagnostic -> diagnostic.code()).toList());
+    assertEquals(
+        List.of("/properties/flags/type", "/properties/status"),
+        result.diagnostics().stream().map(diagnostic -> diagnostic.schemaPointer()).toList());
+  }
+
+  @Test
+  void reportsBindingDiagnosticsInDeterministicOrder() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(
+        schema,
+        """
+        {
+          "type": "object",
+          "properties": {
+            "z": {"type": "array"},
+            "a": {}
+          },
+          "required": ["missing"],
+          "additionalProperties": false
+        }
+        """);
+
+    GeneratorResult result =
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
-    assertTrue(result.successful());
+    assertFalse(result.successful());
+    assertEquals(
+        List.of("/properties/a", "/properties/z/type", "/required/0"),
+        result.diagnostics().stream().map(diagnostic -> diagnostic.schemaPointer()).toList());
+    assertEquals(
+        List.of(
+            "MJJBG-BINDING-MISSING-PROPERTY-TYPE",
+            "MJJBG-BINDING-UNSUPPORTED-PROPERTY-TYPE",
+            "MJJBG-BINDING-UNKNOWN-REQUIRED"),
+        result.diagnostics().stream().map(diagnostic -> diagnostic.code()).toList());
   }
 
   @Test

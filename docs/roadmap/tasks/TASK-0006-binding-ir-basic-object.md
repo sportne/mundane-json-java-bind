@@ -1,7 +1,7 @@
 # TASK-0006: Binding IR for Basic Objects
 
 Task ID: `TASK-0006`
-Status: `draft`
+Status: `complete`
 Gate: First binding slice
 Depends on: `TASK-0005`
 Specification references: JSON Schema Draft 2020-12 Validation keywords `type`, `properties`, `required`, `additionalProperties`

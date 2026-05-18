@@ -1,0 +1,27 @@
+package io.github.mundanej.mjjb.generator.core.internal.binding;
+
+import io.github.mundanej.mjjb.schema.model.JsonPointer;
+import java.util.Objects;
+
+/** Diagnostic raised while building binding IR. */
+public record BindingDiagnostic(String code, String message, JsonPointer pointer) {
+  public static final String ROOT_TYPE_CODE = "MJJBG-BINDING-ROOT-TYPE";
+  public static final String ADDITIONAL_PROPERTIES_CODE = "MJJBG-BINDING-ADDITIONAL-PROPERTIES";
+  public static final String MISSING_PROPERTY_TYPE_CODE = "MJJBG-BINDING-MISSING-PROPERTY-TYPE";
+  public static final String UNSUPPORTED_PROPERTY_TYPE_CODE =
+      "MJJBG-BINDING-UNSUPPORTED-PROPERTY-TYPE";
+  public static final String UNKNOWN_REQUIRED_CODE = "MJJBG-BINDING-UNKNOWN-REQUIRED";
+  public static final String NAME_COLLISION_CODE = "MJJBG-BINDING-NAME-COLLISION";
+
+  public BindingDiagnostic {
+    Objects.requireNonNull(code, "code");
+    Objects.requireNonNull(message, "message");
+    Objects.requireNonNull(pointer, "pointer");
+    if (code.isBlank()) {
+      throw new IllegalArgumentException("code must not be blank");
+    }
+    if (message.isBlank()) {
+      throw new IllegalArgumentException("message must not be blank");
+    }
+  }
+}

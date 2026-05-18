@@ -4,6 +4,9 @@ import io.github.mundanej.mjjb.generator.api.Generator;
 import io.github.mundanej.mjjb.generator.api.GeneratorDiagnostic;
 import io.github.mundanej.mjjb.generator.api.GeneratorRequest;
 import io.github.mundanej.mjjb.generator.api.GeneratorResult;
+import io.github.mundanej.mjjb.generator.core.internal.binding.BindingBuildResult;
+import io.github.mundanej.mjjb.generator.core.internal.binding.BindingDiagnostic;
+import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModelBuilder;
 import io.github.mundanej.mjjb.schema.model.SchemaSupportDiagnostic;
 import io.github.mundanej.mjjb.schema.model.SchemaSupportProfile;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxDiagnostic;
@@ -19,6 +22,8 @@ import java.util.Objects;
 
 /** Initial deterministic generator entry point. */
 public final class CoreGenerator implements Generator {
+  private static final String ROOT_TYPE_NAME = "GeneratedBindings";
+
   @Override
   public GeneratorResult generate(GeneratorRequest request) {
     Objects.requireNonNull(request, "request");
@@ -30,7 +35,7 @@ public final class CoreGenerator implements Generator {
       return GeneratorResult.failure(diagnostics);
     }
     for (Path schemaPath : request.schemaPaths()) {
-      diagnostics.addAll(validateSchemaPath(schemaPath));
+      diagnostics.addAll(validateSchemaPath(schemaPath, request.defaultPackage()));
     }
     if (!diagnostics.isEmpty()) {
       return GeneratorResult.failure(diagnostics);
@@ -50,8 +55,9 @@ public final class CoreGenerator implements Generator {
     }
   }
 
-  private List<GeneratorDiagnostic> validateSchemaPath(Path schemaPath) {
+  private List<GeneratorDiagnostic> validateSchemaPath(Path schemaPath, String packageName) {
     Objects.requireNonNull(schemaPath, "schemaPath");
+    Objects.requireNonNull(packageName, "packageName");
     ArrayList<GeneratorDiagnostic> diagnostics = new ArrayList<>();
     if (!Files.isRegularFile(schemaPath)) {
       diagnostics.add(
@@ -69,6 +75,12 @@ public final class CoreGenerator implements Generator {
       diagnostics.addAll(
           toGeneratorSupportDiagnostics(
               SchemaSupportProfile.validate(parseResult.root()), schemaPath));
+      if (!diagnostics.isEmpty()) {
+        return diagnostics;
+      }
+      BindingBuildResult bindingResult =
+          new BindingModelBuilder().build(parseResult.root(), packageName, ROOT_TYPE_NAME);
+      diagnostics.addAll(toGeneratorBindingDiagnostics(bindingResult.diagnostics(), schemaPath));
     } catch (IOException exception) {
       diagnostics.add(
           new GeneratorDiagnostic(
@@ -77,7 +89,22 @@ public final class CoreGenerator implements Generator {
               schemaPath,
               ""));
     }
-    diagnostics.sort(Comparator.comparing(GeneratorDiagnostic::toManifestLine));
+    diagnostics.sort(
+        Comparator.comparing(GeneratorDiagnostic::schemaPointer)
+            .thenComparing(GeneratorDiagnostic::code)
+            .thenComparing(GeneratorDiagnostic::message)
+            .thenComparing(GeneratorDiagnostic::toManifestLine));
+    return diagnostics;
+  }
+
+  private List<GeneratorDiagnostic> toGeneratorBindingDiagnostics(
+      List<BindingDiagnostic> bindingDiagnostics, Path schemaPath) {
+    ArrayList<GeneratorDiagnostic> diagnostics = new ArrayList<>();
+    for (BindingDiagnostic diagnostic : bindingDiagnostics) {
+      diagnostics.add(
+          new GeneratorDiagnostic(
+              diagnostic.code(), diagnostic.message(), schemaPath, diagnostic.pointer().value()));
+    }
     return diagnostics;
   }
 
