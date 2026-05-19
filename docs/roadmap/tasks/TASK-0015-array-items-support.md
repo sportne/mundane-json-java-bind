@@ -1,7 +1,7 @@
 # TASK-0015: Array and `items` Support
 
 Task ID: `TASK-0015`
-Status: `draft`
+Status: `complete`
 Gate: Collections and value constraints
 Depends on: `TASK-0014`
 Specification references: JSON Schema Draft 2020-12 Validation keywords `array`, `items`, `minItems`, `maxItems`

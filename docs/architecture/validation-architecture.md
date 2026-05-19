@@ -19,3 +19,9 @@ Generated validators expose an accumulating default mode and an explicit
 fail-fast mode. Both modes use `ValidationErrors`; generated code must stop
 after the first failed `add` call in fail-fast mode and return all accumulated
 errors in accumulate mode.
+
+Array validators enforce collection constraints on generated model lists.
+`minItems` and `maxItems` failures are reported at the array field path with
+stable generated-validator codes `MJJBV-005` and `MJJBV-006`. Validation that
+targets an array item, such as non-finite `number` items, reports the indexed
+instance path, for example `$.scores[0]`.

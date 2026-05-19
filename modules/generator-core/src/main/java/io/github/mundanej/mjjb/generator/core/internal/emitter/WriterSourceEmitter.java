@@ -72,7 +72,20 @@ public final class WriterSourceEmitter {
       if (field.scalarType() != JavaScalarType.NUMBER) {
         continue;
       }
-      if (field.required()) {
+      if (field.array() && field.required()) {
+        lines.add("    for (Double item : value." + field.javaFieldName() + "()) {");
+        lines.add(
+            "      requireFinite(item, " + javaStringLiteral(field.jsonPropertyName()) + ");");
+        lines.add("    }");
+      } else if (field.array()) {
+        lines.add("    if (value." + field.javaFieldName() + "().isPresent()) {");
+        lines.add(
+            "      for (Double item : value." + field.javaFieldName() + "().orElseThrow()) {");
+        lines.add(
+            "        requireFinite(item, " + javaStringLiteral(field.jsonPropertyName()) + ");");
+        lines.add("      }");
+        lines.add("    }");
+      } else if (field.required()) {
         lines.add(
             "    requireFinite(value."
                 + field.javaFieldName()
@@ -101,6 +114,12 @@ public final class WriterSourceEmitter {
   }
 
   private static List<String> requiredFieldLines(FieldBinding field) {
+    if (field.array()) {
+      ArrayList<String> lines = new ArrayList<>();
+      lines.add("    writer.name(" + javaStringLiteral(field.jsonPropertyName()) + ");");
+      lines.addAll(writeArrayLines(field, "value." + field.javaFieldName() + "()", "    "));
+      return lines;
+    }
     return List.of(
         "    writer.name(" + javaStringLiteral(field.jsonPropertyName()) + ");",
         "    " + writeValueStatement(field, "value." + field.javaFieldName() + "()"));
@@ -111,13 +130,36 @@ public final class WriterSourceEmitter {
     String fieldName = field.javaFieldName();
     lines.add("    if (value." + fieldName + "().isPresent()) {");
     lines.add("      writer.name(" + javaStringLiteral(field.jsonPropertyName()) + ");");
-    lines.add("      " + writeValueStatement(field, "value." + fieldName + "().orElseThrow()"));
+    if (field.array()) {
+      lines.addAll(writeArrayLines(field, "value." + fieldName + "().orElseThrow()", "      "));
+    } else {
+      lines.add("      " + writeValueStatement(field, "value." + fieldName + "().orElseThrow()"));
+    }
     lines.add("    }");
     return lines;
   }
 
   private static String writeValueStatement(FieldBinding field, String valueExpression) {
-    return switch (field.scalarType()) {
+    return writeScalarStatement(field.scalarType(), valueExpression);
+  }
+
+  private static List<String> writeArrayLines(
+      FieldBinding field, String valueExpression, String indent) {
+    return List.of(
+        indent + "writer.beginArray();",
+        indent
+            + "for ("
+            + field.scalarType().boxedJavaType()
+            + " item : "
+            + valueExpression
+            + ") {",
+        indent + "  " + writeScalarStatement(field.scalarType(), "item"),
+        indent + "}",
+        indent + "writer.endArray();");
+  }
+
+  private static String writeScalarStatement(JavaScalarType scalarType, String valueExpression) {
+    return switch (scalarType) {
       case STRING -> "writer.value(" + valueExpression + ");";
       case INTEGER -> "writer.number(Long.toString(" + valueExpression + "));";
       case NUMBER -> "writer.number(Double.toString(" + valueExpression + "));";

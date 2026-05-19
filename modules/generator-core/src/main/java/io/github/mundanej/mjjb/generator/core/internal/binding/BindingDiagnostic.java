@@ -10,6 +10,9 @@ public record BindingDiagnostic(String code, String message, JsonPointer pointer
   public static final String MISSING_PROPERTY_TYPE_CODE = "MJJBG-BINDING-MISSING-PROPERTY-TYPE";
   public static final String UNSUPPORTED_PROPERTY_TYPE_CODE =
       "MJJBG-BINDING-UNSUPPORTED-PROPERTY-TYPE";
+  public static final String MISSING_ARRAY_ITEMS_CODE = "MJJBG-BINDING-MISSING-ARRAY-ITEMS";
+  public static final String MISSING_ARRAY_ITEM_TYPE_CODE = "MJJBG-BINDING-MISSING-ARRAY-ITEM-TYPE";
+  public static final String INVALID_ARRAY_BOUNDS_CODE = "MJJBG-BINDING-INVALID-ARRAY-BOUNDS";
   public static final String UNKNOWN_REQUIRED_CODE = "MJJBG-BINDING-UNKNOWN-REQUIRED";
   public static final String NAME_COLLISION_CODE = "MJJBG-BINDING-NAME-COLLISION";
 

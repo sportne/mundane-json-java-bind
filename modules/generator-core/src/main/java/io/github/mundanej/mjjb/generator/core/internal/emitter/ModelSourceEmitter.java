@@ -33,6 +33,9 @@ public final class ModelSourceEmitter {
       if (requiresNullCheck(field)) {
         imports.add("java.util.Objects");
       }
+      if (field.array()) {
+        imports.add("java.util.List");
+      }
       if (!field.required()) {
         imports.add("java.util.Optional");
       }
@@ -60,14 +63,7 @@ public final class ModelSourceEmitter {
     }
     lines.add("  public " + model.rootTypeName() + " {");
     for (FieldBinding field : checkedFields) {
-      lines.add(
-          "    "
-              + field.javaFieldName()
-              + " = Objects.requireNonNull("
-              + field.javaFieldName()
-              + ", \""
-              + field.javaFieldName()
-              + "\");");
+      lines.add("    " + constructorAssignment(field));
     }
     lines.add("  }");
     lines.add("}");
@@ -76,12 +72,25 @@ public final class ModelSourceEmitter {
 
   private static String javaType(FieldBinding field) {
     if (field.required()) {
-      return field.scalarType().requiredJavaType();
+      return field.valueType().requiredJavaType();
     }
-    return field.scalarType().optionalJavaType();
+    return field.valueType().optionalJavaType();
   }
 
   private static boolean requiresNullCheck(FieldBinding field) {
-    return !field.required() || "String".equals(field.scalarType().requiredJavaType());
+    return !field.required()
+        || field.array()
+        || "String".equals(field.scalarType().requiredJavaType());
+  }
+
+  private static String constructorAssignment(FieldBinding field) {
+    String name = field.javaFieldName();
+    if (field.array() && field.required()) {
+      return name + " = List.copyOf(Objects.requireNonNull(" + name + ", \"" + name + "\"));";
+    }
+    if (field.array()) {
+      return name + " = Objects.requireNonNull(" + name + ", \"" + name + "\").map(List::copyOf);";
+    }
+    return name + " = Objects.requireNonNull(" + name + ", \"" + name + "\");";
   }
 }

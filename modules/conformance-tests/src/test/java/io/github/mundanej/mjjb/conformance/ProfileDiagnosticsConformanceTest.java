@@ -37,6 +37,25 @@ final class ProfileDiagnosticsConformanceTest {
   }
 
   @Test
+  void acceptsHomogeneousArrayObjectBindingThroughGenerator() throws IOException {
+    GeneratorResult result =
+        generate(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "tags": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 2}
+              },
+              "required": ["tags"],
+              "additionalProperties": false
+            }
+            """);
+
+    assertTrue(result.successful());
+    assertEquals(4, result.generatedSources().size());
+  }
+
+  @Test
   void rejectsKnownUnsupportedKeywordThroughGenerator() throws IOException {
     GeneratorResult result = generate("{\"$ref\":\"schema.json\"}");
 
@@ -52,6 +71,19 @@ final class ProfileDiagnosticsConformanceTest {
     assertFalse(result.successful());
     assertEquals("MJJBG-SCHEMA-UNSUPPORTED-KEYWORD-VALUE", result.diagnostics().getFirst().code());
     assertEquals("/additionalProperties", result.diagnostics().getFirst().schemaPointer());
+  }
+
+  @Test
+  void rejectsTupleArrayFormsThroughGeneratorProfile() throws IOException {
+    GeneratorResult prefixItems = generate("{\"prefixItems\":[{\"type\":\"string\"}]}");
+    GeneratorResult arrayItems = generate("{\"items\":[{\"type\":\"string\"}]}");
+
+    assertFalse(prefixItems.successful());
+    assertEquals("MJJBG-SCHEMA-UNSUPPORTED-KEYWORD", prefixItems.diagnostics().getFirst().code());
+    assertEquals("/prefixItems", prefixItems.diagnostics().getFirst().schemaPointer());
+    assertFalse(arrayItems.successful());
+    assertEquals("MJJBG-SCHEMA-INVALID-KEYWORD-VALUE", arrayItems.diagnostics().getFirst().code());
+    assertEquals("/items", arrayItems.diagnostics().getFirst().schemaPointer());
   }
 
   private GeneratorResult generate(String source) throws IOException {

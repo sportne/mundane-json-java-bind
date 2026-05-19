@@ -33,6 +33,15 @@ The first object binding slice maps scalar JSON Schema types as follows:
 | `number` | `double` | `Optional<Double>` |
 | `boolean` | `boolean` | `Optional<Boolean>` |
 
+Homogeneous arrays with scalar `items` map to immutable Java lists:
+
+| JSON Schema array item type | Required Java type | Optional Java type |
+| --- | --- | --- |
+| `string` | `List<String>` | `Optional<List<String>>` |
+| `integer` | `List<Long>` | `Optional<List<Long>>` |
+| `number` | `List<Double>` | `Optional<List<Double>>` |
+| `boolean` | `List<Boolean>` | `Optional<List<Boolean>>` |
+
 ## Basic Object Model Shape
 
 Generated basic object models are Java records. Record components are emitted in
@@ -54,6 +63,11 @@ Future nullable or absent-vs-null-sensitive fields use `JsonField<T>`:
 ```java
 public record User(String id, Optional<String> name, JsonField<String> nickname) {}
 ```
+
+Array fields are defensively copied with `List.copyOf` in the compact
+constructor. Required array fields reject null lists; optional array fields
+reject null optional containers. Present arrays reject null elements through the
+same copy operation. Accessors expose immutable lists.
 
 ## Basic Object Writer Shape
 
@@ -88,8 +102,12 @@ Writers emit object properties in schema order. Required scalar fields are alway
 written. Optional scalar fields are written only when their `Optional<T>` is
 present; absent optionals are skipped rather than serialized as `null`.
 
+Array fields are written with `beginArray`, item values in list iteration order,
+and `endArray`. Optional array fields are skipped when absent.
+
 `number` fields use `Double.toString` after an explicit `Double.isFinite` check.
-`integer` fields use `Long.toString`. Semantic numeric constraints remain
+`number` array items use the same finite check before writing. `integer` fields
+and integer array items use `Long.toString`. Semantic numeric constraints remain
 validator responsibility.
 
 ## Basic Object Reader Shape
@@ -128,6 +146,11 @@ decimal, exponent, and out-of-range literals. `number` fields parse Java
 `double` values and reject non-finite results. Semantic numeric constraints
 remain validator responsibility.
 
+Array fields are streamed with `beginArray`, `hasNext`, scalar item reads, and
+`endArray`; generated readers do not construct generic JSON value graphs. Array
+item diagnostics use indexed instance paths such as `$.tags[0]`. Non-array
+values for array fields use generated reader code `MJJBR-010`.
+
 ## Basic Object Validator Shape
 
 Generated basic object validators are final, stateless utility classes named
@@ -159,4 +182,6 @@ locations may remain unknown in this slice.
 Validators use stable `MJJBV-*` codes for generated-validator failures:
 `MJJBV-001` for root object null, `MJJBV-002` for required null reference
 fields, `MJJBV-003` for null optional containers, and `MJJBV-004` for non-finite
-number values.
+number values. Array validators also enforce `minItems` with `MJJBV-005` and
+`maxItems` with `MJJBV-006`; array size errors report the array field path and
+array item errors report indexed item paths.

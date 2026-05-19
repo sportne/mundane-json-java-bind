@@ -7,16 +7,24 @@ import java.util.Objects;
 public record FieldBinding(
     String jsonPropertyName,
     String javaFieldName,
-    JavaScalarType scalarType,
+    FieldValueType valueType,
     boolean required,
     JsonPointer schemaPointer) {
   public FieldBinding {
     Objects.requireNonNull(jsonPropertyName, "jsonPropertyName");
     Objects.requireNonNull(javaFieldName, "javaFieldName");
-    Objects.requireNonNull(scalarType, "scalarType");
+    Objects.requireNonNull(valueType, "valueType");
     Objects.requireNonNull(schemaPointer, "schemaPointer");
     if (javaFieldName.isBlank()) {
       throw new IllegalArgumentException("javaFieldName must not be blank");
     }
+  }
+
+  public JavaScalarType scalarType() {
+    return valueType.scalarType();
+  }
+
+  public boolean array() {
+    return valueType.array();
   }
 }

@@ -77,6 +77,10 @@ public final class ReaderSourceEmitter {
     imports.add("io.github.mundanej.mjjb.runtime.JsonReader");
     imports.add("io.github.mundanej.mjjb.runtime.JsonToken");
     imports.add("java.util.Objects");
+    if (hasArrayField(model)) {
+      imports.add("java.util.ArrayList");
+      imports.add("java.util.List");
+    }
     if (model.rootObject().fields().stream().anyMatch(field -> !field.required())) {
       imports.add("java.util.Optional");
     }
@@ -183,8 +187,23 @@ public final class ReaderSourceEmitter {
     if (hasScalarType(model, JavaScalarType.BOOLEAN)) {
       lines.addAll(booleanHelper());
     }
+    if (hasArrayType(model, JavaScalarType.STRING)) {
+      lines.addAll(arrayHelper(JavaScalarType.STRING));
+    }
+    if (hasArrayType(model, JavaScalarType.INTEGER)) {
+      lines.addAll(arrayHelper(JavaScalarType.INTEGER));
+    }
+    if (hasArrayType(model, JavaScalarType.NUMBER)) {
+      lines.addAll(arrayHelper(JavaScalarType.NUMBER));
+    }
+    if (hasArrayType(model, JavaScalarType.BOOLEAN)) {
+      lines.addAll(arrayHelper(JavaScalarType.BOOLEAN));
+    }
     if (!model.rootObject().fields().isEmpty()) {
       lines.addAll(requireTokenHelper());
+      if (hasArrayField(model)) {
+        lines.addAll(hasNextHelper());
+      }
       lines.addAll(atPathHelper());
     }
     lines.add("");
@@ -275,6 +294,39 @@ public final class ReaderSourceEmitter {
         "  }");
   }
 
+  private static List<String> arrayHelper(JavaScalarType scalarType) {
+    String typeName = scalarType.boxedJavaType();
+    String methodName = arrayReadMethodName(scalarType);
+    String itemReadExpression = readScalarExpression(scalarType, "path.index(index)");
+    return List.of(
+        "",
+        "  private static List<"
+            + typeName
+            + "> "
+            + methodName
+            + "(JsonReader reader, JsonPath path)",
+        "      throws JsonReadException {",
+        "    requireToken(reader, JsonToken.BEGIN_ARRAY, \"MJJBR-010\", \"Expected JSON array.\", path);",
+        "    ArrayList<" + typeName + "> values = new ArrayList<>();",
+        "    try {",
+        "      reader.beginArray();",
+        "    } catch (JsonReadException exception) {",
+        "      throw atPath(exception, path);",
+        "    }",
+        "    int index = 0;",
+        "    while (hasNext(reader, path)) {",
+        "      values.add(" + itemReadExpression + ");",
+        "      index++;",
+        "    }",
+        "    try {",
+        "      reader.endArray();",
+        "    } catch (JsonReadException exception) {",
+        "      throw atPath(exception, path);",
+        "    }",
+        "    return List.copyOf(values);",
+        "  }");
+  }
+
   private static List<String> requireTokenHelper() {
     return List.of(
         "",
@@ -304,6 +356,19 @@ public final class ReaderSourceEmitter {
         "  }");
   }
 
+  private static List<String> hasNextHelper() {
+    return List.of(
+        "",
+        "  private static boolean hasNext(JsonReader reader, JsonPath path)",
+        "      throws JsonReadException {",
+        "    try {",
+        "      return reader.hasNext();",
+        "    } catch (JsonReadException exception) {",
+        "      throw atPath(exception, path);",
+        "    }",
+        "  }");
+  }
+
   private static List<String> atPathHelper() {
     return List.of(
         "",
@@ -320,7 +385,14 @@ public final class ReaderSourceEmitter {
   }
 
   private static String readExpression(FieldBinding field, String pathExpression) {
-    return switch (field.scalarType()) {
+    if (field.array()) {
+      return arrayReadMethodName(field.scalarType()) + "(reader, " + pathExpression + ")";
+    }
+    return readScalarExpression(field.scalarType(), pathExpression);
+  }
+
+  private static String readScalarExpression(JavaScalarType scalarType, String pathExpression) {
+    return switch (scalarType) {
       case STRING -> "readString(reader, " + pathExpression + ")";
       case INTEGER -> "readInteger(reader, " + pathExpression + ")";
       case NUMBER -> "readNumber(reader, " + pathExpression + ")";
@@ -334,12 +406,15 @@ public final class ReaderSourceEmitter {
 
   private static String localJavaType(FieldBinding field) {
     if (field.required()) {
-      return field.scalarType().requiredJavaType();
+      return field.valueType().requiredJavaType();
     }
-    return field.scalarType().optionalJavaType();
+    return field.valueType().optionalJavaType();
   }
 
   private static String requiredDefault(FieldBinding field) {
+    if (field.array()) {
+      return "null";
+    }
     return switch (field.scalarType()) {
       case STRING -> "null";
       case INTEGER -> "0L";
@@ -354,6 +429,24 @@ public final class ReaderSourceEmitter {
 
   private static boolean hasScalarType(BindingModel model, JavaScalarType scalarType) {
     return model.rootObject().fields().stream().anyMatch(field -> field.scalarType() == scalarType);
+  }
+
+  private static boolean hasArrayField(BindingModel model) {
+    return model.rootObject().fields().stream().anyMatch(FieldBinding::array);
+  }
+
+  private static boolean hasArrayType(BindingModel model, JavaScalarType scalarType) {
+    return model.rootObject().fields().stream()
+        .anyMatch(field -> field.array() && field.scalarType() == scalarType);
+  }
+
+  private static String arrayReadMethodName(JavaScalarType scalarType) {
+    return switch (scalarType) {
+      case STRING -> "readStringArray";
+      case INTEGER -> "readIntegerArray";
+      case NUMBER -> "readNumberArray";
+      case BOOLEAN -> "readBooleanArray";
+    };
   }
 
   private static String javaStringLiteral(String value) {

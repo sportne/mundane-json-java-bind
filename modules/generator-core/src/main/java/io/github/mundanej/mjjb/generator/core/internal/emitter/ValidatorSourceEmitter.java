@@ -57,6 +57,34 @@ public final class ValidatorSourceEmitter {
               + "ValidationError.of(\"MJJBV-004\", \"Expected finite JSON number.\", path));");
       lines.add("  }");
     }
+    if (hasArrayWithMinItems(model)) {
+      lines.add("");
+      lines.add(
+          "  private static boolean validateMinItems("
+              + "ValidationErrors errors, int size, long minItems, JsonPath path) {");
+      lines.add("    if (size >= minItems) {");
+      lines.add("      return true;");
+      lines.add("    }");
+      lines.add(
+          "    return errors.add("
+              + "ValidationError.of(\"MJJBV-005\", \"Expected at least \" + minItems + "
+              + "\" array items.\", path));");
+      lines.add("  }");
+    }
+    if (hasArrayWithMaxItems(model)) {
+      lines.add("");
+      lines.add(
+          "  private static boolean validateMaxItems("
+              + "ValidationErrors errors, int size, long maxItems, JsonPath path) {");
+      lines.add("    if (size <= maxItems) {");
+      lines.add("      return true;");
+      lines.add("    }");
+      lines.add(
+          "    return errors.add("
+              + "ValidationError.of(\"MJJBV-006\", \"Expected at most \" + maxItems + "
+              + "\" array items.\", path));");
+      lines.add("  }");
+    }
     lines.add("}");
     lines.add("");
     return String.join("\n", lines);
@@ -80,7 +108,8 @@ public final class ValidatorSourceEmitter {
 
   private static List<String> validateFieldLines(FieldBinding field) {
     ArrayList<String> lines = new ArrayList<>();
-    if (field.required() && "String".equals(field.scalarType().requiredJavaType())) {
+    if (field.required()
+        && (field.array() || "String".equals(field.scalarType().requiredJavaType()))) {
       lines.add("    if (value." + field.javaFieldName() + "() == null) {");
       lines.add(
           "      if (!errors.add("
@@ -105,6 +134,10 @@ public final class ValidatorSourceEmitter {
       lines.add("        return errors.toResult();");
       lines.add("      }");
       lines.add("    }");
+    }
+    if (field.array()) {
+      lines.addAll(validateArrayLines(field));
+      return lines;
     }
     if (field.scalarType() == JavaScalarType.NUMBER) {
       if (field.required()) {
@@ -137,9 +170,87 @@ public final class ValidatorSourceEmitter {
     return lines;
   }
 
+  private static List<String> validateArrayLines(FieldBinding field) {
+    ArrayList<String> lines = new ArrayList<>();
+    if (field.valueType().minItems().isEmpty()
+        && field.valueType().maxItems().isEmpty()
+        && field.scalarType() != JavaScalarType.NUMBER) {
+      return lines;
+    }
+    String valueExpression = arrayValueExpression(field);
+    String guard = arrayGuard(field);
+    lines.add("    if (" + guard + ") {");
+    if (field.valueType().minItems().isPresent()) {
+      lines.add(
+          "      if (!validateMinItems(errors, "
+              + valueExpression
+              + ".size(), "
+              + field.valueType().minItems().getAsLong()
+              + "L, "
+              + propertyPathExpression(field)
+              + ")) {");
+      lines.add("        return errors.toResult();");
+      lines.add("      }");
+    }
+    if (field.valueType().maxItems().isPresent()) {
+      lines.add(
+          "      if (!validateMaxItems(errors, "
+              + valueExpression
+              + ".size(), "
+              + field.valueType().maxItems().getAsLong()
+              + "L, "
+              + propertyPathExpression(field)
+              + ")) {");
+      lines.add("        return errors.toResult();");
+      lines.add("      }");
+    }
+    if (field.scalarType() == JavaScalarType.NUMBER) {
+      lines.add("      int index = 0;");
+      lines.add("      for (Double item : " + valueExpression + ") {");
+      lines.add(
+          "        if (!validateFinite(errors, item, "
+              + propertyPathExpression(field)
+              + ".index(index))) {");
+      lines.add("          return errors.toResult();");
+      lines.add("        }");
+      lines.add("        index++;");
+      lines.add("      }");
+    }
+    lines.add("    }");
+    return lines;
+  }
+
   private static boolean hasNumberField(BindingModel model) {
     return model.rootObject().fields().stream()
         .anyMatch(field -> field.scalarType() == JavaScalarType.NUMBER);
+  }
+
+  private static boolean hasArrayWithMinItems(BindingModel model) {
+    return model.rootObject().fields().stream()
+        .anyMatch(field -> field.array() && field.valueType().minItems().isPresent());
+  }
+
+  private static boolean hasArrayWithMaxItems(BindingModel model) {
+    return model.rootObject().fields().stream()
+        .anyMatch(field -> field.array() && field.valueType().maxItems().isPresent());
+  }
+
+  private static String arrayGuard(FieldBinding field) {
+    if (field.required()) {
+      return "value." + field.javaFieldName() + "() != null";
+    }
+    return "value."
+        + field.javaFieldName()
+        + "() != null && value."
+        + field.javaFieldName()
+        + "().isPresent()";
+  }
+
+  private static String arrayValueExpression(FieldBinding field) {
+    if (field.required()) {
+      return "value." + field.javaFieldName() + "()";
+    }
+    return "value." + field.javaFieldName() + "().orElseThrow()";
   }
 
   private static String propertyPathExpression(FieldBinding field) {

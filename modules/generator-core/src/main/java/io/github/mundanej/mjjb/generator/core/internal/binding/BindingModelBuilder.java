@@ -5,6 +5,7 @@ import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.ArrayValue;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.BooleanValue;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.Member;
+import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.NumberValue;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.ObjectValue;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.StringValue;
 import java.util.ArrayList;
@@ -16,6 +17,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 /** Builds the first-slice binding IR from profile-validated schema syntax. */
@@ -112,14 +114,9 @@ public final class BindingModelBuilder {
                   property.pointer()));
           continue;
         }
-        Optional<JavaScalarType> scalarType = scalarType(typeMember.get().value());
-        if (scalarType.isEmpty()) {
-          diagnostics.add(
-              unsupportedPropertyType(
-                  "Property '"
-                      + property.name()
-                      + "' must use one of the scalar types string, integer, number, or boolean.",
-                  typeMember.get().pointer()));
+        Optional<FieldValueType> valueType =
+            valueType(property.name(), propertySchema, typeMember.get(), diagnostics);
+        if (valueType.isEmpty()) {
           continue;
         }
         String javaFieldName = toJavaFieldName(property.name());
@@ -139,7 +136,7 @@ public final class BindingModelBuilder {
             new FieldBinding(
                 property.name(),
                 javaFieldName,
-                scalarType.get(),
+                valueType.get(),
                 requiredNames.names().contains(property.name()),
                 property.pointer()));
       }
@@ -249,6 +246,89 @@ public final class BindingModelBuilder {
     return Optional.empty();
   }
 
+  private static Optional<FieldValueType> valueType(
+      String propertyName,
+      ObjectValue propertySchema,
+      Member typeMember,
+      List<BindingDiagnostic> diagnostics) {
+    Optional<JavaScalarType> scalarType = scalarType(typeMember.value());
+    if (scalarType.isPresent()) {
+      return Optional.of(FieldValueType.scalar(scalarType.get()));
+    }
+    if (typeMember.value() instanceof StringValue stringValue
+        && "array".equals(stringValue.value())) {
+      return arrayType(propertyName, propertySchema, diagnostics);
+    }
+    diagnostics.add(
+        unsupportedPropertyType(
+            "Property '"
+                + propertyName
+                + "' must use a supported scalar type or homogeneous scalar array.",
+            typeMember.pointer()));
+    return Optional.empty();
+  }
+
+  private static Optional<FieldValueType> arrayType(
+      String propertyName, ObjectValue propertySchema, List<BindingDiagnostic> diagnostics) {
+    Optional<Member> itemsMember = member(propertySchema, "items");
+    if (itemsMember.isEmpty()) {
+      diagnostics.add(
+          missingArrayItems(
+              "Array property '" + propertyName + "' must declare an 'items' schema.",
+              propertySchema.pointer()));
+      return Optional.empty();
+    }
+    if (!(itemsMember.get().value() instanceof ObjectValue itemsSchema)) {
+      diagnostics.add(
+          unsupportedPropertyType(
+              "Array property '" + propertyName + "' must use an object 'items' schema.",
+              itemsMember.get().pointer()));
+      return Optional.empty();
+    }
+    Optional<Member> itemTypeMember = member(itemsSchema, "type");
+    if (itemTypeMember.isEmpty()) {
+      diagnostics.add(
+          missingArrayItemType(
+              "Array property '" + propertyName + "' items must declare a scalar 'type'.",
+              itemsMember.get().pointer()));
+      return Optional.empty();
+    }
+    Optional<JavaScalarType> itemType = scalarType(itemTypeMember.get().value());
+    if (itemType.isEmpty()) {
+      diagnostics.add(
+          unsupportedPropertyType(
+              "Array property '"
+                  + propertyName
+                  + "' items must use one of the scalar types string, integer, number, or boolean.",
+              itemTypeMember.get().pointer()));
+      return Optional.empty();
+    }
+    OptionalLong minItems = nonNegativeIntegerMember(propertySchema, "minItems");
+    OptionalLong maxItems = nonNegativeIntegerMember(propertySchema, "maxItems");
+    if (minItems.isPresent()
+        && maxItems.isPresent()
+        && minItems.getAsLong() > maxItems.getAsLong()) {
+      diagnostics.add(
+          invalidArrayBounds(
+              "Array property '" + propertyName + "' minItems must not exceed maxItems.",
+              member(propertySchema, "maxItems").orElseThrow().pointer()));
+      return Optional.empty();
+    }
+    return Optional.of(FieldValueType.array(itemType.get(), minItems, maxItems));
+  }
+
+  private static OptionalLong nonNegativeIntegerMember(ObjectValue objectValue, String name) {
+    Optional<Member> member = member(objectValue, name);
+    if (member.isEmpty() || !(member.get().value() instanceof NumberValue numberValue)) {
+      return OptionalLong.empty();
+    }
+    try {
+      return OptionalLong.of(Long.parseLong(numberValue.literal()));
+    } catch (NumberFormatException exception) {
+      return OptionalLong.of(Long.MAX_VALUE);
+    }
+  }
+
   private static String toJavaFieldName(String propertyName) {
     ArrayList<String> words = new ArrayList<>();
     StringBuilder current = new StringBuilder();
@@ -320,6 +400,18 @@ public final class BindingModelBuilder {
   private static BindingDiagnostic unsupportedPropertyType(String message, JsonPointer pointer) {
     return new BindingDiagnostic(
         BindingDiagnostic.UNSUPPORTED_PROPERTY_TYPE_CODE, message, pointer);
+  }
+
+  private static BindingDiagnostic missingArrayItems(String message, JsonPointer pointer) {
+    return new BindingDiagnostic(BindingDiagnostic.MISSING_ARRAY_ITEMS_CODE, message, pointer);
+  }
+
+  private static BindingDiagnostic missingArrayItemType(String message, JsonPointer pointer) {
+    return new BindingDiagnostic(BindingDiagnostic.MISSING_ARRAY_ITEM_TYPE_CODE, message, pointer);
+  }
+
+  private static BindingDiagnostic invalidArrayBounds(String message, JsonPointer pointer) {
+    return new BindingDiagnostic(BindingDiagnostic.INVALID_ARRAY_BOUNDS_CODE, message, pointer);
   }
 
   private static BindingDiagnostic unknownRequired(String message, JsonPointer pointer) {

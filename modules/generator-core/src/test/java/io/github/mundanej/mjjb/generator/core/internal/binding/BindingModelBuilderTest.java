@@ -98,6 +98,36 @@ final class BindingModelBuilderTest {
   }
 
   @Test
+  void buildsArrayBindingsForHomogeneousScalarItems() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "tags": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+                "scores": {"type": "array", "items": {"type": "number"}, "maxItems": 3}
+              },
+              "required": ["tags"],
+              "additionalProperties": false
+            }
+            """);
+
+    assertTrue(result.diagnostics().isEmpty());
+    BindingModel model = result.model().orElseThrow();
+    assertEquals(List.of("tags", "scores"), jsonPropertyNames(model));
+    assertEquals(List.of(true, true), arrayFlags(model));
+    assertEquals(List.of(JavaScalarType.STRING, JavaScalarType.NUMBER), scalarTypes(model));
+    assertEquals(List.of(true, false), requiredFlags(model));
+    assertEquals("List<String>", model.rootObject().fields().get(0).valueType().requiredJavaType());
+    assertEquals(
+        "Optional<List<Double>>",
+        model.rootObject().fields().get(1).valueType().optionalJavaType());
+    assertEquals(1L, model.rootObject().fields().get(0).valueType().minItems().orElseThrow());
+    assertEquals(3L, model.rootObject().fields().get(1).valueType().maxItems().orElseThrow());
+  }
+
+  @Test
   void rejectsJavaFieldNameCollisions() {
     BindingBuildResult result =
         build(
@@ -178,18 +208,46 @@ final class BindingModelBuilderTest {
             {
               "type": "object",
               "properties": {
-                "tags": {"type": "array"},
                 "child": {"type": "object"}
               },
               "additionalProperties": false
             }
             """);
 
+    assertEquals(List.of("/properties/child/type"), diagnosticPointers(result));
     assertEquals(
-        List.of("/properties/child/type", "/properties/tags/type"), diagnosticPointers(result));
+        List.of(BindingDiagnostic.UNSUPPORTED_PROPERTY_TYPE_CODE), diagnosticCodes(result));
+  }
+
+  @Test
+  void rejectsUnsupportedArrayBindingShapes() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "missingItems": {"type": "array"},
+                "missingItemType": {"type": "array", "items": {}},
+                "nested": {"type": "array", "items": {"type": "array"}},
+                "backwards": {"type": "array", "items": {"type": "string"}, "minItems": 2, "maxItems": 1}
+              },
+              "additionalProperties": false
+            }
+            """);
+
     assertEquals(
         List.of(
-            BindingDiagnostic.UNSUPPORTED_PROPERTY_TYPE_CODE,
+            "/properties/backwards/maxItems",
+            "/properties/missingItemType/items",
+            "/properties/missingItems",
+            "/properties/nested/items/type"),
+        diagnosticPointers(result));
+    assertEquals(
+        List.of(
+            BindingDiagnostic.INVALID_ARRAY_BOUNDS_CODE,
+            BindingDiagnostic.MISSING_ARRAY_ITEM_TYPE_CODE,
+            BindingDiagnostic.MISSING_ARRAY_ITEMS_CODE,
             BindingDiagnostic.UNSUPPORTED_PROPERTY_TYPE_CODE),
         diagnosticCodes(result));
   }
@@ -234,6 +292,10 @@ final class BindingModelBuilderTest {
 
   private static List<Boolean> requiredFlags(BindingModel model) {
     return model.rootObject().fields().stream().map(FieldBinding::required).toList();
+  }
+
+  private static List<Boolean> arrayFlags(BindingModel model) {
+    return model.rootObject().fields().stream().map(FieldBinding::array).toList();
   }
 
   private static List<String> schemaPointers(BindingModel model) {

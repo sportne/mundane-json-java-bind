@@ -35,6 +35,7 @@ public final class GeneratedCodeSmoke {
     return List.of(
         new GeneratedSourceFixture("empty-object"),
         new GeneratedSourceFixture("mixed-scalar"),
+        new GeneratedSourceFixture("array-scalar"),
         new GeneratedSourceFixture("property-order"),
         new GeneratedSourceFixture("validation-fail-fast"));
   }

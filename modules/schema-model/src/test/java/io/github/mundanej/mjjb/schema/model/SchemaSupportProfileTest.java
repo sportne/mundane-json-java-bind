@@ -88,6 +88,23 @@ final class SchemaSupportProfileTest {
   }
 
   @Test
+  void acceptsHomogeneousArrayKeywordShapes() {
+    assertValid(
+        """
+        {
+          "type": "object",
+          "properties": {
+            "strings": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 3},
+            "integers": {"type": "array", "items": {"type": "integer"}},
+            "numbers": {"type": "array", "items": {"type": "number"}},
+            "booleans": {"type": "array", "items": {"type": "boolean"}}
+          },
+          "additionalProperties": false
+        }
+        """);
+  }
+
+  @Test
   void ignoresUnknownExtensionKeywordsAsAnnotations() {
     assertValid("{\"type\":\"object\",\"x-extension\":{\"$ref\":\"annotation text\"}}");
   }
@@ -113,6 +130,7 @@ final class SchemaSupportProfileTest {
     assertInvalid("{\"properties\": []}", "/properties");
     assertInvalid("{\"properties\": {\"id\": \"bad\"}}", "/properties/id");
     assertInvalid("{\"items\": 1}", "/items");
+    assertInvalid("{\"items\": [{\"type\": \"string\"}]}", "/items");
     assertInvalid("{\"minItems\": -1}", "/minItems");
     assertInvalid("{\"maxItems\": 1.5}", "/maxItems");
     assertInvalid("{\"minLength\": \"1\"}", "/minLength");
@@ -132,6 +150,7 @@ final class SchemaSupportProfileTest {
     assertUnsupportedValue("{\"format\": \"email\"}", "/format");
     assertUnsupportedValue("{\"properties\": {\"id\": true}}", "/properties/id");
     assertUnsupportedValue("{\"items\": false}", "/items");
+    assertUnsupportedKeyword("{\"prefixItems\": [{\"type\":\"string\"}]}", "/prefixItems");
     assertUnsupportedValue("{\"oneOf\": [{\"type\":\"string\"}, {\"type\":\"number\"}]}", "/oneOf");
   }
 
@@ -145,6 +164,10 @@ final class SchemaSupportProfileTest {
 
   private static void assertUnsupportedValue(String source, String pointer) {
     assertDiagnostic(source, pointer, SchemaSupportProfile.UNSUPPORTED_KEYWORD_VALUE_CODE);
+  }
+
+  private static void assertUnsupportedKeyword(String source, String pointer) {
+    assertDiagnostic(source, pointer, SchemaSupportProfile.UNSUPPORTED_KEYWORD_CODE);
   }
 
   private static void assertDiagnostic(String source, String pointer, String code) {

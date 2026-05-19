@@ -143,6 +143,46 @@ final class CoreGeneratorTest {
   }
 
   @Test
+  void writesScalarArrayObjectRecordMatchingGoldenSource() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(
+        schema,
+        """
+        {
+          "type": "object",
+          "properties": {
+            "tags": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 3},
+            "counts": {"type": "array", "items": {"type": "integer"}},
+            "scores": {"type": "array", "items": {"type": "number"}, "maxItems": 2},
+            "flags": {"type": "array", "items": {"type": "boolean"}}
+          },
+          "required": ["tags", "counts"],
+          "additionalProperties": false
+        }
+        """);
+
+    GeneratorResult result =
+        new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
+
+    assertTrue(result.successful());
+    assertEquals(4, result.generatedSources().size());
+    Path modelSource = sourceNamed(result, "GeneratedBindings.java");
+    Path writerSource = sourceNamed(result, "GeneratedBindingsJsonWriter.java");
+    Path readerSource = sourceNamed(result, "GeneratedBindingsJsonReader.java");
+    Path validatorSource = sourceNamed(result, "GeneratedBindingsJsonValidator.java");
+    assertEquals(golden("array-scalar", "GeneratedBindings.java"), Files.readString(modelSource));
+    assertEquals(
+        golden("array-scalar", "GeneratedBindingsJsonWriter.java"), Files.readString(writerSource));
+    assertEquals(
+        golden("array-scalar", "GeneratedBindingsJsonReader.java"), Files.readString(readerSource));
+    assertEquals(
+        golden("array-scalar", "GeneratedBindingsJsonValidator.java"),
+        Files.readString(validatorSource));
+    generatedSourceVerifier.compileGeneratedSources(
+        "array-scalar", result.generatedSources(), tempDir.resolve("array-scalar-classes"));
+  }
+
+  @Test
   void writesCustomRootTypeSources() throws IOException {
     Path schema = tempDir.resolve("schema.json");
     Files.writeString(
@@ -191,7 +231,7 @@ final class CoreGeneratorTest {
           "properties": {
             "status": {"enum": ["open", "closed"]},
             "count": {"type": "integer", "minimum": 0, "maximum": 10},
-            "flags": {"type": "array", "items": {"type": "boolean"}, "default": [true, false, null]}
+            "flags": {"type": "array", "items": {"type": "array"}}
           },
           "required": ["status"],
           "additionalProperties": false
@@ -219,7 +259,7 @@ final class CoreGeneratorTest {
         List.of("MJJBG-BINDING-UNSUPPORTED-PROPERTY-TYPE", "MJJBG-BINDING-MISSING-PROPERTY-TYPE"),
         result.diagnostics().stream().map(diagnostic -> diagnostic.code()).toList());
     assertEquals(
-        List.of("/properties/flags/type", "/properties/status"),
+        List.of("/properties/flags/items/type", "/properties/status"),
         result.diagnostics().stream().map(diagnostic -> diagnostic.schemaPointer()).toList());
   }
 
@@ -245,12 +285,12 @@ final class CoreGeneratorTest {
 
     assertFalse(result.successful());
     assertEquals(
-        List.of("/properties/a", "/properties/z/type", "/required/0"),
+        List.of("/properties/a", "/properties/z", "/required/0"),
         result.diagnostics().stream().map(diagnostic -> diagnostic.schemaPointer()).toList());
     assertEquals(
         List.of(
             "MJJBG-BINDING-MISSING-PROPERTY-TYPE",
-            "MJJBG-BINDING-UNSUPPORTED-PROPERTY-TYPE",
+            "MJJBG-BINDING-MISSING-ARRAY-ITEMS",
             "MJJBG-BINDING-UNKNOWN-REQUIRED"),
         result.diagnostics().stream().map(diagnostic -> diagnostic.code()).toList());
   }
