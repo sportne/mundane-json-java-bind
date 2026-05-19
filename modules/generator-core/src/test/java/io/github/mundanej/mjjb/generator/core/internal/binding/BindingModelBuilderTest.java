@@ -128,6 +128,51 @@ final class BindingModelBuilderTest {
   }
 
   @Test
+  void collectsScalarAndArrayItemFacets() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 4,
+                  "pattern": "^[A-Z]+$",
+                  "format": "uuid"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10,
+                  "exclusiveMinimum": 0,
+                  "exclusiveMaximum": 11
+                },
+                "names": {
+                  "type": "array",
+                  "items": {"type": "string", "minLength": 1, "pattern": "^[a-z]+$"}
+                }
+              },
+              "additionalProperties": false
+            }
+            """);
+
+    assertTrue(result.diagnostics().isEmpty());
+    List<FieldBinding> fields = result.model().orElseThrow().rootObject().fields();
+    assertEquals(2L, fields.get(0).valueType().facets().minLength().orElseThrow());
+    assertEquals(4L, fields.get(0).valueType().facets().maxLength().orElseThrow());
+    assertEquals("^[A-Z]+$", fields.get(0).valueType().facets().pattern().orElseThrow());
+    assertEquals("uuid", fields.get(0).valueType().facets().format().orElseThrow());
+    assertEquals("1", fields.get(1).valueType().facets().minimum().orElseThrow());
+    assertEquals("10", fields.get(1).valueType().facets().maximum().orElseThrow());
+    assertEquals("0", fields.get(1).valueType().facets().exclusiveMinimum().orElseThrow());
+    assertEquals("11", fields.get(1).valueType().facets().exclusiveMaximum().orElseThrow());
+    assertEquals(1L, fields.get(2).valueType().facets().minLength().orElseThrow());
+    assertEquals("^[a-z]+$", fields.get(2).valueType().facets().pattern().orElseThrow());
+  }
+
+  @Test
   void rejectsJavaFieldNameCollisions() {
     BindingBuildResult result =
         build(

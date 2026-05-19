@@ -11,6 +11,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /** v1 schema support profile helpers. */
 public final class SchemaSupportProfile {
@@ -111,9 +113,7 @@ public final class SchemaSupportProfile {
           requireNonNegativeInteger(member.value(), keyword.keyword(), diagnostics);
       case MINIMUM, MAXIMUM, EXCLUSIVE_MINIMUM, EXCLUSIVE_MAXIMUM ->
           requireNumber(member.value(), keyword.keyword(), diagnostics);
-      case PATTERN ->
-          requireString(
-              member.value(), "The 'pattern' keyword value must be a string.", diagnostics);
+      case PATTERN -> validatePattern(member.value(), diagnostics);
       case FORMAT -> validateFormat(member.value(), diagnostics);
       case ONE_OF -> validateOneOf(member.value(), diagnostics);
       case CONST, DEFAULT -> {
@@ -284,13 +284,6 @@ public final class SchemaSupportProfile {
     }
   }
 
-  private static void requireString(
-      SchemaSyntaxValue value, String message, List<SchemaSupportDiagnostic> diagnostics) {
-    if (!(value instanceof StringValue)) {
-      diagnostics.add(invalidValue(message, value.pointer()));
-    }
-  }
-
   private static void validateFormat(
       SchemaSyntaxValue value, List<SchemaSupportDiagnostic> diagnostics) {
     if (!(value instanceof StringValue stringValue)) {
@@ -302,6 +295,23 @@ public final class SchemaSupportProfile {
       diagnostics.add(
           unsupportedValue(
               "JSP-DATA-2020-12 supports only date, date-time, and uuid formats.",
+              value.pointer()));
+    }
+  }
+
+  private static void validatePattern(
+      SchemaSyntaxValue value, List<SchemaSupportDiagnostic> diagnostics) {
+    if (!(value instanceof StringValue stringValue)) {
+      diagnostics.add(
+          invalidValue("The 'pattern' keyword value must be a string.", value.pointer()));
+      return;
+    }
+    try {
+      Pattern.compile(stringValue.value());
+    } catch (PatternSyntaxException exception) {
+      diagnostics.add(
+          invalidValue(
+              "The 'pattern' keyword value must compile as a deterministic v1 regular expression.",
               value.pointer()));
     }
   }

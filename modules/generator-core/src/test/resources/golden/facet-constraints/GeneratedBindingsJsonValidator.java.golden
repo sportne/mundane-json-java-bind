@@ -1,0 +1,290 @@
+package io.github.mundanej.mjjb.generated;
+
+import io.github.mundanej.mjjb.runtime.JsonPath;
+import io.github.mundanej.mjjb.runtime.ValidationError;
+import io.github.mundanej.mjjb.runtime.ValidationErrors;
+import io.github.mundanej.mjjb.runtime.ValidationMode;
+import io.github.mundanej.mjjb.runtime.ValidationResult;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.regex.Pattern;
+
+public final class GeneratedBindingsJsonValidator {
+  private GeneratedBindingsJsonValidator() {}
+
+  public static ValidationResult validate(GeneratedBindings value) {
+    return validate(value, ValidationMode.ACCUMULATE);
+  }
+
+  public static ValidationResult validate(GeneratedBindings value, ValidationMode mode) {
+    Objects.requireNonNull(mode, "mode");
+    ValidationErrors errors = ValidationErrors.create(mode);
+    if (value == null) {
+      errors.add(ValidationError.of("MJJBV-001", "Expected generated object value.", JsonPath.ROOT));
+      return errors.toResult();
+    }
+    if (value.code() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-002", "Required property 'code' must not be null.", JsonPath.ROOT.property("code")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.code() != null) {
+      if (!validateMinLength(errors, value.code(), 2L, JsonPath.ROOT.property("code"))) {
+        return errors.toResult();
+      }
+      if (!validateMaxLength(errors, value.code(), 4L, JsonPath.ROOT.property("code"))) {
+        return errors.toResult();
+      }
+    }
+    if (value.symbol() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-003", "Optional property container 'symbol' must not be null.", JsonPath.ROOT.property("symbol")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.symbol() != null && value.symbol().isPresent()) {
+      if (!validatePattern(errors, value.symbol().orElseThrow(), "^[A-Z]+$", JsonPath.ROOT.property("symbol"))) {
+        return errors.toResult();
+      }
+    }
+    if (value.label() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-003", "Optional property container 'label' must not be null.", JsonPath.ROOT.property("label")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.label() != null && value.label().isPresent()) {
+      if (!validateMaxLength(errors, value.label().orElseThrow(), 4L, JsonPath.ROOT.property("label"))) {
+        return errors.toResult();
+      }
+    }
+    if (value.eventDate() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-003", "Optional property container 'eventDate' must not be null.", JsonPath.ROOT.property("eventDate")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.eventDate() != null && value.eventDate().isPresent()) {
+      if (!validateFormat(errors, value.eventDate().orElseThrow(), "date", JsonPath.ROOT.property("eventDate"))) {
+        return errors.toResult();
+      }
+    }
+    if (value.createdAt() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-003", "Optional property container 'createdAt' must not be null.", JsonPath.ROOT.property("createdAt")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.createdAt() != null && value.createdAt().isPresent()) {
+      if (!validateFormat(errors, value.createdAt().orElseThrow(), "date-time", JsonPath.ROOT.property("createdAt"))) {
+        return errors.toResult();
+      }
+    }
+    if (value.identifier() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-003", "Optional property container 'identifier' must not be null.", JsonPath.ROOT.property("identifier")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.identifier() != null && value.identifier().isPresent()) {
+      if (!validateFormat(errors, value.identifier().orElseThrow(), "uuid", JsonPath.ROOT.property("identifier"))) {
+        return errors.toResult();
+      }
+    }
+    if (true) {
+      if (!validateMinimum(errors, BigDecimal.valueOf(value.count()), "1", JsonPath.ROOT.property("count"))) {
+        return errors.toResult();
+      }
+      if (!validateMaximum(errors, BigDecimal.valueOf(value.count()), "10", JsonPath.ROOT.property("count"))) {
+        return errors.toResult();
+      }
+    }
+    if (value.ratio() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-003", "Optional property container 'ratio' must not be null.", JsonPath.ROOT.property("ratio")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.ratio() != null && value.ratio().isPresent()) {
+      if (!validateFinite(errors, value.ratio().orElseThrow(), JsonPath.ROOT.property("ratio"))) {
+        return errors.toResult();
+      }
+    }
+    if (value.ratio() != null && value.ratio().isPresent() && Double.isFinite(value.ratio().orElseThrow())) {
+      if (!validateExclusiveMinimum(errors, BigDecimal.valueOf(value.ratio().orElseThrow()), "0", JsonPath.ROOT.property("ratio"))) {
+        return errors.toResult();
+      }
+      if (!validateExclusiveMaximum(errors, BigDecimal.valueOf(value.ratio().orElseThrow()), "1", JsonPath.ROOT.property("ratio"))) {
+        return errors.toResult();
+      }
+    }
+    if (value.names() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-002", "Required property 'names' must not be null.", JsonPath.ROOT.property("names")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.names() != null) {
+      int index = 0;
+      for (String item : value.names()) {
+          if (true) {
+            if (!validateMinLength(errors, item, 2L, JsonPath.ROOT.property("names").index(index))) {
+              return errors.toResult();
+            }
+            if (!validatePattern(errors, item, "^[a-z]+$", JsonPath.ROOT.property("names").index(index))) {
+              return errors.toResult();
+            }
+          }
+        index++;
+      }
+    }
+    if (value.scores() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-003", "Optional property container 'scores' must not be null.", JsonPath.ROOT.property("scores")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.scores() != null && value.scores().isPresent()) {
+      int index = 0;
+      for (Double item : value.scores().orElseThrow()) {
+        if (!validateFinite(errors, item, JsonPath.ROOT.property("scores").index(index))) {
+          return errors.toResult();
+        }
+          if (Double.isFinite(item)) {
+            if (!validateMinimum(errors, BigDecimal.valueOf(item), "0", JsonPath.ROOT.property("scores").index(index))) {
+              return errors.toResult();
+            }
+            if (!validateMaximum(errors, BigDecimal.valueOf(item), "100", JsonPath.ROOT.property("scores").index(index))) {
+              return errors.toResult();
+            }
+          }
+        index++;
+      }
+    }
+    return errors.toResult();
+  }
+
+  private static boolean validateFinite(ValidationErrors errors, double value, JsonPath path) {
+    if (Double.isFinite(value)) {
+      return true;
+    }
+    return errors.add(ValidationError.of("MJJBV-004", "Expected finite JSON number.", path));
+  }
+
+  private static boolean validateMinLength(
+      ValidationErrors errors, String value, long minLength, JsonPath path) {
+    if (value.codePointCount(0, value.length()) >= minLength) {
+      return true;
+    }
+    return errors.add(
+        ValidationError.of(
+            "MJJBV-007",
+            "Expected at least " + minLength + " string code points.",
+            path));
+  }
+
+  private static boolean validateMaxLength(
+      ValidationErrors errors, String value, long maxLength, JsonPath path) {
+    if (value.codePointCount(0, value.length()) <= maxLength) {
+      return true;
+    }
+    return errors.add(
+        ValidationError.of(
+            "MJJBV-008",
+            "Expected at most " + maxLength + " string code points.",
+            path));
+  }
+
+  private static boolean validatePattern(
+      ValidationErrors errors, String value, String pattern, JsonPath path) {
+    if (Pattern.compile(pattern).matcher(value).find()) {
+      return true;
+    }
+    return errors.add(
+        ValidationError.of("MJJBV-009", "Expected string to match pattern.", path));
+  }
+
+  private static boolean validateFormat(
+      ValidationErrors errors, String value, String format, JsonPath path) {
+    boolean valid =
+        switch (format) {
+          case "date" -> isDate(value);
+          case "date-time" -> isDateTime(value);
+          case "uuid" -> isUuid(value);
+          default -> true;
+        };
+    if (valid) {
+      return true;
+    }
+    return errors.add(
+        ValidationError.of(
+            "MJJBV-010", "Expected string to match format '" + format + "'.", path));
+  }
+
+  private static boolean isDate(String value) {
+    try {
+      LocalDate.parse(value);
+      return true;
+    } catch (DateTimeParseException exception) {
+      return false;
+    }
+  }
+
+  private static boolean isDateTime(String value) {
+    try {
+      OffsetDateTime.parse(value);
+      return true;
+    } catch (DateTimeParseException exception) {
+      return false;
+    }
+  }
+
+  private static boolean isUuid(String value) {
+    try {
+      UUID.fromString(value);
+      return true;
+    } catch (IllegalArgumentException exception) {
+      return false;
+    }
+  }
+
+  private static boolean validateMinimum(
+      ValidationErrors errors, BigDecimal value, String minimum, JsonPath path) {
+    if (value.compareTo(new BigDecimal(minimum)) >= 0) {
+      return true;
+    }
+    return errors.add(
+        ValidationError.of(
+            "MJJBV-011", "Expected number to be at least " + minimum + ".", path));
+  }
+
+  private static boolean validateMaximum(
+      ValidationErrors errors, BigDecimal value, String maximum, JsonPath path) {
+    if (value.compareTo(new BigDecimal(maximum)) <= 0) {
+      return true;
+    }
+    return errors.add(
+        ValidationError.of(
+            "MJJBV-012", "Expected number to be at most " + maximum + ".", path));
+  }
+
+  private static boolean validateExclusiveMinimum(
+      ValidationErrors errors, BigDecimal value, String exclusiveMinimum, JsonPath path) {
+    if (value.compareTo(new BigDecimal(exclusiveMinimum)) > 0) {
+      return true;
+    }
+    return errors.add(
+        ValidationError.of(
+            "MJJBV-013",
+            "Expected number to be greater than " + exclusiveMinimum + ".",
+            path));
+  }
+
+  private static boolean validateExclusiveMaximum(
+      ValidationErrors errors, BigDecimal value, String exclusiveMaximum, JsonPath path) {
+    if (value.compareTo(new BigDecimal(exclusiveMaximum)) < 0) {
+      return true;
+    }
+    return errors.add(
+        ValidationError.of(
+            "MJJBV-014",
+            "Expected number to be less than " + exclusiveMaximum + ".",
+            path));
+  }
+}

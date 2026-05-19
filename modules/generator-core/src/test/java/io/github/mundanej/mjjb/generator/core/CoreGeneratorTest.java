@@ -183,6 +183,57 @@ final class CoreGeneratorTest {
   }
 
   @Test
+  void writesFacetConstrainedObjectRecordMatchingGoldenSource() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(
+        schema,
+        """
+        {
+          "type": "object",
+          "properties": {
+            "code": {"type": "string", "minLength": 2, "maxLength": 4},
+            "symbol": {"type": "string", "pattern": "^[A-Z]+$"},
+            "label": {"type": "string", "maxLength": 4},
+            "eventDate": {"type": "string", "format": "date"},
+            "createdAt": {"type": "string", "format": "date-time"},
+            "identifier": {"type": "string", "format": "uuid"},
+            "count": {"type": "integer", "minimum": 1, "maximum": 10},
+            "ratio": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1},
+            "names": {"type": "array", "items": {"type": "string", "minLength": 2, "pattern": "^[a-z]+$"}},
+            "scores": {"type": "array", "items": {"type": "number", "minimum": 0, "maximum": 100}}
+          },
+          "required": ["code", "count", "names"],
+          "additionalProperties": false
+        }
+        """);
+
+    GeneratorResult result =
+        new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
+
+    assertTrue(result.successful());
+    assertEquals(4, result.generatedSources().size());
+    Path modelSource = sourceNamed(result, "GeneratedBindings.java");
+    Path writerSource = sourceNamed(result, "GeneratedBindingsJsonWriter.java");
+    Path readerSource = sourceNamed(result, "GeneratedBindingsJsonReader.java");
+    Path validatorSource = sourceNamed(result, "GeneratedBindingsJsonValidator.java");
+    assertEquals(
+        golden("facet-constraints", "GeneratedBindings.java"), Files.readString(modelSource));
+    assertEquals(
+        golden("facet-constraints", "GeneratedBindingsJsonWriter.java"),
+        Files.readString(writerSource));
+    assertEquals(
+        golden("facet-constraints", "GeneratedBindingsJsonReader.java"),
+        Files.readString(readerSource));
+    assertEquals(
+        golden("facet-constraints", "GeneratedBindingsJsonValidator.java"),
+        Files.readString(validatorSource));
+    generatedSourceVerifier.compileGeneratedSources(
+        "facet-constraints",
+        result.generatedSources(),
+        tempDir.resolve("facet-constraints-classes"));
+  }
+
+  @Test
   void writesCustomRootTypeSources() throws IOException {
     Path schema = tempDir.resolve("schema.json");
     Files.writeString(

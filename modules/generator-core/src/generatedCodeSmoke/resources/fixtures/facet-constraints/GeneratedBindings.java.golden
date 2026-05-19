@@ -1,0 +1,29 @@
+package io.github.mundanej.mjjb.generated;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+public record GeneratedBindings(
+    String code,
+    Optional<String> symbol,
+    Optional<String> label,
+    Optional<String> eventDate,
+    Optional<String> createdAt,
+    Optional<String> identifier,
+    long count,
+    Optional<Double> ratio,
+    List<String> names,
+    Optional<List<Double>> scores) {
+  public GeneratedBindings {
+    code = Objects.requireNonNull(code, "code");
+    symbol = Objects.requireNonNull(symbol, "symbol");
+    label = Objects.requireNonNull(label, "label");
+    eventDate = Objects.requireNonNull(eventDate, "eventDate");
+    createdAt = Objects.requireNonNull(createdAt, "createdAt");
+    identifier = Objects.requireNonNull(identifier, "identifier");
+    ratio = Objects.requireNonNull(ratio, "ratio");
+    names = List.copyOf(Objects.requireNonNull(names, "names"));
+    scores = Objects.requireNonNull(scores, "scores").map(List::copyOf);
+  }
+}

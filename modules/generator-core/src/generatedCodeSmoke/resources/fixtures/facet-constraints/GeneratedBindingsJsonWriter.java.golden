@@ -1,0 +1,72 @@
+package io.github.mundanej.mjjb.generated;
+
+import io.github.mundanej.mjjb.runtime.JsonWriteException;
+import io.github.mundanej.mjjb.runtime.JsonWriter;
+import java.util.Objects;
+
+public final class GeneratedBindingsJsonWriter {
+  private GeneratedBindingsJsonWriter() {}
+
+  public static void write(JsonWriter writer, GeneratedBindings value) throws JsonWriteException {
+    Objects.requireNonNull(writer, "writer");
+    Objects.requireNonNull(value, "value");
+    if (value.ratio().isPresent()) {
+      requireFinite(value.ratio().orElseThrow(), "ratio");
+    }
+    if (value.scores().isPresent()) {
+      for (Double item : value.scores().orElseThrow()) {
+        requireFinite(item, "scores");
+      }
+    }
+    writer.beginObject();
+    writer.name("code");
+    writer.value(value.code());
+    if (value.symbol().isPresent()) {
+      writer.name("symbol");
+      writer.value(value.symbol().orElseThrow());
+    }
+    if (value.label().isPresent()) {
+      writer.name("label");
+      writer.value(value.label().orElseThrow());
+    }
+    if (value.eventDate().isPresent()) {
+      writer.name("eventDate");
+      writer.value(value.eventDate().orElseThrow());
+    }
+    if (value.createdAt().isPresent()) {
+      writer.name("createdAt");
+      writer.value(value.createdAt().orElseThrow());
+    }
+    if (value.identifier().isPresent()) {
+      writer.name("identifier");
+      writer.value(value.identifier().orElseThrow());
+    }
+    writer.name("count");
+    writer.number(Long.toString(value.count()));
+    if (value.ratio().isPresent()) {
+      writer.name("ratio");
+      writer.number(Double.toString(value.ratio().orElseThrow()));
+    }
+    writer.name("names");
+    writer.beginArray();
+    for (String item : value.names()) {
+      writer.value(item);
+    }
+    writer.endArray();
+    if (value.scores().isPresent()) {
+      writer.name("scores");
+      writer.beginArray();
+      for (Double item : value.scores().orElseThrow()) {
+        writer.number(Double.toString(item));
+      }
+      writer.endArray();
+    }
+    writer.endObject();
+  }
+
+  private static void requireFinite(double value, String name) throws JsonWriteException {
+    if (!Double.isFinite(value)) {
+      throw new JsonWriteException("JSON number field '" + name + "' must be finite.");
+    }
+  }
+}

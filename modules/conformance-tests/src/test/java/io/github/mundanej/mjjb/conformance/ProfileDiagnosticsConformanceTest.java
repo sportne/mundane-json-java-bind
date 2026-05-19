@@ -56,6 +56,28 @@ final class ProfileDiagnosticsConformanceTest {
   }
 
   @Test
+  void acceptsSupportedScalarFacetBindingThroughGenerator() throws IOException {
+    GeneratorResult result =
+        generate(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "code": {"type": "string", "minLength": 1, "maxLength": 8, "pattern": "^[A-Z]+$"},
+                "date": {"type": "string", "format": "date"},
+                "count": {"type": "integer", "minimum": 1, "maximum": 10},
+                "ratio": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1}
+              },
+              "required": ["code", "count"],
+              "additionalProperties": false
+            }
+            """);
+
+    assertTrue(result.successful());
+    assertEquals(4, result.generatedSources().size());
+  }
+
+  @Test
   void rejectsKnownUnsupportedKeywordThroughGenerator() throws IOException {
     GeneratorResult result = generate("{\"$ref\":\"schema.json\"}");
 

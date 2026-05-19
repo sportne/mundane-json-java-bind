@@ -1,0 +1,282 @@
+package io.github.mundanej.mjjb.generated;
+
+import io.github.mundanej.mjjb.runtime.JsonDiagnostic;
+import io.github.mundanej.mjjb.runtime.JsonPath;
+import io.github.mundanej.mjjb.runtime.JsonReadException;
+import io.github.mundanej.mjjb.runtime.JsonReader;
+import io.github.mundanej.mjjb.runtime.JsonToken;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+public final class GeneratedBindingsJsonReader {
+  private GeneratedBindingsJsonReader() {}
+
+  public static GeneratedBindings read(JsonReader reader) throws JsonReadException {
+    Objects.requireNonNull(reader, "reader");
+    if (reader.peek() != JsonToken.BEGIN_OBJECT) {
+      throw error("MJJBR-001", "Expected root JSON object.", JsonPath.ROOT, reader.location());
+    }
+    reader.beginObject();
+    String code = null;
+    boolean codeSeen = false;
+    Optional<String> symbol = Optional.empty();
+    boolean symbolSeen = false;
+    Optional<String> label = Optional.empty();
+    boolean labelSeen = false;
+    Optional<String> eventDate = Optional.empty();
+    boolean eventDateSeen = false;
+    Optional<String> createdAt = Optional.empty();
+    boolean createdAtSeen = false;
+    Optional<String> identifier = Optional.empty();
+    boolean identifierSeen = false;
+    long count = 0L;
+    boolean countSeen = false;
+    Optional<Double> ratio = Optional.empty();
+    boolean ratioSeen = false;
+    List<String> names = null;
+    boolean namesSeen = false;
+    Optional<List<Double>> scores = Optional.empty();
+    boolean scoresSeen = false;
+    while (reader.hasNext()) {
+      String name = reader.nextName();
+      switch (name) {
+        case "code" -> {
+          if (codeSeen) {
+            throw duplicateProperty("code", reader.location());
+          }
+          code = readString(reader, propertyPath("code"));
+          codeSeen = true;
+        }
+        case "symbol" -> {
+          if (symbolSeen) {
+            throw duplicateProperty("symbol", reader.location());
+          }
+          symbol = Optional.of(readString(reader, propertyPath("symbol")));
+          symbolSeen = true;
+        }
+        case "label" -> {
+          if (labelSeen) {
+            throw duplicateProperty("label", reader.location());
+          }
+          label = Optional.of(readString(reader, propertyPath("label")));
+          labelSeen = true;
+        }
+        case "eventDate" -> {
+          if (eventDateSeen) {
+            throw duplicateProperty("eventDate", reader.location());
+          }
+          eventDate = Optional.of(readString(reader, propertyPath("eventDate")));
+          eventDateSeen = true;
+        }
+        case "createdAt" -> {
+          if (createdAtSeen) {
+            throw duplicateProperty("createdAt", reader.location());
+          }
+          createdAt = Optional.of(readString(reader, propertyPath("createdAt")));
+          createdAtSeen = true;
+        }
+        case "identifier" -> {
+          if (identifierSeen) {
+            throw duplicateProperty("identifier", reader.location());
+          }
+          identifier = Optional.of(readString(reader, propertyPath("identifier")));
+          identifierSeen = true;
+        }
+        case "count" -> {
+          if (countSeen) {
+            throw duplicateProperty("count", reader.location());
+          }
+          count = readInteger(reader, propertyPath("count"));
+          countSeen = true;
+        }
+        case "ratio" -> {
+          if (ratioSeen) {
+            throw duplicateProperty("ratio", reader.location());
+          }
+          ratio = Optional.of(readNumber(reader, propertyPath("ratio")));
+          ratioSeen = true;
+        }
+        case "names" -> {
+          if (namesSeen) {
+            throw duplicateProperty("names", reader.location());
+          }
+          names = readStringArray(reader, propertyPath("names"));
+          namesSeen = true;
+        }
+        case "scores" -> {
+          if (scoresSeen) {
+            throw duplicateProperty("scores", reader.location());
+          }
+          scores = Optional.of(readNumberArray(reader, propertyPath("scores")));
+          scoresSeen = true;
+        }
+        default ->
+            throw error("MJJBR-004", "Unknown JSON property '" + name + "'.", propertyPath(name), reader.location());
+      }
+    }
+    reader.endObject();
+    if (!codeSeen) {
+      throw missingRequired("code", propertyPath("code"), reader.location());
+    }
+    if (!countSeen) {
+      throw missingRequired("count", propertyPath("count"), reader.location());
+    }
+    if (!namesSeen) {
+      throw missingRequired("names", propertyPath("names"), reader.location());
+    }
+    if (reader.peek() != JsonToken.END_DOCUMENT) {
+      throw error("MJJBR-002", "Unexpected JSON content after root value.", JsonPath.ROOT, reader.location());
+    }
+    return new GeneratedBindings(code, symbol, label, eventDate, createdAt, identifier, count, ratio, names, scores);
+  }
+
+  private static JsonReadException duplicateProperty(
+      String name, io.github.mundanej.mjjb.runtime.JsonLocation location) {
+    return error("MJJBR-003", "Duplicate JSON property '" + name + "'.", propertyPath(name), location);
+  }
+
+  private static JsonReadException missingRequired(
+      String name, JsonPath path, io.github.mundanej.mjjb.runtime.JsonLocation location) {
+    return error("MJJBR-005", "Missing required JSON property '" + name + "'.", path, location);
+  }
+
+  private static String readString(JsonReader reader, JsonPath path)
+      throws JsonReadException {
+    requireToken(reader, JsonToken.STRING, "MJJBR-006", "Expected JSON string.", path);
+    try {
+      return reader.nextString();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+  }
+
+  private static long readInteger(JsonReader reader, JsonPath path)
+      throws JsonReadException {
+    String literal =
+        readNumberLiteral(reader, path, "MJJBR-007", "Expected JSON integer.");
+    if (!isIntegerLiteral(literal)) {
+      throw error(
+          "MJJBR-007", "Expected JSON integer.", path, reader.location());
+    }
+    try {
+      return Long.parseLong(literal);
+    } catch (NumberFormatException exception) {
+      throw error(
+          "MJJBR-007", "Expected JSON integer.", path, reader.location());
+    }
+  }
+
+  private static boolean isIntegerLiteral(String literal) {
+    return literal.indexOf('.') < 0 && literal.indexOf('e') < 0 && literal.indexOf('E') < 0;
+  }
+
+  private static double readNumber(JsonReader reader, JsonPath path)
+      throws JsonReadException {
+    String literal =
+        readNumberLiteral(reader, path, "MJJBR-008", "Expected JSON number.");
+    double value;
+    try {
+      value = Double.parseDouble(literal);
+    } catch (NumberFormatException exception) {
+      throw error("MJJBR-008", "Expected JSON number.", path, reader.location());
+    }
+    if (!Double.isFinite(value)) {
+      throw error("MJJBR-008", "Expected finite JSON number.", path, reader.location());
+    }
+    return value;
+  }
+
+  private static List<String> readStringArray(JsonReader reader, JsonPath path)
+      throws JsonReadException {
+    requireToken(reader, JsonToken.BEGIN_ARRAY, "MJJBR-010", "Expected JSON array.", path);
+    ArrayList<String> values = new ArrayList<>();
+    try {
+      reader.beginArray();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+    int index = 0;
+    while (hasNext(reader, path)) {
+      values.add(readString(reader, path.index(index)));
+      index++;
+    }
+    try {
+      reader.endArray();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+    return List.copyOf(values);
+  }
+
+  private static List<Double> readNumberArray(JsonReader reader, JsonPath path)
+      throws JsonReadException {
+    requireToken(reader, JsonToken.BEGIN_ARRAY, "MJJBR-010", "Expected JSON array.", path);
+    ArrayList<Double> values = new ArrayList<>();
+    try {
+      reader.beginArray();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+    int index = 0;
+    while (hasNext(reader, path)) {
+      values.add(readNumber(reader, path.index(index)));
+      index++;
+    }
+    try {
+      reader.endArray();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+    return List.copyOf(values);
+  }
+
+  private static String readNumberLiteral(
+      JsonReader reader, JsonPath path, String code, String message)
+      throws JsonReadException {
+    requireToken(reader, JsonToken.NUMBER, code, message, path);
+    try {
+      return reader.nextNumberLiteral();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+  }
+
+  private static void requireToken(
+      JsonReader reader, JsonToken expected, String code, String message, JsonPath path)
+      throws JsonReadException {
+    JsonToken actual;
+    try {
+      actual = reader.peek();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+    if (actual != expected) {
+      throw error(code, message, path, reader.location());
+    }
+  }
+
+  private static boolean hasNext(JsonReader reader, JsonPath path)
+      throws JsonReadException {
+    try {
+      return reader.hasNext();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+  }
+
+  private static JsonReadException atPath(JsonReadException exception, JsonPath path) {
+    JsonDiagnostic diagnostic = exception.diagnostic();
+    return error(diagnostic.code(), diagnostic.message(), path, diagnostic.location());
+  }
+
+  private static JsonReadException error(
+      String code, String message, JsonPath path, io.github.mundanej.mjjb.runtime.JsonLocation location) {
+    return new JsonReadException(JsonDiagnostic.error(code, message, path, location));
+  }
+
+  private static JsonPath propertyPath(String name) {
+    return JsonPath.ROOT.property(name);
+  }
+}

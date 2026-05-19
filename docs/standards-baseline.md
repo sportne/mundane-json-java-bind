@@ -32,3 +32,17 @@ readers.
 
 Unknown non-Draft extension keywords are ignored as annotations. Known Draft
 2020-12 keywords are always classified explicitly by the profile matrix.
+
+## Facet Notes
+
+`JSP-DATA-2020-12` supports generated validation for `minLength`, `maxLength`,
+`pattern`, `format`, `minimum`, `maximum`, `exclusiveMinimum`, and
+`exclusiveMaximum` on scalar fields and homogeneous scalar array items.
+
+Supported `format` assertions are limited to `date`, `date-time`, and `uuid`.
+Other known format values are rejected by the schema profile until deliberately
+added to the v1 subset.
+
+`pattern` uses generated Java `Pattern` checks with JSON Schema search
+semantics. Patterns must compile during schema/profile validation; there is no
+runtime regex registry or extension lookup.

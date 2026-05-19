@@ -25,3 +25,20 @@ Array validators enforce collection constraints on generated model lists.
 stable generated-validator codes `MJJBV-005` and `MJJBV-006`. Validation that
 targets an array item, such as non-finite `number` items, reports the indexed
 instance path, for example `$.scores[0]`.
+
+## Supported Facets
+
+Generated validators enforce scalar facets on scalar fields and homogeneous
+array items. Facet failures use the field path for scalar fields and indexed
+item paths for array items.
+
+| Keyword | Applies to | Code | Notes |
+|---|---|---|---|
+| `minLength` | `string` | `MJJBV-007` | Counts Unicode code points. |
+| `maxLength` | `string` | `MJJBV-008` | Counts Unicode code points. |
+| `pattern` | `string` | `MJJBV-009` | Uses deterministic generated `Pattern` checks and JSON Schema search semantics. |
+| `format` | `string` | `MJJBV-010` | Supports only `date`, `date-time`, and `uuid`. |
+| `minimum` | `integer`, `number` | `MJJBV-011` | Compares generated model values against exact schema literals with `BigDecimal`. |
+| `maximum` | `integer`, `number` | `MJJBV-012` | Compares generated model values against exact schema literals with `BigDecimal`. |
+| `exclusiveMinimum` | `integer`, `number` | `MJJBV-013` | Requires model value greater than the schema literal. |
+| `exclusiveMaximum` | `integer`, `number` | `MJJBV-014` | Requires model value less than the schema literal. |

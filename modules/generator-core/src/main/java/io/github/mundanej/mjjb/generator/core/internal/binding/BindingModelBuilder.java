@@ -253,7 +253,7 @@ public final class BindingModelBuilder {
       List<BindingDiagnostic> diagnostics) {
     Optional<JavaScalarType> scalarType = scalarType(typeMember.value());
     if (scalarType.isPresent()) {
-      return Optional.of(FieldValueType.scalar(scalarType.get()));
+      return Optional.of(FieldValueType.scalar(scalarType.get(), facets(propertySchema)));
     }
     if (typeMember.value() instanceof StringValue stringValue
         && "array".equals(stringValue.value())) {
@@ -314,7 +314,8 @@ public final class BindingModelBuilder {
               member(propertySchema, "maxItems").orElseThrow().pointer()));
       return Optional.empty();
     }
-    return Optional.of(FieldValueType.array(itemType.get(), minItems, maxItems));
+    return Optional.of(
+        FieldValueType.array(itemType.get(), minItems, maxItems, facets(itemsSchema)));
   }
 
   private static OptionalLong nonNegativeIntegerMember(ObjectValue objectValue, String name) {
@@ -327,6 +328,34 @@ public final class BindingModelBuilder {
     } catch (NumberFormatException exception) {
       return OptionalLong.of(Long.MAX_VALUE);
     }
+  }
+
+  private static FacetConstraints facets(ObjectValue schema) {
+    return new FacetConstraints(
+        nonNegativeIntegerMember(schema, "minLength"),
+        nonNegativeIntegerMember(schema, "maxLength"),
+        stringMember(schema, "pattern"),
+        stringMember(schema, "format"),
+        numberLiteralMember(schema, "minimum"),
+        numberLiteralMember(schema, "maximum"),
+        numberLiteralMember(schema, "exclusiveMinimum"),
+        numberLiteralMember(schema, "exclusiveMaximum"));
+  }
+
+  private static Optional<String> stringMember(ObjectValue objectValue, String name) {
+    Optional<Member> member = member(objectValue, name);
+    if (member.isEmpty() || !(member.get().value() instanceof StringValue stringValue)) {
+      return Optional.empty();
+    }
+    return Optional.of(stringValue.value());
+  }
+
+  private static Optional<String> numberLiteralMember(ObjectValue objectValue, String name) {
+    Optional<Member> member = member(objectValue, name);
+    if (member.isEmpty() || !(member.get().value() instanceof NumberValue numberValue)) {
+      return Optional.empty();
+    }
+    return Optional.of(numberValue.literal());
   }
 
   private static String toJavaFieldName(String propertyName) {

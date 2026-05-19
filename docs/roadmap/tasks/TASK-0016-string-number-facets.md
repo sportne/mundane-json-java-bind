@@ -1,7 +1,7 @@
 # TASK-0016: String and Numeric Facets
 
 Task ID: `TASK-0016`
-Status: `draft`
+Status: `complete`
 Gate: Collections and value constraints
 Depends on: `TASK-0015`
 Specification references: JSON Schema Draft 2020-12 Validation keywords `minLength`, `maxLength`, `pattern`, `format`, `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`

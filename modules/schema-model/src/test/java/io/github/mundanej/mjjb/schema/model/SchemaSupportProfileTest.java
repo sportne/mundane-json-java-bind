@@ -105,6 +105,25 @@ final class SchemaSupportProfileTest {
   }
 
   @Test
+  void acceptsSupportedFacetShapes() {
+    assertValid(
+        """
+        {
+          "type": "object",
+          "properties": {
+            "date": {"type": "string", "format": "date"},
+            "dateTime": {"type": "string", "format": "date-time"},
+            "id": {"type": "string", "format": "uuid"},
+            "code": {"type": "string", "minLength": 1, "maxLength": 8, "pattern": "^[A-Z]+$"},
+            "count": {"type": "integer", "minimum": 1, "maximum": 10},
+            "ratio": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1}
+          },
+          "additionalProperties": false
+        }
+        """);
+  }
+
+  @Test
   void ignoresUnknownExtensionKeywordsAsAnnotations() {
     assertValid("{\"type\":\"object\",\"x-extension\":{\"$ref\":\"annotation text\"}}");
   }
@@ -136,6 +155,7 @@ final class SchemaSupportProfileTest {
     assertInvalid("{\"minLength\": \"1\"}", "/minLength");
     assertInvalid("{\"maximum\": \"10\"}", "/maximum");
     assertInvalid("{\"pattern\": 1}", "/pattern");
+    assertInvalid("{\"pattern\": \"[\"}", "/pattern");
     assertInvalid("{\"format\": true}", "/format");
     assertInvalid("{\"enum\": \"open\"}", "/enum");
     assertInvalid("{\"oneOf\": []}", "/oneOf");
