@@ -4,6 +4,8 @@ import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModel;
 import io.github.mundanej.mjjb.generator.core.internal.binding.FacetConstraints;
 import io.github.mundanej.mjjb.generator.core.internal.binding.FieldBinding;
 import io.github.mundanej.mjjb.generator.core.internal.binding.JavaScalarType;
+import io.github.mundanej.mjjb.generator.core.internal.binding.LiteralConstraints;
+import io.github.mundanej.mjjb.generator.core.internal.binding.LiteralValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -110,6 +112,12 @@ public final class ValidatorSourceEmitter {
     if (hasExclusiveMaximumFacet(model)) {
       lines.addAll(validateExclusiveMaximumHelper());
     }
+    if (hasEnumConstraint(model)) {
+      lines.addAll(validateEnumHelper());
+    }
+    if (hasConstConstraint(model)) {
+      lines.addAll(validateConstHelper());
+    }
     lines.add("}");
     lines.add("");
     return String.join("\n", lines);
@@ -127,7 +135,7 @@ public final class ValidatorSourceEmitter {
     imports.add("io.github.mundanej.mjjb.runtime.ValidationErrors");
     imports.add("io.github.mundanej.mjjb.runtime.ValidationMode");
     imports.add("io.github.mundanej.mjjb.runtime.ValidationResult");
-    if (hasNumericFacet(model)) {
+    if (hasNumericFacet(model) || hasNumberLiteralConstraint(model)) {
       imports.add("java.math.BigDecimal");
     }
     imports.add("java.util.Objects");
@@ -211,6 +219,7 @@ public final class ValidatorSourceEmitter {
         || field.scalarType() == JavaScalarType.NUMBER) {
       lines.addAll(validateNumericFacetLines(field, scalarValueExpression(field)));
     }
+    lines.addAll(validateLiteralLines(field, scalarValueExpression(field)));
     return lines;
   }
 
@@ -220,7 +229,9 @@ public final class ValidatorSourceEmitter {
         && field.valueType().maxItems().isEmpty()
         && field.scalarType() != JavaScalarType.NUMBER
         && !field.valueType().facets().hasStringFacets()
-        && !field.valueType().facets().hasNumericFacets()) {
+        && !field.valueType().facets().hasNumericFacets()
+        && !field.valueType().literals().hasEnum()
+        && !field.valueType().literals().hasConst()) {
       return lines;
     }
     String valueExpression = arrayValueExpression(field);
@@ -264,26 +275,47 @@ public final class ValidatorSourceEmitter {
               validateNumericFacetLines(
                   field, "item", "Double.isFinite(item)", itemPathExpression(field)),
               "      "));
+      lines.addAll(
+          indent(
+              validateLiteralLines(
+                  field, "item", "Double.isFinite(item)", itemPathExpression(field)),
+              "      "));
       lines.add("        index++;");
       lines.add("      }");
     } else if (field.scalarType() == JavaScalarType.INTEGER
-        && field.valueType().facets().hasNumericFacets()) {
+        && (field.valueType().facets().hasNumericFacets()
+            || field.valueType().literals().hasEnum()
+            || field.valueType().literals().hasConst())) {
       lines.add("      int index = 0;");
       lines.add("      for (Long item : " + valueExpression + ") {");
       lines.addAll(
           indent(
               validateNumericFacetLines(field, "item", "true", itemPathExpression(field)),
               "      "));
+      lines.addAll(
+          indent(validateLiteralLines(field, "item", "true", itemPathExpression(field)), "      "));
       lines.add("        index++;");
       lines.add("      }");
     } else if (field.scalarType() == JavaScalarType.STRING
-        && field.valueType().facets().hasStringFacets()) {
+        && (field.valueType().facets().hasStringFacets()
+            || field.valueType().literals().hasEnum()
+            || field.valueType().literals().hasConst())) {
       lines.add("      int index = 0;");
       lines.add("      for (String item : " + valueExpression + ") {");
       lines.addAll(
           indent(
               validateStringFacetLines(field, "item", "true", itemPathExpression(field)),
               "      "));
+      lines.addAll(
+          indent(validateLiteralLines(field, "item", "true", itemPathExpression(field)), "      "));
+      lines.add("        index++;");
+      lines.add("      }");
+    } else if (field.scalarType() == JavaScalarType.BOOLEAN
+        && (field.valueType().literals().hasEnum() || field.valueType().literals().hasConst())) {
+      lines.add("      int index = 0;");
+      lines.add("      for (Boolean item : " + valueExpression + ") {");
+      lines.addAll(
+          indent(validateLiteralLines(field, "item", "true", itemPathExpression(field)), "      "));
       lines.add("        index++;");
       lines.add("      }");
     }
@@ -431,6 +463,47 @@ public final class ValidatorSourceEmitter {
     return lines;
   }
 
+  private static List<String> validateLiteralLines(FieldBinding field, String valueExpression) {
+    return validateLiteralLines(
+        field,
+        valueExpression,
+        literalGuard(field, valueExpression),
+        propertyPathExpression(field));
+  }
+
+  private static List<String> validateLiteralLines(
+      FieldBinding field, String valueExpression, String guard, String pathExpression) {
+    LiteralConstraints literals = field.valueType().literals();
+    if (!literals.hasEnum() && !literals.hasConst()) {
+      return List.of();
+    }
+    ArrayList<String> lines = new ArrayList<>();
+    lines.add("    if (" + guard + ") {");
+    if (literals.hasEnum()) {
+      lines.add(
+          "      if (!validateEnum(errors, "
+              + enumMatchExpression(field.scalarType(), valueExpression, literals.enumValues())
+              + ", "
+              + pathExpression
+              + ")) {");
+      lines.add("        return errors.toResult();");
+      lines.add("      }");
+    }
+    if (literals.hasConst()) {
+      lines.add(
+          "      if (!validateConst(errors, "
+              + literalMatchExpression(
+                  field.scalarType(), valueExpression, literals.constValue().orElseThrow())
+              + ", "
+              + pathExpression
+              + ")) {");
+      lines.add("        return errors.toResult();");
+      lines.add("      }");
+    }
+    lines.add("    }");
+    return lines;
+  }
+
   private static boolean hasArrayWithMinItems(BindingModel model) {
     return model.rootObject().fields().stream()
         .anyMatch(field -> field.array() && field.valueType().minItems().isPresent());
@@ -487,6 +560,13 @@ public final class ValidatorSourceEmitter {
         return finiteGuard;
       }
       return scalarGuard(field) + " && " + finiteGuard;
+    }
+    return scalarGuard(field);
+  }
+
+  private static String literalGuard(FieldBinding field, String valueExpression) {
+    if (field.scalarType() == JavaScalarType.NUMBER) {
+      return numericGuard(field, valueExpression);
     }
     return scalarGuard(field);
   }
@@ -554,6 +634,25 @@ public final class ValidatorSourceEmitter {
   private static boolean hasNumericFacet(BindingModel model) {
     return model.rootObject().fields().stream()
         .anyMatch(field -> field.valueType().facets().hasNumericFacets());
+  }
+
+  private static boolean hasEnumConstraint(BindingModel model) {
+    return model.rootObject().fields().stream()
+        .anyMatch(field -> field.valueType().literals().hasEnum());
+  }
+
+  private static boolean hasConstConstraint(BindingModel model) {
+    return model.rootObject().fields().stream()
+        .anyMatch(field -> field.valueType().literals().hasConst());
+  }
+
+  private static boolean hasNumberLiteralConstraint(BindingModel model) {
+    return model.rootObject().fields().stream()
+        .anyMatch(
+            field ->
+                field.scalarType() == JavaScalarType.NUMBER
+                    && (field.valueType().literals().hasEnum()
+                        || field.valueType().literals().hasConst()));
   }
 
   private static List<String> validateMinLengthHelper() {
@@ -707,6 +806,63 @@ public final class ValidatorSourceEmitter {
         "            \"Expected number to be less than \" + exclusiveMaximum + \".\",",
         "            path));",
         "  }");
+  }
+
+  private static List<String> validateEnumHelper() {
+    return List.of(
+        "",
+        "  private static boolean validateEnum(",
+        "      ValidationErrors errors, boolean matches, JsonPath path) {",
+        "    if (matches) {",
+        "      return true;",
+        "    }",
+        "    return errors.add(",
+        "        ValidationError.of(\"MJJBV-015\", \"Expected value to match enum.\", path));",
+        "  }");
+  }
+
+  private static List<String> validateConstHelper() {
+    return List.of(
+        "",
+        "  private static boolean validateConst(",
+        "      ValidationErrors errors, boolean matches, JsonPath path) {",
+        "    if (matches) {",
+        "      return true;",
+        "    }",
+        "    return errors.add(",
+        "        ValidationError.of(\"MJJBV-016\", \"Expected value to match const.\", path));",
+        "  }");
+  }
+
+  private static String enumMatchExpression(
+      JavaScalarType scalarType, String valueExpression, List<LiteralValue> enumValues) {
+    List<String> expressions =
+        enumValues.stream()
+            .filter(literal -> literal.kind() != LiteralValue.Kind.NULL)
+            .map(literal -> literalMatchExpression(scalarType, valueExpression, literal))
+            .toList();
+    if (expressions.isEmpty()) {
+      return "false";
+    }
+    return String.join(" || ", expressions);
+  }
+
+  private static String literalMatchExpression(
+      JavaScalarType scalarType, String valueExpression, LiteralValue literal) {
+    if (literal.kind() == LiteralValue.Kind.NULL) {
+      return "false";
+    }
+    return switch (scalarType) {
+      case STRING -> valueExpression + ".equals(" + javaStringLiteral(literal.value()) + ")";
+      case INTEGER -> valueExpression + " == " + literal.value() + "L";
+      case NUMBER ->
+          "BigDecimal.valueOf("
+              + valueExpression
+              + ").compareTo(new BigDecimal("
+              + javaStringLiteral(literal.value())
+              + ")) == 0";
+      case BOOLEAN -> valueExpression + " == " + literal.value();
+    };
   }
 
   private static String javaStringLiteral(String value) {

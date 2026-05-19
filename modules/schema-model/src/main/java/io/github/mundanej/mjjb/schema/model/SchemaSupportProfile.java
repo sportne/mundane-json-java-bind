@@ -8,6 +8,7 @@ import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.ObjectValue;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.StringValue;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -106,8 +107,7 @@ public final class SchemaSupportProfile {
       case PROPERTIES -> validateProperties(member.value(), diagnostics);
       case REQUIRED -> validateRequired(member.value(), diagnostics);
       case ADDITIONAL_PROPERTIES -> validateAdditionalProperties(member.value(), diagnostics);
-      case ENUM ->
-          requireArray(member.value(), "The 'enum' keyword value must be an array.", diagnostics);
+      case ENUM -> validateEnum(member.value(), diagnostics);
       case ITEMS -> validateItems(member.value(), diagnostics);
       case MIN_ITEMS, MAX_ITEMS, MIN_LENGTH, MAX_LENGTH ->
           requireNonNegativeInteger(member.value(), keyword.keyword(), diagnostics);
@@ -277,11 +277,53 @@ public final class SchemaSupportProfile {
     diagnostics.add(invalidValue(message, value.pointer()));
   }
 
-  private static void requireArray(
-      SchemaSyntaxValue value, String message, List<SchemaSupportDiagnostic> diagnostics) {
-    if (!(value instanceof ArrayValue)) {
-      diagnostics.add(invalidValue(message, value.pointer()));
+  private static void validateEnum(
+      SchemaSyntaxValue value, List<SchemaSupportDiagnostic> diagnostics) {
+    if (!(value instanceof ArrayValue arrayValue)) {
+      diagnostics.add(invalidValue("The 'enum' keyword value must be an array.", value.pointer()));
+      return;
     }
+    if (arrayValue.items().isEmpty()) {
+      diagnostics.add(
+          invalidValue("The 'enum' keyword value must be a non-empty array.", value.pointer()));
+      return;
+    }
+    HashSet<String> values = new HashSet<>();
+    for (SchemaSyntaxValue item : arrayValue.items()) {
+      String key = canonicalValue(item);
+      if (!values.add(key)) {
+        diagnostics.add(
+            invalidValue(
+                "The 'enum' keyword value must contain unique JSON values.", item.pointer()));
+        return;
+      }
+    }
+  }
+
+  private static String canonicalValue(SchemaSyntaxValue value) {
+    return switch (value) {
+      case StringValue stringValue -> "s:" + stringValue.value();
+      case NumberValue numberValue ->
+          "n:"
+              + new java.math.BigDecimal(numberValue.literal())
+                  .stripTrailingZeros()
+                  .toPlainString();
+      case BooleanValue booleanValue -> "b:" + booleanValue.value();
+      case SchemaSyntaxValue.NullValue ignored -> "z:null";
+      case ArrayValue arrayValue ->
+          "a:["
+              + arrayValue.items().stream()
+                  .map(SchemaSupportProfile::canonicalValue)
+                  .collect(java.util.stream.Collectors.joining(","))
+              + "]";
+      case ObjectValue objectValue ->
+          "o:{"
+              + objectValue.members().stream()
+                  .sorted(Comparator.comparing(Member::name))
+                  .map(member -> member.name() + ":" + canonicalValue(member.value()))
+                  .collect(java.util.stream.Collectors.joining(","))
+              + "}";
+    };
   }
 
   private static void validateFormat(

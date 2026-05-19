@@ -1,7 +1,7 @@
 # TASK-0017: `enum`, `const`, and `default`
 
 Task ID: `TASK-0017`
-Status: `draft`
+Status: `complete`
 Gate: Collections and value constraints
 Depends on: `TASK-0016`
 Specification references: JSON Schema Draft 2020-12 Validation keywords `enum`, `const`, `default`

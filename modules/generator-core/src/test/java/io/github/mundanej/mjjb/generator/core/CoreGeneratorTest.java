@@ -234,6 +234,55 @@ final class CoreGeneratorTest {
   }
 
   @Test
+  void writesLiteralConstrainedObjectRecordMatchingGoldenSource() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(
+        schema,
+        """
+        {
+          "type": "object",
+          "properties": {
+            "status": {"type": "string", "enum": ["open", "closed", null], "default": "open"},
+            "kind": {"type": "string", "const": "record"},
+            "priority": {"type": "integer", "enum": [1, 2, null], "default": 1},
+            "score": {"type": "number", "enum": [1.5, 2e0], "const": 1.5, "default": 1.5},
+            "active": {"type": "boolean", "const": true, "default": true},
+            "voided": {"type": "string", "const": null, "default": null},
+            "tags": {"type": "array", "items": {"type": "string", "enum": ["red", "blue", null]}},
+            "flags": {"type": "array", "items": {"type": "boolean", "const": true}}
+          },
+          "required": ["status", "kind", "tags"],
+          "additionalProperties": false
+        }
+        """);
+
+    GeneratorResult result =
+        new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
+
+    assertTrue(result.successful());
+    assertEquals(4, result.generatedSources().size());
+    Path modelSource = sourceNamed(result, "GeneratedBindings.java");
+    Path writerSource = sourceNamed(result, "GeneratedBindingsJsonWriter.java");
+    Path readerSource = sourceNamed(result, "GeneratedBindingsJsonReader.java");
+    Path validatorSource = sourceNamed(result, "GeneratedBindingsJsonValidator.java");
+    assertEquals(
+        golden("literal-constraints", "GeneratedBindings.java"), Files.readString(modelSource));
+    assertEquals(
+        golden("literal-constraints", "GeneratedBindingsJsonWriter.java"),
+        Files.readString(writerSource));
+    assertEquals(
+        golden("literal-constraints", "GeneratedBindingsJsonReader.java"),
+        Files.readString(readerSource));
+    assertEquals(
+        golden("literal-constraints", "GeneratedBindingsJsonValidator.java"),
+        Files.readString(validatorSource));
+    generatedSourceVerifier.compileGeneratedSources(
+        "literal-constraints",
+        result.generatedSources(),
+        tempDir.resolve("literal-constraints-classes"));
+  }
+
+  @Test
   void writesCustomRootTypeSources() throws IOException {
     Path schema = tempDir.resolve("schema.json");
     Files.writeString(

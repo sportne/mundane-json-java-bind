@@ -13,6 +13,10 @@ public record BindingDiagnostic(String code, String message, JsonPointer pointer
   public static final String MISSING_ARRAY_ITEMS_CODE = "MJJBG-BINDING-MISSING-ARRAY-ITEMS";
   public static final String MISSING_ARRAY_ITEM_TYPE_CODE = "MJJBG-BINDING-MISSING-ARRAY-ITEM-TYPE";
   public static final String INVALID_ARRAY_BOUNDS_CODE = "MJJBG-BINDING-INVALID-ARRAY-BOUNDS";
+  public static final String UNSUPPORTED_LITERAL_CONSTRAINT_CODE =
+      "MJJBG-BINDING-UNSUPPORTED-LITERAL-CONSTRAINT";
+  public static final String INVALID_LITERAL_CONSTRAINT_CODE =
+      "MJJBG-BINDING-INVALID-LITERAL-CONSTRAINT";
   public static final String UNKNOWN_REQUIRED_CODE = "MJJBG-BINDING-UNKNOWN-REQUIRED";
   public static final String NAME_COLLISION_CODE = "MJJBG-BINDING-NAME-COLLISION";
 

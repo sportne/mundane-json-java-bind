@@ -78,6 +78,47 @@ final class ProfileDiagnosticsConformanceTest {
   }
 
   @Test
+  void acceptsSupportedLiteralConstraintBindingThroughGenerator() throws IOException {
+    GeneratorResult result =
+        generate(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "status": {"type": "string", "enum": ["open", "closed", null], "default": "open"},
+                "count": {"type": "integer", "const": 3, "default": 3},
+                "scores": {"type": "array", "items": {"type": "number", "enum": [1.5, 2e0]}}
+              },
+              "required": ["status"],
+              "additionalProperties": false
+            }
+            """);
+
+    assertTrue(result.successful());
+    assertEquals(4, result.generatedSources().size());
+  }
+
+  @Test
+  void rejectsUnsupportedLiteralConstraintBindingThroughGenerator() throws IOException {
+    GeneratorResult result =
+        generate(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "tags": {"type": "array", "items": {"type": "string"}, "const": []}
+              },
+              "additionalProperties": false
+            }
+            """);
+
+    assertFalse(result.successful());
+    assertEquals(
+        "MJJBG-BINDING-UNSUPPORTED-LITERAL-CONSTRAINT", result.diagnostics().getFirst().code());
+    assertEquals("/properties/tags/const", result.diagnostics().getFirst().schemaPointer());
+  }
+
+  @Test
   void rejectsKnownUnsupportedKeywordThroughGenerator() throws IOException {
     GeneratorResult result = generate("{\"$ref\":\"schema.json\"}");
 

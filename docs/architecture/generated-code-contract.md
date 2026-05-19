@@ -69,6 +69,13 @@ constructor. Required array fields reject null lists; optional array fields
 reject null optional containers. Present arrays reject null elements through the
 same copy operation. Accessors expose immutable lists.
 
+The JSON Schema `default` keyword is an annotation in generated code. It does
+not affect constructors, readers, writers, or validation. For supported scalar
+or `null` defaults on scalar fields, the generated model exposes static metadata
+accessors named after the Java field, such as `defaultDisplayName()`. Accessors
+return `Optional<T>` using the boxed Java scalar type; a schema default of
+`null` returns `Optional.empty()`.
+
 ## Basic Object Writer Shape
 
 Generated basic object writers are final, stateless utility classes named after
@@ -185,3 +192,9 @@ fields, `MJJBV-003` for null optional containers, and `MJJBV-004` for non-finite
 number values. Array validators also enforce `minItems` with `MJJBV-005` and
 `maxItems` with `MJJBV-006`; array size errors report the array field path and
 array item errors report indexed item paths.
+
+Generated validators also enforce scalar `enum` and `const` constraints for
+scalar fields and homogeneous scalar array items. Literal validation runs only
+for present non-null generated values; absent optional values are skipped. `null`
+literal candidates are preserved in generated metadata but are not matched by
+the current non-null field shapes. No Java `enum` types are generated.

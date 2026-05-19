@@ -1,0 +1,47 @@
+package io.github.mundanej.mjjb.generated;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+public record GeneratedBindings(
+    String status,
+    String kind,
+    Optional<Long> priority,
+    Optional<Double> score,
+    Optional<Boolean> active,
+    Optional<String> voided,
+    List<String> tags,
+    Optional<List<Boolean>> flags) {
+
+  public static Optional<String> defaultStatus() {
+    return Optional.of("open");
+  }
+
+  public static Optional<Long> defaultPriority() {
+    return Optional.of(1L);
+  }
+
+  public static Optional<Double> defaultScore() {
+    return Optional.of(Double.parseDouble("1.5"));
+  }
+
+  public static Optional<Boolean> defaultActive() {
+    return Optional.of(true);
+  }
+
+  public static Optional<String> defaultVoided() {
+    return Optional.empty();
+  }
+
+  public GeneratedBindings {
+    status = Objects.requireNonNull(status, "status");
+    kind = Objects.requireNonNull(kind, "kind");
+    priority = Objects.requireNonNull(priority, "priority");
+    score = Objects.requireNonNull(score, "score");
+    active = Objects.requireNonNull(active, "active");
+    voided = Objects.requireNonNull(voided, "voided");
+    tags = List.copyOf(Objects.requireNonNull(tags, "tags"));
+    flags = Objects.requireNonNull(flags, "flags").map(List::copyOf);
+  }
+}

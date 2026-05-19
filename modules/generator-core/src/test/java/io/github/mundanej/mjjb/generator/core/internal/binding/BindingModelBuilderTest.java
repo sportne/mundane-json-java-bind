@@ -173,6 +173,34 @@ final class BindingModelBuilderTest {
   }
 
   @Test
+  void collectsScalarAndArrayItemLiteralConstraints() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "status": {"type": "string", "enum": ["open", "closed", null], "default": "open"},
+                "count": {"type": "integer", "const": 3, "default": 3},
+                "ratio": {"type": "number", "enum": [1.5, 2e0], "const": 1.5},
+                "flags": {"type": "array", "items": {"type": "boolean", "enum": [true, null]}}
+              },
+              "additionalProperties": false
+            }
+            """);
+
+    assertTrue(result.diagnostics().isEmpty());
+    List<FieldBinding> fields = result.model().orElseThrow().rootObject().fields();
+    assertEquals(3, fields.get(0).valueType().literals().enumValues().size());
+    assertEquals("open", fields.get(0).valueType().literals().defaultValue().orElseThrow().value());
+    assertEquals("3", fields.get(1).valueType().literals().constValue().orElseThrow().value());
+    assertEquals("3", fields.get(1).valueType().literals().defaultValue().orElseThrow().value());
+    assertEquals(2, fields.get(2).valueType().literals().enumValues().size());
+    assertEquals("1.5", fields.get(2).valueType().literals().constValue().orElseThrow().value());
+    assertEquals(2, fields.get(3).valueType().literals().enumValues().size());
+  }
+
+  @Test
   void rejectsJavaFieldNameCollisions() {
     BindingBuildResult result =
         build(
@@ -295,6 +323,58 @@ final class BindingModelBuilderTest {
             BindingDiagnostic.MISSING_ARRAY_ITEMS_CODE,
             BindingDiagnostic.UNSUPPORTED_PROPERTY_TYPE_CODE),
         diagnosticCodes(result));
+  }
+
+  @Test
+  void rejectsUnsupportedLiteralConstraintShapes() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "badString": {"type": "string", "enum": [{"id": "x"}]},
+                "badInteger": {"type": "integer", "const": 1.5},
+                "badDefault": {"type": "boolean", "default": []},
+                "arrayLevel": {"type": "array", "items": {"type": "string"}, "enum": [["x"]]}
+              },
+              "additionalProperties": false
+            }
+            """);
+
+    assertEquals(
+        List.of(
+            "/properties/arrayLevel/enum",
+            "/properties/badDefault/default",
+            "/properties/badInteger/const",
+            "/properties/badString/enum/0"),
+        diagnosticPointers(result));
+    assertEquals(
+        List.of(
+            BindingDiagnostic.UNSUPPORTED_LITERAL_CONSTRAINT_CODE,
+            BindingDiagnostic.UNSUPPORTED_LITERAL_CONSTRAINT_CODE,
+            BindingDiagnostic.UNSUPPORTED_LITERAL_CONSTRAINT_CODE,
+            BindingDiagnostic.UNSUPPORTED_LITERAL_CONSTRAINT_CODE),
+        diagnosticCodes(result));
+  }
+
+  @Test
+  void rejectsRootObjectLiteralConstraints() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": false,
+              "const": {}
+            }
+            """);
+
+    assertEquals(
+        BindingDiagnostic.UNSUPPORTED_LITERAL_CONSTRAINT_CODE,
+        result.diagnostics().getFirst().code());
+    assertEquals("/const", result.diagnostics().getFirst().pointer().value());
   }
 
   @Test

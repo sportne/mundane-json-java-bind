@@ -1,0 +1,51 @@
+{
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["open", "closed", null],
+      "default": "open"
+    },
+    "kind": {
+      "type": "string",
+      "const": "record"
+    },
+    "priority": {
+      "type": "integer",
+      "enum": [1, 2, null],
+      "default": 1
+    },
+    "score": {
+      "type": "number",
+      "enum": [1.5, 2e0],
+      "const": 1.5,
+      "default": 1.5
+    },
+    "active": {
+      "type": "boolean",
+      "const": true,
+      "default": true
+    },
+    "voided": {
+      "type": "string",
+      "const": null,
+      "default": null
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["red", "blue", null]
+      }
+    },
+    "flags": {
+      "type": "array",
+      "items": {
+        "type": "boolean",
+        "const": true
+      }
+    }
+  },
+  "required": ["status", "kind", "tags"],
+  "additionalProperties": false
+}

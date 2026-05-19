@@ -2,6 +2,7 @@ package io.github.mundanej.mjjb.generator.core.internal.emitter;
 
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModel;
 import io.github.mundanej.mjjb.generator.core.internal.binding.FieldBinding;
+import io.github.mundanej.mjjb.generator.core.internal.binding.LiteralValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -39,6 +40,9 @@ public final class ModelSourceEmitter {
       if (!field.required()) {
         imports.add("java.util.Optional");
       }
+      if (field.valueType().literals().hasDefault()) {
+        imports.add("java.util.Optional");
+      }
     }
     return List.copyOf(imports);
   }
@@ -55,11 +59,19 @@ public final class ModelSourceEmitter {
       String suffix = index == fields.size() - 1 ? ") {" : ",";
       lines.add("    " + javaType(field) + " " + field.javaFieldName() + suffix);
     }
+    List<FieldBinding> defaultFields =
+        fields.stream().filter(field -> field.valueType().literals().hasDefault()).toList();
+    for (FieldBinding field : defaultFields) {
+      lines.addAll(defaultAccessorLines(field));
+    }
     List<FieldBinding> checkedFields =
         fields.stream().filter(ModelSourceEmitter::requiresNullCheck).toList();
     if (checkedFields.isEmpty()) {
       lines.add("}");
       return lines;
+    }
+    if (!defaultFields.isEmpty()) {
+      lines.add("");
     }
     lines.add("  public " + model.rootTypeName() + " {");
     for (FieldBinding field : checkedFields) {
@@ -92,5 +104,57 @@ public final class ModelSourceEmitter {
       return name + " = Objects.requireNonNull(" + name + ", \"" + name + "\").map(List::copyOf);";
     }
     return name + " = Objects.requireNonNull(" + name + ", \"" + name + "\");";
+  }
+
+  private static List<String> defaultAccessorLines(FieldBinding field) {
+    LiteralValue literal = field.valueType().literals().defaultValue().orElseThrow();
+    return List.of(
+        "",
+        "  public static Optional<"
+            + field.scalarType().boxedJavaType()
+            + "> default"
+            + capitalized(field.javaFieldName())
+            + "() {",
+        "    return " + optionalLiteralExpression(literal) + ";",
+        "  }");
+  }
+
+  private static String optionalLiteralExpression(LiteralValue literal) {
+    return switch (literal.kind()) {
+      case STRING -> "Optional.of(" + javaStringLiteral(literal.value()) + ")";
+      case INTEGER -> "Optional.of(" + literal.value() + "L)";
+      case NUMBER -> "Optional.of(Double.parseDouble(" + javaStringLiteral(literal.value()) + "))";
+      case BOOLEAN -> "Optional.of(" + literal.value() + ")";
+      case NULL -> "Optional.empty()";
+    };
+  }
+
+  private static String capitalized(String value) {
+    return value.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + value.substring(1);
+  }
+
+  private static String javaStringLiteral(String value) {
+    StringBuilder literal = new StringBuilder("\"");
+    for (int index = 0; index < value.length(); index++) {
+      char current = value.charAt(index);
+      switch (current) {
+        case '"' -> literal.append("\\\"");
+        case '\\' -> literal.append("\\\\");
+        case '\b' -> literal.append("\\b");
+        case '\f' -> literal.append("\\f");
+        case '\n' -> literal.append("\\n");
+        case '\r' -> literal.append("\\r");
+        case '\t' -> literal.append("\\t");
+        default -> {
+          if (current < 0x20) {
+            literal.append(String.format("\\u%04x", (int) current));
+          } else {
+            literal.append(current);
+          }
+        }
+      }
+    }
+    literal.append('"');
+    return literal.toString();
   }
 }

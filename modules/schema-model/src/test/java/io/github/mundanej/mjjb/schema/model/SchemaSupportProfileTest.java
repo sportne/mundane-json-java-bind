@@ -77,7 +77,7 @@ final class SchemaSupportProfileTest {
             "id": {"type": "string", "minLength": 1, "maxLength": 36, "pattern": "^[a-z]+$", "format": "uuid"},
             "count": {"type": "integer", "minimum": 0, "maximum": 10, "exclusiveMinimum": -1, "exclusiveMaximum": 11},
             "tags": {"type": "array", "items": {"type": "string"}, "minItems": 0, "maxItems": 3},
-            "nullable": {"type": ["null", "string"], "default": null}
+            "nullable": {"type": ["null", "string"], "enum": ["x", null], "const": null, "default": null}
           },
           "required": ["id"],
           "additionalProperties": false,
@@ -124,6 +124,23 @@ final class SchemaSupportProfileTest {
   }
 
   @Test
+  void acceptsSupportedLiteralConstraintShapes() {
+    assertValid(
+        """
+        {
+          "type": "object",
+          "properties": {
+            "status": {"type": "string", "enum": ["open", "closed", null], "const": "open", "default": "open"},
+            "count": {"type": "integer", "enum": [1, 2, null], "const": 1, "default": 1},
+            "ratio": {"type": "number", "enum": [1.5, 2e0, null], "const": 1.5, "default": 1.5},
+            "active": {"type": "boolean", "enum": [true, false, null], "const": true, "default": true}
+          },
+          "additionalProperties": false
+        }
+        """);
+  }
+
+  @Test
   void ignoresUnknownExtensionKeywordsAsAnnotations() {
     assertValid("{\"type\":\"object\",\"x-extension\":{\"$ref\":\"annotation text\"}}");
   }
@@ -158,6 +175,8 @@ final class SchemaSupportProfileTest {
     assertInvalid("{\"pattern\": \"[\"}", "/pattern");
     assertInvalid("{\"format\": true}", "/format");
     assertInvalid("{\"enum\": \"open\"}", "/enum");
+    assertInvalid("{\"enum\": []}", "/enum");
+    assertInvalid("{\"enum\": [1, 1.0]}", "/enum/1");
     assertInvalid("{\"oneOf\": []}", "/oneOf");
   }
 

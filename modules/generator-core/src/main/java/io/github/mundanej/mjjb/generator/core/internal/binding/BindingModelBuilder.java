@@ -5,6 +5,7 @@ import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.ArrayValue;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.BooleanValue;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.Member;
+import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.NullValue;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.NumberValue;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.ObjectValue;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.StringValue;
@@ -89,6 +90,7 @@ public final class BindingModelBuilder {
 
     validateRootType(rootObject, diagnostics);
     validateAdditionalProperties(rootObject, diagnostics);
+    validateRootLiteralConstraints(rootObject, diagnostics);
     ObjectValue properties = propertiesObject(rootObject);
     RequiredNames requiredNames = requiredNames(rootObject);
     diagnostics.addAll(requiredNames.diagnostics());
@@ -199,6 +201,17 @@ public final class BindingModelBuilder {
             value.pointer()));
   }
 
+  private static void validateRootLiteralConstraints(
+      ObjectValue rootObject, List<BindingDiagnostic> diagnostics) {
+    Optional<Member> literalConstraint = firstLiteralConstraint(rootObject);
+    if (literalConstraint.isPresent()) {
+      diagnostics.add(
+          unsupportedLiteralConstraint(
+              "Root object enum, const, and default constraints are not supported in this binding slice.",
+              literalConstraint.get().pointer()));
+    }
+  }
+
   private static ObjectValue propertiesObject(ObjectValue rootObject) {
     Optional<Member> propertiesMember = member(rootObject, "properties");
     if (propertiesMember.isPresent()
@@ -253,7 +266,11 @@ public final class BindingModelBuilder {
       List<BindingDiagnostic> diagnostics) {
     Optional<JavaScalarType> scalarType = scalarType(typeMember.value());
     if (scalarType.isPresent()) {
-      return Optional.of(FieldValueType.scalar(scalarType.get(), facets(propertySchema)));
+      Optional<LiteralConstraints> literals =
+          literalConstraints(propertySchema, scalarType.get(), propertyName, diagnostics);
+      return literals.map(
+          constraints ->
+              FieldValueType.scalar(scalarType.get(), facets(propertySchema), constraints));
     }
     if (typeMember.value() instanceof StringValue stringValue
         && "array".equals(stringValue.value())) {
@@ -314,8 +331,23 @@ public final class BindingModelBuilder {
               member(propertySchema, "maxItems").orElseThrow().pointer()));
       return Optional.empty();
     }
+    if (hasLiteralConstraint(propertySchema)) {
+      diagnostics.add(
+          unsupportedLiteralConstraint(
+              "Array property '"
+                  + propertyName
+                  + "' does not support array-level enum, const, or default in this binding slice.",
+              firstLiteralConstraint(propertySchema).orElseThrow().pointer()));
+      return Optional.empty();
+    }
+    Optional<LiteralConstraints> literals =
+        literalConstraints(itemsSchema, itemType.get(), propertyName + "[]", diagnostics);
+    if (literals.isEmpty()) {
+      return Optional.empty();
+    }
     return Optional.of(
-        FieldValueType.array(itemType.get(), minItems, maxItems, facets(itemsSchema)));
+        FieldValueType.array(
+            itemType.get(), minItems, maxItems, facets(itemsSchema), literals.get()));
   }
 
   private static OptionalLong nonNegativeIntegerMember(ObjectValue objectValue, String name) {
@@ -356,6 +388,152 @@ public final class BindingModelBuilder {
       return Optional.empty();
     }
     return Optional.of(numberValue.literal());
+  }
+
+  private static Optional<LiteralConstraints> literalConstraints(
+      ObjectValue schema,
+      JavaScalarType scalarType,
+      String propertyName,
+      List<BindingDiagnostic> diagnostics) {
+    Optional<Member> enumMember = member(schema, "enum");
+    Optional<Member> constMember = member(schema, "const");
+    Optional<Member> defaultMember = member(schema, "default");
+    ArrayList<LiteralValue> enumValues = new ArrayList<>();
+    HashSet<String> enumKeys = new HashSet<>();
+    if (enumMember.isPresent()) {
+      if (!(enumMember.get().value() instanceof ArrayValue arrayValue)) {
+        diagnostics.add(
+            invalidLiteralConstraint(
+                "Property '" + propertyName + "' enum constraint must be an array.",
+                enumMember.get().pointer()));
+        return Optional.empty();
+      }
+      if (arrayValue.items().isEmpty()) {
+        diagnostics.add(
+            invalidLiteralConstraint(
+                "Property '" + propertyName + "' enum constraint must not be empty.",
+                enumMember.get().pointer()));
+        return Optional.empty();
+      }
+      for (SchemaSyntaxValue item : arrayValue.items()) {
+        Optional<LiteralValue> literal =
+            literalValue(item, scalarType, "enum", propertyName, diagnostics);
+        if (literal.isEmpty()) {
+          return Optional.empty();
+        }
+        if (!enumKeys.add(literal.get().normalizedKey())) {
+          diagnostics.add(
+              invalidLiteralConstraint(
+                  "Property '"
+                      + propertyName
+                      + "' enum constraint must contain unique scalar values.",
+                  item.pointer()));
+          return Optional.empty();
+        }
+        enumValues.add(literal.get());
+      }
+    }
+    Optional<LiteralValue> constValue = Optional.empty();
+    if (constMember.isPresent()) {
+      Optional<LiteralValue> literal =
+          literalValue(constMember.get().value(), scalarType, "const", propertyName, diagnostics);
+      if (literal.isEmpty()) {
+        return Optional.empty();
+      }
+      constValue = literal;
+    }
+    Optional<LiteralValue> defaultValue = Optional.empty();
+    if (defaultMember.isPresent()) {
+      Optional<LiteralValue> literal =
+          literalValue(
+              defaultMember.get().value(), scalarType, "default", propertyName, diagnostics);
+      if (literal.isEmpty()) {
+        return Optional.empty();
+      }
+      defaultValue = literal;
+    }
+    return Optional.of(new LiteralConstraints(enumValues, constValue, defaultValue));
+  }
+
+  private static Optional<LiteralValue> literalValue(
+      SchemaSyntaxValue value,
+      JavaScalarType scalarType,
+      String keyword,
+      String propertyName,
+      List<BindingDiagnostic> diagnostics) {
+    if (value instanceof NullValue) {
+      return Optional.of(new LiteralValue(LiteralValue.Kind.NULL, ""));
+    }
+    Optional<LiteralValue> literal =
+        switch (scalarType) {
+          case STRING -> stringLiteral(value);
+          case INTEGER -> integerLiteral(value);
+          case NUMBER -> numberLiteral(value);
+          case BOOLEAN -> booleanLiteral(value);
+        };
+    if (literal.isPresent()) {
+      return literal;
+    }
+    diagnostics.add(
+        unsupportedLiteralConstraint(
+            "Property '"
+                + propertyName
+                + "' "
+                + keyword
+                + " constraint must contain only values compatible with "
+                + scalarType.schemaType()
+                + " bindings plus null.",
+            value.pointer()));
+    return Optional.empty();
+  }
+
+  private static Optional<LiteralValue> stringLiteral(SchemaSyntaxValue value) {
+    if (value instanceof StringValue stringValue) {
+      return Optional.of(new LiteralValue(LiteralValue.Kind.STRING, stringValue.value()));
+    }
+    return Optional.empty();
+  }
+
+  private static Optional<LiteralValue> integerLiteral(SchemaSyntaxValue value) {
+    if (!(value instanceof NumberValue numberValue)) {
+      return Optional.empty();
+    }
+    try {
+      return Optional.of(
+          new LiteralValue(
+              LiteralValue.Kind.INTEGER, Long.toString(Long.parseLong(numberValue.literal()))));
+    } catch (NumberFormatException exception) {
+      return Optional.empty();
+    }
+  }
+
+  private static Optional<LiteralValue> numberLiteral(SchemaSyntaxValue value) {
+    if (value instanceof NumberValue numberValue) {
+      return Optional.of(new LiteralValue(LiteralValue.Kind.NUMBER, numberValue.literal()));
+    }
+    return Optional.empty();
+  }
+
+  private static Optional<LiteralValue> booleanLiteral(SchemaSyntaxValue value) {
+    if (value instanceof BooleanValue booleanValue) {
+      return Optional.of(
+          new LiteralValue(LiteralValue.Kind.BOOLEAN, Boolean.toString(booleanValue.value())));
+    }
+    return Optional.empty();
+  }
+
+  private static boolean hasLiteralConstraint(ObjectValue schema) {
+    return firstLiteralConstraint(schema).isPresent();
+  }
+
+  private static Optional<Member> firstLiteralConstraint(ObjectValue schema) {
+    for (String name : List.of("enum", "const", "default")) {
+      Optional<Member> member = member(schema, name);
+      if (member.isPresent()) {
+        return member;
+      }
+    }
+    return Optional.empty();
   }
 
   private static String toJavaFieldName(String propertyName) {
@@ -441,6 +619,17 @@ public final class BindingModelBuilder {
 
   private static BindingDiagnostic invalidArrayBounds(String message, JsonPointer pointer) {
     return new BindingDiagnostic(BindingDiagnostic.INVALID_ARRAY_BOUNDS_CODE, message, pointer);
+  }
+
+  private static BindingDiagnostic unsupportedLiteralConstraint(
+      String message, JsonPointer pointer) {
+    return new BindingDiagnostic(
+        BindingDiagnostic.UNSUPPORTED_LITERAL_CONSTRAINT_CODE, message, pointer);
+  }
+
+  private static BindingDiagnostic invalidLiteralConstraint(String message, JsonPointer pointer) {
+    return new BindingDiagnostic(
+        BindingDiagnostic.INVALID_LITERAL_CONSTRAINT_CODE, message, pointer);
   }
 
   private static BindingDiagnostic unknownRequired(String message, JsonPointer pointer) {

@@ -42,3 +42,17 @@ item paths for array items.
 | `maximum` | `integer`, `number` | `MJJBV-012` | Compares generated model values against exact schema literals with `BigDecimal`. |
 | `exclusiveMinimum` | `integer`, `number` | `MJJBV-013` | Requires model value greater than the schema literal. |
 | `exclusiveMaximum` | `integer`, `number` | `MJJBV-014` | Requires model value less than the schema literal. |
+
+## Literal Constraints
+
+Generated validators enforce scalar `enum` and `const` constraints on scalar
+fields and homogeneous scalar array items. Scalar field failures use the field
+path; array item failures use indexed paths such as `$.statuses[0]`.
+
+| Keyword | Applies to | Code | Notes |
+|---|---|---|---|
+| `enum` | `string`, `integer`, `number`, `boolean` | `MJJBV-015` | Values are compared against compatible scalar literals; `number` comparisons use `BigDecimal`. |
+| `const` | `string`, `integer`, `number`, `boolean` | `MJJBV-016` | `const: null` is preserved but fails any present non-null value in the current binding slice. |
+
+`default` remains a JSON Schema annotation. It is exposed by generated model
+metadata accessors when supported, and it does not produce validation errors.
