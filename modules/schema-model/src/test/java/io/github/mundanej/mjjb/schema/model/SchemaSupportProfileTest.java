@@ -105,6 +105,21 @@ final class SchemaSupportProfileTest {
   }
 
   @Test
+  void acceptsNullableTypeArrays() {
+    assertValid(
+        """
+        {
+          "type": "object",
+          "properties": {
+            "left": {"type": ["null", "string"]},
+            "right": {"type": ["array", "null"], "items": {"type": "integer"}}
+          },
+          "additionalProperties": false
+        }
+        """);
+  }
+
+  @Test
   void acceptsSupportedFacetShapes() {
     assertValid(
         """

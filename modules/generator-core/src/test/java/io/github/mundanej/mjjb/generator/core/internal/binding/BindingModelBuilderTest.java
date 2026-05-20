@@ -128,6 +128,35 @@ final class BindingModelBuilderTest {
   }
 
   @Test
+  void buildsNullableFieldBindings() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "name": {"type": ["null", "string"]},
+                "scores": {"type": ["array", "null"], "items": {"type": "number"}}
+              },
+              "required": ["name"],
+              "additionalProperties": false
+            }
+            """);
+
+    assertTrue(result.diagnostics().isEmpty());
+    BindingModel model = result.model().orElseThrow();
+    assertEquals(List.of(true, true), nullableFlags(model));
+    assertEquals(
+        "JsonField<String>", model.rootObject().fields().get(0).valueType().requiredJavaType());
+    assertEquals(
+        "JsonField<String>", model.rootObject().fields().get(0).valueType().optionalJavaType());
+    assertEquals(
+        "JsonField<List<Double>>",
+        model.rootObject().fields().get(1).valueType().requiredJavaType());
+    assertEquals(List.of(true, false), requiredFlags(model));
+  }
+
+  @Test
   void collectsScalarAndArrayItemFacets() {
     BindingBuildResult result =
         build(
@@ -378,6 +407,25 @@ final class BindingModelBuilderTest {
   }
 
   @Test
+  void rejectsNullableArrayItemBindings() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "names": {"type": "array", "items": {"type": ["null", "string"]}}
+              },
+              "additionalProperties": false
+            }
+            """);
+
+    assertEquals(
+        BindingDiagnostic.UNSUPPORTED_PROPERTY_TYPE_CODE, result.diagnostics().getFirst().code());
+    assertEquals("/properties/names/items/type", result.diagnostics().getFirst().pointer().value());
+  }
+
+  @Test
   void rejectsUnknownRequiredProperties() {
     BindingBuildResult result =
         build(
@@ -421,6 +469,10 @@ final class BindingModelBuilderTest {
 
   private static List<Boolean> arrayFlags(BindingModel model) {
     return model.rootObject().fields().stream().map(FieldBinding::array).toList();
+  }
+
+  private static List<Boolean> nullableFlags(BindingModel model) {
+    return model.rootObject().fields().stream().map(field -> field.valueType().nullable()).toList();
   }
 
   private static List<String> schemaPointers(BindingModel model) {

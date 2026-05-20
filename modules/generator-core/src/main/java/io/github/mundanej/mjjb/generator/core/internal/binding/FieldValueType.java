@@ -7,6 +7,7 @@ import java.util.OptionalLong;
 public record FieldValueType(
     JavaScalarType scalarType,
     boolean array,
+    boolean nullable,
     OptionalLong minItems,
     OptionalLong maxItems,
     FacetConstraints facets,
@@ -33,7 +34,13 @@ public record FieldValueType(
   public static FieldValueType scalar(
       JavaScalarType scalarType, FacetConstraints facets, LiteralConstraints literals) {
     return new FieldValueType(
-        scalarType, false, OptionalLong.empty(), OptionalLong.empty(), facets, literals);
+        scalarType, false, false, OptionalLong.empty(), OptionalLong.empty(), facets, literals);
+  }
+
+  public static FieldValueType nullableScalar(
+      JavaScalarType scalarType, FacetConstraints facets, LiteralConstraints literals) {
+    return new FieldValueType(
+        scalarType, false, true, OptionalLong.empty(), OptionalLong.empty(), facets, literals);
   }
 
   public static FieldValueType array(
@@ -55,10 +62,22 @@ public record FieldValueType(
       OptionalLong maxItems,
       FacetConstraints facets,
       LiteralConstraints literals) {
-    return new FieldValueType(scalarType, true, minItems, maxItems, facets, literals);
+    return new FieldValueType(scalarType, true, false, minItems, maxItems, facets, literals);
+  }
+
+  public static FieldValueType nullableArray(
+      JavaScalarType scalarType,
+      OptionalLong minItems,
+      OptionalLong maxItems,
+      FacetConstraints facets,
+      LiteralConstraints literals) {
+    return new FieldValueType(scalarType, true, true, minItems, maxItems, facets, literals);
   }
 
   public String requiredJavaType() {
+    if (nullable) {
+      return "JsonField<" + nullableValueJavaType() + ">";
+    }
     if (array) {
       return "List<" + scalarType.boxedJavaType() + ">";
     }
@@ -66,9 +85,19 @@ public record FieldValueType(
   }
 
   public String optionalJavaType() {
+    if (nullable) {
+      return requiredJavaType();
+    }
     if (array) {
       return "Optional<" + requiredJavaType() + ">";
     }
     return scalarType.optionalJavaType();
+  }
+
+  public String nullableValueJavaType() {
+    if (array) {
+      return "List<" + scalarType.boxedJavaType() + ">";
+    }
+    return scalarType.boxedJavaType();
   }
 }

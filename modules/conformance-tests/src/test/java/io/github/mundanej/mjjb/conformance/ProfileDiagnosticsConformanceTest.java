@@ -99,6 +99,45 @@ final class ProfileDiagnosticsConformanceTest {
   }
 
   @Test
+  void acceptsNullableFieldBindingThroughGenerator() throws IOException {
+    GeneratorResult result =
+        generate(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "name": {"type": ["null", "string"]},
+                "scores": {"type": ["array", "null"], "items": {"type": "number"}}
+              },
+              "required": ["name"],
+              "additionalProperties": false
+            }
+            """);
+
+    assertTrue(result.successful());
+    assertEquals(4, result.generatedSources().size());
+  }
+
+  @Test
+  void rejectsNullableArrayItemBindingThroughGenerator() throws IOException {
+    GeneratorResult result =
+        generate(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "names": {"type": "array", "items": {"type": ["null", "string"]}}
+              },
+              "additionalProperties": false
+            }
+            """);
+
+    assertFalse(result.successful());
+    assertEquals("MJJBG-BINDING-UNSUPPORTED-PROPERTY-TYPE", result.diagnostics().getFirst().code());
+    assertEquals("/properties/names/items/type", result.diagnostics().getFirst().schemaPointer());
+  }
+
+  @Test
   void rejectsUnsupportedLiteralConstraintBindingThroughGenerator() throws IOException {
     GeneratorResult result =
         generate(

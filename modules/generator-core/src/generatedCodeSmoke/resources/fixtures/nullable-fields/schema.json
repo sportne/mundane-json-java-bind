@@ -1,0 +1,42 @@
+{
+  "type": "object",
+  "properties": {
+    "nickname": {
+      "type": ["null", "string"],
+      "minLength": 2,
+      "enum": ["Ada", null],
+      "default": null
+    },
+    "status": {
+      "type": ["string", "null"],
+      "const": null
+    },
+    "code": {
+      "type": ["null", "string"],
+      "const": "OK",
+      "default": "OK"
+    },
+    "score": {
+      "type": ["null", "number"],
+      "maximum": 10
+    },
+    "tags": {
+      "type": ["null", "array"],
+      "items": {
+        "type": "string",
+        "minLength": 3,
+        "enum": ["red", "blue"]
+      },
+      "minItems": 1
+    },
+    "flags": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "boolean",
+        "const": true
+      }
+    }
+  },
+  "required": ["nickname", "tags"],
+  "additionalProperties": false
+}

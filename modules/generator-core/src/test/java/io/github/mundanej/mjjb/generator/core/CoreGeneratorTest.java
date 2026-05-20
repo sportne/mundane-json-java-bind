@@ -283,6 +283,51 @@ final class CoreGeneratorTest {
   }
 
   @Test
+  void writesNullableObjectRecordMatchingGoldenSource() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(
+        schema,
+        """
+        {
+          "type": "object",
+          "properties": {
+            "nickname": {"type": ["null", "string"], "minLength": 2, "enum": ["Ada", null], "default": null},
+            "status": {"type": ["string", "null"], "const": null},
+            "code": {"type": ["null", "string"], "const": "OK", "default": "OK"},
+            "score": {"type": ["null", "number"], "maximum": 10},
+            "tags": {"type": ["null", "array"], "items": {"type": "string", "minLength": 3, "enum": ["red", "blue"]}, "minItems": 1},
+            "flags": {"type": ["array", "null"], "items": {"type": "boolean", "const": true}}
+          },
+          "required": ["nickname", "tags"],
+          "additionalProperties": false
+        }
+        """);
+
+    GeneratorResult result =
+        new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
+
+    assertTrue(result.successful());
+    assertEquals(4, result.generatedSources().size());
+    Path modelSource = sourceNamed(result, "GeneratedBindings.java");
+    Path writerSource = sourceNamed(result, "GeneratedBindingsJsonWriter.java");
+    Path readerSource = sourceNamed(result, "GeneratedBindingsJsonReader.java");
+    Path validatorSource = sourceNamed(result, "GeneratedBindingsJsonValidator.java");
+    assertEquals(
+        golden("nullable-fields", "GeneratedBindings.java"), Files.readString(modelSource));
+    assertEquals(
+        golden("nullable-fields", "GeneratedBindingsJsonWriter.java"),
+        Files.readString(writerSource));
+    assertEquals(
+        golden("nullable-fields", "GeneratedBindingsJsonReader.java"),
+        Files.readString(readerSource));
+    assertEquals(
+        golden("nullable-fields", "GeneratedBindingsJsonValidator.java"),
+        Files.readString(validatorSource));
+    generatedSourceVerifier.compileGeneratedSources(
+        "nullable-fields", result.generatedSources(), tempDir.resolve("nullable-fields-classes"));
+  }
+
+  @Test
   void writesCustomRootTypeSources() throws IOException {
     Path schema = tempDir.resolve("schema.json");
     Files.writeString(

@@ -55,6 +55,31 @@ public final class JsonField<T> {
     return value;
   }
 
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+    if (!(other instanceof JsonField<?> jsonField)) {
+      return false;
+    }
+    return state == jsonField.state && Objects.equals(value, jsonField.value);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(state, value);
+  }
+
+  @Override
+  public String toString() {
+    return switch (state) {
+      case ABSENT -> "JsonField.absent";
+      case NULL -> "JsonField.explicitNull";
+      case VALUE -> "JsonField.value[" + value + "]";
+    };
+  }
+
   private enum State {
     ABSENT,
     NULL,

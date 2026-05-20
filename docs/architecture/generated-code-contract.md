@@ -42,6 +42,17 @@ Homogeneous arrays with scalar `items` map to immutable Java lists:
 | `number` | `List<Double>` | `Optional<List<Double>>` |
 | `boolean` | `List<Boolean>` | `Optional<List<Boolean>>` |
 
+Nullable field-level type arrays preserve absent, explicit null, and value
+states with `JsonField<T>`:
+
+| JSON Schema property type | Required Java type | Optional Java type |
+| --- | --- | --- |
+| `["null", "string"]` | `JsonField<String>` | `JsonField<String>` |
+| `["null", "integer"]` | `JsonField<Long>` | `JsonField<Long>` |
+| `["null", "number"]` | `JsonField<Double>` | `JsonField<Double>` |
+| `["null", "boolean"]` | `JsonField<Boolean>` | `JsonField<Boolean>` |
+| `["null", "array"]` with scalar `items` | `JsonField<List<T>>` | `JsonField<List<T>>` |
+
 ## Basic Object Model Shape
 
 Generated basic object models are Java records. Record components are emitted in
@@ -58,11 +69,17 @@ public record GeneratedBindings(String id, long count, Optional<String> name) {
 }
 ```
 
-Future nullable or absent-vs-null-sensitive fields use `JsonField<T>`:
+Nullable or absent-vs-null-sensitive fields use `JsonField<T>`:
 
 ```java
 public record User(String id, Optional<String> name, JsonField<String> nickname) {}
 ```
+
+`JsonField.absent()` means the JSON property was not present,
+`JsonField.explicitNull()` means the property value was JSON `null`, and
+`JsonField.value(value)` means the property was present with a non-null value.
+Generated compact constructors reject null `JsonField` containers. Nullable
+array values are defensively copied when the field has a value.
 
 Array fields are defensively copied with `List.copyOf` in the compact
 constructor. Required array fields reject null lists; optional array fields
@@ -108,6 +125,8 @@ public final class GeneratedBindingsJsonWriter {
 Writers emit object properties in schema order. Required scalar fields are always
 written. Optional scalar fields are written only when their `Optional<T>` is
 present; absent optionals are skipped rather than serialized as `null`.
+Nullable fields are written only when not `JsonField.absent()`; explicit null
+fields write JSON `null`, and value fields write the contained value.
 
 Array fields are written with `beginArray`, item values in list iteration order,
 and `endArray`. Optional array fields are skipped when absent.
@@ -141,6 +160,11 @@ record directly. Required fields are tracked with generated `seen` flags;
 optional scalar fields default to `Optional.empty()` and become
 `Optional.of(value)` when present. JSON `null` is not accepted for non-null
 fields in this slice.
+
+Nullable fields initialize to `JsonField.absent()`, become
+`JsonField.explicitNull()` for JSON `null`, and become `JsonField.value(value)`
+for non-null JSON values. Required nullable fields still require the property to
+be present in input JSON.
 
 Reader diagnostics use stable `MJJBR-*` codes for generated-binding failures:
 root type mismatch, trailing root content, duplicate property, unknown property,
@@ -192,9 +216,10 @@ fields, `MJJBV-003` for null optional containers, and `MJJBV-004` for non-finite
 number values. Array validators also enforce `minItems` with `MJJBV-005` and
 `maxItems` with `MJJBV-006`; array size errors report the array field path and
 array item errors report indexed item paths.
+Required nullable fields with `JsonField.absent()` use `MJJBV-017`.
 
 Generated validators also enforce scalar `enum` and `const` constraints for
 scalar fields and homogeneous scalar array items. Literal validation runs only
-for present non-null generated values; absent optional values are skipped. `null`
-literal candidates are preserved in generated metadata but are not matched by
-the current non-null field shapes. No Java `enum` types are generated.
+for present values; absent nullable or optional values are skipped. Explicit null
+nullable fields match `enum` or `const` only when the schema literal set includes
+`null`. No Java `enum` types are generated.

@@ -2,6 +2,7 @@ package io.github.mundanej.mjjb.runtime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -29,6 +30,15 @@ final class RuntimePrimitivesTest {
     assertTrue(JsonField.explicitNull().isExplicitNull());
     assertEquals("abc", JsonField.value("abc").requireValue());
     assertThrows(NullPointerException.class, () -> JsonField.value(null));
+    assertEquals(JsonField.absent(), JsonField.absent());
+    assertEquals(JsonField.explicitNull(), JsonField.explicitNull());
+    assertEquals(JsonField.value("abc"), JsonField.value("abc"));
+    assertEquals(JsonField.value("abc").hashCode(), JsonField.value("abc").hashCode());
+    assertNotEquals(JsonField.absent(), JsonField.explicitNull());
+    assertNotEquals(JsonField.value("abc"), JsonField.value("def"));
+    assertEquals("JsonField.absent", JsonField.absent().toString());
+    assertEquals("JsonField.explicitNull", JsonField.explicitNull().toString());
+    assertEquals("JsonField.value[abc]", JsonField.value("abc").toString());
   }
 
   @Test

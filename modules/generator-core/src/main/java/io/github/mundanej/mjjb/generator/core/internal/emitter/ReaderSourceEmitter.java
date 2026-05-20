@@ -77,11 +77,15 @@ public final class ReaderSourceEmitter {
     imports.add("io.github.mundanej.mjjb.runtime.JsonReader");
     imports.add("io.github.mundanej.mjjb.runtime.JsonToken");
     imports.add("java.util.Objects");
+    if (hasNullableField(model)) {
+      imports.add("io.github.mundanej.mjjb.runtime.JsonField");
+    }
     if (hasArrayField(model)) {
       imports.add("java.util.ArrayList");
       imports.add("java.util.List");
     }
-    if (model.rootObject().fields().stream().anyMatch(field -> !field.required())) {
+    if (model.rootObject().fields().stream()
+        .anyMatch(field -> !field.required() && !field.valueType().nullable())) {
       imports.add("java.util.Optional");
     }
     return List.copyOf(imports);
@@ -90,7 +94,11 @@ public final class ReaderSourceEmitter {
   private static List<String> fieldInitializers(BindingModel model) {
     ArrayList<String> lines = new ArrayList<>();
     for (FieldBinding field : model.rootObject().fields()) {
-      if (field.required()) {
+      if (field.valueType().nullable()) {
+        lines.add(
+            "    " + localJavaType(field) + " " + field.javaFieldName() + " = JsonField.absent();");
+        lines.add("    boolean " + seenName(field) + " = false;");
+      } else if (field.required()) {
         lines.add(
             "    "
                 + localJavaType(field)
@@ -118,7 +126,7 @@ public final class ReaderSourceEmitter {
             + javaStringLiteral(field.jsonPropertyName())
             + ", reader.location());");
     lines.add("          }");
-    if (field.required()) {
+    if (field.required() || field.valueType().nullable()) {
       lines.add(
           "          "
               + field.javaFieldName()
@@ -177,30 +185,57 @@ public final class ReaderSourceEmitter {
     lines.add("  }");
     if (hasScalarType(model, JavaScalarType.STRING)) {
       lines.addAll(stringHelper());
+      if (hasNullableScalarType(model, JavaScalarType.STRING)) {
+        lines.addAll(nullableScalarHelper(JavaScalarType.STRING));
+      }
     }
     if (hasScalarType(model, JavaScalarType.INTEGER)) {
       lines.addAll(integerHelper());
+      if (hasNullableScalarType(model, JavaScalarType.INTEGER)) {
+        lines.addAll(nullableScalarHelper(JavaScalarType.INTEGER));
+      }
     }
     if (hasScalarType(model, JavaScalarType.NUMBER)) {
       lines.addAll(numberHelper());
+      if (hasNullableScalarType(model, JavaScalarType.NUMBER)) {
+        lines.addAll(nullableScalarHelper(JavaScalarType.NUMBER));
+      }
     }
     if (hasScalarType(model, JavaScalarType.BOOLEAN)) {
       lines.addAll(booleanHelper());
+      if (hasNullableScalarType(model, JavaScalarType.BOOLEAN)) {
+        lines.addAll(nullableScalarHelper(JavaScalarType.BOOLEAN));
+      }
     }
     if (hasArrayType(model, JavaScalarType.STRING)) {
       lines.addAll(arrayHelper(JavaScalarType.STRING));
+      if (hasNullableArrayType(model, JavaScalarType.STRING)) {
+        lines.addAll(nullableArrayHelper(JavaScalarType.STRING));
+      }
     }
     if (hasArrayType(model, JavaScalarType.INTEGER)) {
       lines.addAll(arrayHelper(JavaScalarType.INTEGER));
+      if (hasNullableArrayType(model, JavaScalarType.INTEGER)) {
+        lines.addAll(nullableArrayHelper(JavaScalarType.INTEGER));
+      }
     }
     if (hasArrayType(model, JavaScalarType.NUMBER)) {
       lines.addAll(arrayHelper(JavaScalarType.NUMBER));
+      if (hasNullableArrayType(model, JavaScalarType.NUMBER)) {
+        lines.addAll(nullableArrayHelper(JavaScalarType.NUMBER));
+      }
     }
     if (hasArrayType(model, JavaScalarType.BOOLEAN)) {
       lines.addAll(arrayHelper(JavaScalarType.BOOLEAN));
+      if (hasNullableArrayType(model, JavaScalarType.BOOLEAN)) {
+        lines.addAll(nullableArrayHelper(JavaScalarType.BOOLEAN));
+      }
     }
     if (!model.rootObject().fields().isEmpty()) {
       lines.addAll(requireTokenHelper());
+      if (hasNullableField(model)) {
+        lines.addAll(nullableHelper());
+      }
       if (hasArrayField(model)) {
         lines.addAll(hasNextHelper());
       }
@@ -327,6 +362,46 @@ public final class ReaderSourceEmitter {
         "  }");
   }
 
+  private static List<String> nullableScalarHelper(JavaScalarType scalarType) {
+    String typeName = scalarType.boxedJavaType();
+    String methodName = nullableScalarReadMethodName(scalarType);
+    String valueExpression = readScalarExpression(scalarType, "path");
+    return List.of(
+        "",
+        "  private static JsonField<"
+            + typeName
+            + "> "
+            + methodName
+            + "(JsonReader reader, JsonPath path)",
+        "      throws JsonReadException {",
+        "    if (isNull(reader, path)) {",
+        "      readNull(reader, path);",
+        "      return JsonField.explicitNull();",
+        "    }",
+        "    return JsonField.value(" + valueExpression + ");",
+        "  }");
+  }
+
+  private static List<String> nullableArrayHelper(JavaScalarType scalarType) {
+    String typeName = "List<" + scalarType.boxedJavaType() + ">";
+    String methodName = nullableArrayReadMethodName(scalarType);
+    String valueExpression = arrayReadMethodName(scalarType) + "(reader, path)";
+    return List.of(
+        "",
+        "  private static JsonField<"
+            + typeName
+            + "> "
+            + methodName
+            + "(JsonReader reader, JsonPath path)",
+        "      throws JsonReadException {",
+        "    if (isNull(reader, path)) {",
+        "      readNull(reader, path);",
+        "      return JsonField.explicitNull();",
+        "    }",
+        "    return JsonField.value(" + valueExpression + ");",
+        "  }");
+  }
+
   private static List<String> requireTokenHelper() {
     return List.of(
         "",
@@ -352,6 +427,26 @@ public final class ReaderSourceEmitter {
         "    }",
         "    if (actual != expected) {",
         "      throw error(code, message, path, reader.location());",
+        "    }",
+        "  }");
+  }
+
+  private static List<String> nullableHelper() {
+    return List.of(
+        "",
+        "  private static boolean isNull(JsonReader reader, JsonPath path) throws JsonReadException {",
+        "    try {",
+        "      return reader.peek() == JsonToken.NULL;",
+        "    } catch (JsonReadException exception) {",
+        "      throw atPath(exception, path);",
+        "    }",
+        "  }",
+        "",
+        "  private static void readNull(JsonReader reader, JsonPath path) throws JsonReadException {",
+        "    try {",
+        "      reader.nextNull();",
+        "    } catch (JsonReadException exception) {",
+        "      throw atPath(exception, path);",
         "    }",
         "  }");
   }
@@ -385,6 +480,12 @@ public final class ReaderSourceEmitter {
   }
 
   private static String readExpression(FieldBinding field, String pathExpression) {
+    if (field.valueType().nullable() && field.array()) {
+      return nullableArrayReadMethodName(field.scalarType()) + "(reader, " + pathExpression + ")";
+    }
+    if (field.valueType().nullable()) {
+      return nullableScalarReadMethodName(field.scalarType()) + "(reader, " + pathExpression + ")";
+    }
     if (field.array()) {
       return arrayReadMethodName(field.scalarType()) + "(reader, " + pathExpression + ")";
     }
@@ -412,6 +513,9 @@ public final class ReaderSourceEmitter {
   }
 
   private static String requiredDefault(FieldBinding field) {
+    if (field.valueType().nullable()) {
+      return "JsonField.absent()";
+    }
     if (field.array()) {
       return "null";
     }
@@ -431,6 +535,10 @@ public final class ReaderSourceEmitter {
     return model.rootObject().fields().stream().anyMatch(field -> field.scalarType() == scalarType);
   }
 
+  private static boolean hasNullableField(BindingModel model) {
+    return model.rootObject().fields().stream().anyMatch(field -> field.valueType().nullable());
+  }
+
   private static boolean hasArrayField(BindingModel model) {
     return model.rootObject().fields().stream().anyMatch(FieldBinding::array);
   }
@@ -440,12 +548,44 @@ public final class ReaderSourceEmitter {
         .anyMatch(field -> field.array() && field.scalarType() == scalarType);
   }
 
+  private static boolean hasNullableScalarType(BindingModel model, JavaScalarType scalarType) {
+    return model.rootObject().fields().stream()
+        .anyMatch(
+            field ->
+                field.valueType().nullable() && !field.array() && field.scalarType() == scalarType);
+  }
+
+  private static boolean hasNullableArrayType(BindingModel model, JavaScalarType scalarType) {
+    return model.rootObject().fields().stream()
+        .anyMatch(
+            field ->
+                field.valueType().nullable() && field.array() && field.scalarType() == scalarType);
+  }
+
   private static String arrayReadMethodName(JavaScalarType scalarType) {
     return switch (scalarType) {
       case STRING -> "readStringArray";
       case INTEGER -> "readIntegerArray";
       case NUMBER -> "readNumberArray";
       case BOOLEAN -> "readBooleanArray";
+    };
+  }
+
+  private static String nullableScalarReadMethodName(JavaScalarType scalarType) {
+    return switch (scalarType) {
+      case STRING -> "readNullableString";
+      case INTEGER -> "readNullableInteger";
+      case NUMBER -> "readNullableNumber";
+      case BOOLEAN -> "readNullableBoolean";
+    };
+  }
+
+  private static String nullableArrayReadMethodName(JavaScalarType scalarType) {
+    return switch (scalarType) {
+      case STRING -> "readNullableStringArray";
+      case INTEGER -> "readNullableIntegerArray";
+      case NUMBER -> "readNullableNumberArray";
+      case BOOLEAN -> "readNullableBooleanArray";
     };
   }
 

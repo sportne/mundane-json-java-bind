@@ -38,6 +38,7 @@ public final class GeneratedCodeSmoke {
         new GeneratedSourceFixture("array-scalar"),
         new GeneratedSourceFixture("facet-constraints"),
         new GeneratedSourceFixture("literal-constraints"),
+        new GeneratedSourceFixture("nullable-fields"),
         new GeneratedSourceFixture("property-order"),
         new GeneratedSourceFixture("validation-fail-fast"));
   }

@@ -72,7 +72,24 @@ public final class WriterSourceEmitter {
       if (field.scalarType() != JavaScalarType.NUMBER) {
         continue;
       }
-      if (field.array() && field.required()) {
+      if (field.valueType().nullable() && field.array()) {
+        lines.add("    if (value." + field.javaFieldName() + "().hasValue()) {");
+        lines.add(
+            "      for (Double item : value." + field.javaFieldName() + "().requireValue()) {");
+        lines.add(
+            "        requireFinite(item, " + javaStringLiteral(field.jsonPropertyName()) + ");");
+        lines.add("      }");
+        lines.add("    }");
+      } else if (field.valueType().nullable()) {
+        lines.add("    if (value." + field.javaFieldName() + "().hasValue()) {");
+        lines.add(
+            "      requireFinite(value."
+                + field.javaFieldName()
+                + "().requireValue(), "
+                + javaStringLiteral(field.jsonPropertyName())
+                + ");");
+        lines.add("    }");
+      } else if (field.array() && field.required()) {
         lines.add("    for (Double item : value." + field.javaFieldName() + "()) {");
         lines.add(
             "      requireFinite(item, " + javaStringLiteral(field.jsonPropertyName()) + ");");
@@ -107,6 +124,9 @@ public final class WriterSourceEmitter {
   }
 
   private static List<String> writeFieldLines(FieldBinding field) {
+    if (field.valueType().nullable()) {
+      return nullableFieldLines(field);
+    }
     if (field.required()) {
       return requiredFieldLines(field);
     }
@@ -135,6 +155,25 @@ public final class WriterSourceEmitter {
     } else {
       lines.add("      " + writeValueStatement(field, "value." + fieldName + "().orElseThrow()"));
     }
+    lines.add("    }");
+    return lines;
+  }
+
+  private static List<String> nullableFieldLines(FieldBinding field) {
+    ArrayList<String> lines = new ArrayList<>();
+    String fieldName = field.javaFieldName();
+    lines.add("    if (!value." + fieldName + "().isAbsent()) {");
+    lines.add("      writer.name(" + javaStringLiteral(field.jsonPropertyName()) + ");");
+    lines.add("      if (value." + fieldName + "().isExplicitNull()) {");
+    lines.add("        writer.nullValue();");
+    lines.add("      } else {");
+    if (field.array()) {
+      lines.addAll(writeArrayLines(field, "value." + fieldName + "().requireValue()", "        "));
+    } else {
+      lines.add(
+          "        " + writeValueStatement(field, "value." + fieldName + "().requireValue()"));
+    }
+    lines.add("      }");
     lines.add("    }");
     return lines;
   }

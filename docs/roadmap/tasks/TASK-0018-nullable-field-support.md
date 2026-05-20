@@ -1,7 +1,7 @@
 # TASK-0018: Nullable Field Support
 
 Task ID: `TASK-0018`
-Status: `draft`
+Status: `complete`
 Gate: Collections and value constraints
 Depends on: `TASK-0017`
 Specification references: JSON Schema Draft 2020-12 Core and Validation `type` arrays including `null`

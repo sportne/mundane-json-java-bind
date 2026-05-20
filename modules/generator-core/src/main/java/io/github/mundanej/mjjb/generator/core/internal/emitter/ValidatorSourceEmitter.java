@@ -152,6 +152,9 @@ public final class ValidatorSourceEmitter {
   }
 
   private static List<String> validateFieldLines(FieldBinding field) {
+    if (field.valueType().nullable()) {
+      return validateNullableFieldLines(field);
+    }
     ArrayList<String> lines = new ArrayList<>();
     if (field.required()
         && (field.array() || "String".equals(field.scalarType().requiredJavaType()))) {
@@ -220,6 +223,66 @@ public final class ValidatorSourceEmitter {
       lines.addAll(validateNumericFacetLines(field, scalarValueExpression(field)));
     }
     lines.addAll(validateLiteralLines(field, scalarValueExpression(field)));
+    return lines;
+  }
+
+  private static List<String> validateNullableFieldLines(FieldBinding field) {
+    ArrayList<String> lines = new ArrayList<>();
+    String fieldExpression = "value." + field.javaFieldName() + "()";
+    lines.add("    if (" + fieldExpression + " == null) {");
+    String code = field.required() ? "MJJBV-002" : "MJJBV-003";
+    String messagePrefix = field.required() ? "Required" : "Optional";
+    lines.add(
+        "      if (!errors.add("
+            + "ValidationError.of(\""
+            + code
+            + "\", \""
+            + messagePrefix
+            + " nullable property '"
+            + field.jsonPropertyName()
+            + "' field state must not be null.\", "
+            + propertyPathExpression(field)
+            + "))) {");
+    lines.add("        return errors.toResult();");
+    lines.add("      }");
+    lines.add("    }");
+    if (field.required()) {
+      lines.add("    if (" + fieldExpression + " != null && " + fieldExpression + ".isAbsent()) {");
+      lines.add(
+          "      if (!errors.add("
+              + "ValidationError.of(\"MJJBV-017\", \"Required nullable property '"
+              + field.jsonPropertyName()
+              + "' must be present.\", "
+              + propertyPathExpression(field)
+              + "))) {");
+      lines.add("        return errors.toResult();");
+      lines.add("      }");
+      lines.add("    }");
+    }
+    if (field.array()) {
+      lines.addAll(validateArrayLines(field));
+      return lines;
+    }
+    if (field.scalarType() == JavaScalarType.STRING) {
+      lines.addAll(validateStringFacetLines(field, scalarValueExpression(field)));
+    }
+    if (field.scalarType() == JavaScalarType.NUMBER) {
+      lines.add("    if (" + scalarGuard(field) + ") {");
+      lines.add(
+          "      if (!validateFinite(errors, "
+              + scalarValueExpression(field)
+              + ", "
+              + propertyPathExpression(field)
+              + ")) {");
+      lines.add("        return errors.toResult();");
+      lines.add("      }");
+      lines.add("    }");
+    }
+    if (field.scalarType() == JavaScalarType.INTEGER
+        || field.scalarType() == JavaScalarType.NUMBER) {
+      lines.addAll(validateNumericFacetLines(field, scalarValueExpression(field)));
+    }
+    lines.addAll(validateNullableLiteralLines(field));
     return lines;
   }
 
@@ -504,6 +567,40 @@ public final class ValidatorSourceEmitter {
     return lines;
   }
 
+  private static List<String> validateNullableLiteralLines(FieldBinding field) {
+    LiteralConstraints literals = field.valueType().literals();
+    if (!literals.hasEnum() && !literals.hasConst()) {
+      return List.of();
+    }
+    ArrayList<String> lines = new ArrayList<>();
+    String fieldExpression = "value." + field.javaFieldName() + "()";
+    lines.add("    if (" + fieldExpression + " != null && !" + fieldExpression + ".isAbsent()) {");
+    if (literals.hasEnum()) {
+      lines.add(
+          "      if (!validateEnum(errors, "
+              + nullableEnumMatchExpression(
+                  field.scalarType(), fieldExpression, literals.enumValues())
+              + ", "
+              + propertyPathExpression(field)
+              + ")) {");
+      lines.add("        return errors.toResult();");
+      lines.add("      }");
+    }
+    if (literals.hasConst()) {
+      lines.add(
+          "      if (!validateConst(errors, "
+              + nullableLiteralMatchExpression(
+                  field.scalarType(), fieldExpression, literals.constValue().orElseThrow())
+              + ", "
+              + propertyPathExpression(field)
+              + ")) {");
+      lines.add("        return errors.toResult();");
+      lines.add("      }");
+    }
+    lines.add("    }");
+    return lines;
+  }
+
   private static boolean hasArrayWithMinItems(BindingModel model) {
     return model.rootObject().fields().stream()
         .anyMatch(field -> field.array() && field.valueType().minItems().isPresent());
@@ -515,6 +612,13 @@ public final class ValidatorSourceEmitter {
   }
 
   private static String arrayGuard(FieldBinding field) {
+    if (field.valueType().nullable()) {
+      return "value."
+          + field.javaFieldName()
+          + "() != null && value."
+          + field.javaFieldName()
+          + "().hasValue()";
+    }
     if (field.required()) {
       return "value." + field.javaFieldName() + "() != null";
     }
@@ -526,6 +630,9 @@ public final class ValidatorSourceEmitter {
   }
 
   private static String arrayValueExpression(FieldBinding field) {
+    if (field.valueType().nullable()) {
+      return "value." + field.javaFieldName() + "().requireValue()";
+    }
     if (field.required()) {
       return "value." + field.javaFieldName() + "()";
     }
@@ -533,6 +640,9 @@ public final class ValidatorSourceEmitter {
   }
 
   private static String scalarValueExpression(FieldBinding field) {
+    if (field.valueType().nullable()) {
+      return "value." + field.javaFieldName() + "().requireValue()";
+    }
     if (field.required()) {
       return "value." + field.javaFieldName() + "()";
     }
@@ -540,6 +650,13 @@ public final class ValidatorSourceEmitter {
   }
 
   private static String scalarGuard(FieldBinding field) {
+    if (field.valueType().nullable()) {
+      return "value."
+          + field.javaFieldName()
+          + "() != null && value."
+          + field.javaFieldName()
+          + "().hasValue()";
+    }
     if (field.required() && field.scalarType() == JavaScalarType.STRING) {
       return "value." + field.javaFieldName() + "() != null";
     }
@@ -863,6 +980,40 @@ public final class ValidatorSourceEmitter {
               + ")) == 0";
       case BOOLEAN -> valueExpression + " == " + literal.value();
     };
+  }
+
+  private static String nullableEnumMatchExpression(
+      JavaScalarType scalarType, String fieldExpression, List<LiteralValue> enumValues) {
+    boolean nullAllowed =
+        enumValues.stream().anyMatch(literal -> literal.kind() == LiteralValue.Kind.NULL);
+    List<String> expressions =
+        enumValues.stream()
+            .filter(literal -> literal.kind() != LiteralValue.Kind.NULL)
+            .map(
+                literal ->
+                    literalMatchExpression(
+                        scalarType, fieldExpression + ".requireValue()", literal))
+            .toList();
+    String valueMatches = expressions.isEmpty() ? "false" : String.join(" || ", expressions);
+    return "("
+        + fieldExpression
+        + ".isExplicitNull() && "
+        + nullAllowed
+        + ") || ("
+        + fieldExpression
+        + ".hasValue() && ("
+        + valueMatches
+        + "))";
+  }
+
+  private static String nullableLiteralMatchExpression(
+      JavaScalarType scalarType, String fieldExpression, LiteralValue literal) {
+    if (literal.kind() == LiteralValue.Kind.NULL) {
+      return fieldExpression + ".isExplicitNull()";
+    }
+    return fieldExpression
+        + ".hasValue() && "
+        + literalMatchExpression(scalarType, fieldExpression + ".requireValue()", literal);
   }
 
   private static String javaStringLiteral(String value) {

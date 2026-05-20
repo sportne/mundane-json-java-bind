@@ -34,6 +34,9 @@ public final class ModelSourceEmitter {
       if (requiresNullCheck(field)) {
         imports.add("java.util.Objects");
       }
+      if (field.valueType().nullable()) {
+        imports.add("io.github.mundanej.mjjb.runtime.JsonField");
+      }
       if (field.array()) {
         imports.add("java.util.List");
       }
@@ -75,7 +78,9 @@ public final class ModelSourceEmitter {
     }
     lines.add("  public " + model.rootTypeName() + " {");
     for (FieldBinding field : checkedFields) {
-      lines.add("    " + constructorAssignment(field));
+      for (String assignmentLine : constructorAssignmentLines(field)) {
+        lines.add("    " + assignmentLine);
+      }
     }
     lines.add("  }");
     lines.add("}");
@@ -90,20 +95,33 @@ public final class ModelSourceEmitter {
   }
 
   private static boolean requiresNullCheck(FieldBinding field) {
-    return !field.required()
+    return field.valueType().nullable()
+        || !field.required()
         || field.array()
         || "String".equals(field.scalarType().requiredJavaType());
   }
 
-  private static String constructorAssignment(FieldBinding field) {
+  private static List<String> constructorAssignmentLines(FieldBinding field) {
     String name = field.javaFieldName();
+    if (field.valueType().nullable() && field.array()) {
+      return List.of(
+          name + " = Objects.requireNonNull(" + name + ", \"" + name + "\");",
+          "if (" + name + ".hasValue()) {",
+          "  " + name + " = JsonField.value(List.copyOf(" + name + ".requireValue()));",
+          "}");
+    }
+    if (field.valueType().nullable()) {
+      return List.of(name + " = Objects.requireNonNull(" + name + ", \"" + name + "\");");
+    }
     if (field.array() && field.required()) {
-      return name + " = List.copyOf(Objects.requireNonNull(" + name + ", \"" + name + "\"));";
+      return List.of(
+          name + " = List.copyOf(Objects.requireNonNull(" + name + ", \"" + name + "\"));");
     }
     if (field.array()) {
-      return name + " = Objects.requireNonNull(" + name + ", \"" + name + "\").map(List::copyOf);";
+      return List.of(
+          name + " = Objects.requireNonNull(" + name + ", \"" + name + "\").map(List::copyOf);");
     }
-    return name + " = Objects.requireNonNull(" + name + ", \"" + name + "\");";
+    return List.of(name + " = Objects.requireNonNull(" + name + ", \"" + name + "\");");
   }
 
   private static List<String> defaultAccessorLines(FieldBinding field) {

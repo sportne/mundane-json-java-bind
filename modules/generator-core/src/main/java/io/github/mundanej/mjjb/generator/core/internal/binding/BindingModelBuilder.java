@@ -248,13 +248,50 @@ public final class BindingModelBuilder {
   }
 
   private static Optional<JavaScalarType> scalarType(SchemaSyntaxValue value) {
-    if (!(value instanceof StringValue stringValue)) {
+    Optional<String> schemaType = singleTypeName(value);
+    if (schemaType.isEmpty()) {
       return Optional.empty();
     }
     for (JavaScalarType candidate : JavaScalarType.values()) {
-      if (candidate.schemaType().equals(stringValue.value())) {
+      if (candidate.schemaType().equals(schemaType.get())) {
         return Optional.of(candidate);
       }
+    }
+    return Optional.empty();
+  }
+
+  private static Optional<JavaScalarType> nullableScalarType(SchemaSyntaxValue value) {
+    Optional<String> schemaType = nullableTypeName(value);
+    if (schemaType.isEmpty()) {
+      return Optional.empty();
+    }
+    for (JavaScalarType candidate : JavaScalarType.values()) {
+      if (candidate.schemaType().equals(schemaType.get())) {
+        return Optional.of(candidate);
+      }
+    }
+    return Optional.empty();
+  }
+
+  private static Optional<String> singleTypeName(SchemaSyntaxValue value) {
+    if (value instanceof StringValue stringValue) {
+      return Optional.of(stringValue.value());
+    }
+    return Optional.empty();
+  }
+
+  private static Optional<String> nullableTypeName(SchemaSyntaxValue value) {
+    if (!(value instanceof ArrayValue arrayValue) || arrayValue.items().size() != 2) {
+      return Optional.empty();
+    }
+    ArrayList<String> names = new ArrayList<>();
+    for (SchemaSyntaxValue item : arrayValue.items()) {
+      if (item instanceof StringValue stringValue) {
+        names.add(stringValue.value());
+      }
+    }
+    if (names.size() == 2 && names.contains("null")) {
+      return names.stream().filter(name -> !"null".equals(name)).findFirst();
     }
     return Optional.empty();
   }
@@ -272,9 +309,20 @@ public final class BindingModelBuilder {
           constraints ->
               FieldValueType.scalar(scalarType.get(), facets(propertySchema), constraints));
     }
-    if (typeMember.value() instanceof StringValue stringValue
-        && "array".equals(stringValue.value())) {
-      return arrayType(propertyName, propertySchema, diagnostics);
+    Optional<JavaScalarType> nullableScalarType = nullableScalarType(typeMember.value());
+    if (nullableScalarType.isPresent()) {
+      Optional<LiteralConstraints> literals =
+          literalConstraints(propertySchema, nullableScalarType.get(), propertyName, diagnostics);
+      return literals.map(
+          constraints ->
+              FieldValueType.nullableScalar(
+                  nullableScalarType.get(), facets(propertySchema), constraints));
+    }
+    if (singleTypeName(typeMember.value()).filter("array"::equals).isPresent()) {
+      return arrayType(propertyName, propertySchema, false, diagnostics);
+    }
+    if (nullableTypeName(typeMember.value()).filter("array"::equals).isPresent()) {
+      return arrayType(propertyName, propertySchema, true, diagnostics);
     }
     diagnostics.add(
         unsupportedPropertyType(
@@ -286,7 +334,10 @@ public final class BindingModelBuilder {
   }
 
   private static Optional<FieldValueType> arrayType(
-      String propertyName, ObjectValue propertySchema, List<BindingDiagnostic> diagnostics) {
+      String propertyName,
+      ObjectValue propertySchema,
+      boolean nullable,
+      List<BindingDiagnostic> diagnostics) {
     Optional<Member> itemsMember = member(propertySchema, "items");
     if (itemsMember.isEmpty()) {
       diagnostics.add(
@@ -344,6 +395,11 @@ public final class BindingModelBuilder {
         literalConstraints(itemsSchema, itemType.get(), propertyName + "[]", diagnostics);
     if (literals.isEmpty()) {
       return Optional.empty();
+    }
+    if (nullable) {
+      return Optional.of(
+          FieldValueType.nullableArray(
+              itemType.get(), minItems, maxItems, facets(itemsSchema), literals.get()));
     }
     return Optional.of(
         FieldValueType.array(

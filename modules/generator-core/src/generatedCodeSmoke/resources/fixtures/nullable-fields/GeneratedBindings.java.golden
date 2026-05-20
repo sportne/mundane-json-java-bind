@@ -1,0 +1,38 @@
+package io.github.mundanej.mjjb.generated;
+
+import io.github.mundanej.mjjb.runtime.JsonField;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+public record GeneratedBindings(
+    JsonField<String> nickname,
+    JsonField<String> status,
+    JsonField<String> code,
+    JsonField<Double> score,
+    JsonField<List<String>> tags,
+    JsonField<List<Boolean>> flags) {
+
+  public static Optional<String> defaultNickname() {
+    return Optional.empty();
+  }
+
+  public static Optional<String> defaultCode() {
+    return Optional.of("OK");
+  }
+
+  public GeneratedBindings {
+    nickname = Objects.requireNonNull(nickname, "nickname");
+    status = Objects.requireNonNull(status, "status");
+    code = Objects.requireNonNull(code, "code");
+    score = Objects.requireNonNull(score, "score");
+    tags = Objects.requireNonNull(tags, "tags");
+    if (tags.hasValue()) {
+      tags = JsonField.value(List.copyOf(tags.requireValue()));
+    }
+    flags = Objects.requireNonNull(flags, "flags");
+    if (flags.hasValue()) {
+      flags = JsonField.value(List.copyOf(flags.requireValue()));
+    }
+  }
+}
