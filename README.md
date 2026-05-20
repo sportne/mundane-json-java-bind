@@ -101,3 +101,18 @@ The example schema lives at
 `examples/basic-record/src/main/schema/basic-record.schema.json`. Its generated
 sources are checked in under `examples/basic-record/generated-src/main/java`,
 and conformance tests verify they match current generator output.
+
+## Tagged oneOf Example
+
+The checked-in tagged `oneOf` example demonstrates the narrow supported union
+slice: a root sealed interface with nested branch records, tag-first generated
+reading and writing, validation dispatch, and deterministic tag diagnostics.
+
+```bash
+./gradlew :examples:tagged-oneof:check --console=plain
+```
+
+The example schema lives at
+`examples/tagged-oneof/src/main/schema/tagged-oneof.schema.json`. Its generated
+sources are checked in under `examples/tagged-oneof/generated-src/main/java`,
+and conformance tests verify they match current generator output.

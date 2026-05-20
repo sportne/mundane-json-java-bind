@@ -93,6 +93,29 @@ accessors named after the Java field, such as `defaultDisplayName()`. Accessors
 return `Optional<T>` using the boxed Java scalar type; a schema default of
 `null` returns `Optional.empty()`.
 
+## Tagged oneOf Model Shape
+
+The supported tagged `oneOf` form is a root schema whose branches are object
+schemas distinguished by one common required string tag property with
+branch-unique `const` values. The generated model is a sealed interface named
+after the configured root type. Each branch is a nested record that implements
+the sealed interface.
+
+```java
+public sealed interface Payment permits Payment.Card, Payment.BankTransfer {
+  record Card(String last4, double amount) implements Payment {}
+
+  record BankTransfer(String iban, Optional<Boolean> urgent) implements Payment {}
+}
+```
+
+The tag property is a schema discriminator, not a record component. Branch
+record components contain only non-tag schema properties and keep the same
+scalar, array, nullable, facet, literal, and default behavior as basic object
+bindings. Branch record names are derived from tag literals with deterministic
+Java identifier normalization; normalized branch-name collisions are rejected
+by the generator.
+
 ## Basic Object Writer Shape
 
 Generated basic object writers are final, stateless utility classes named after
@@ -127,6 +150,10 @@ written. Optional scalar fields are written only when their `Optional<T>` is
 present; absent optionals are skipped rather than serialized as `null`.
 Nullable fields are written only when not `JsonField.absent()`; explicit null
 fields write JSON `null`, and value fields write the contained value.
+
+For tagged `oneOf` roots, writers dispatch with explicit branch type checks,
+write the tag property first with that branch's `const` value, and then write
+branch fields in the branch schema property order.
 
 Array fields are written with `beginArray`, item values in list iteration order,
 and `endArray`. Optional array fields are skipped when absent.
@@ -182,6 +209,16 @@ Array fields are streamed with `beginArray`, `hasNext`, scalar item reads, and
 item diagnostics use indexed instance paths such as `$.tags[0]`. Non-array
 values for array fields use generated reader code `MJJBR-010`.
 
+For tagged `oneOf` roots, readers require the root JSON value to be an object
+and require the tag property to be the first object property. This is a v1
+streaming constraint: the reader does not buffer a generic JSON object to find a
+late discriminator. Missing or late tags are reported as missing required
+properties at the tag path. Wrong tag token types use the string scalar
+diagnostic at the tag path, and unknown tag values use `MJJBR-011`. After tag
+dispatch, branch-specific parsing uses the same duplicate, unknown, missing
+required, scalar, array, nullable, and trailing-root diagnostics as basic object
+readers.
+
 ## Basic Object Validator Shape
 
 Generated basic object validators are final, stateless utility classes named
@@ -223,3 +260,9 @@ scalar fields and homogeneous scalar array items. Literal validation runs only
 for present values; absent nullable or optional values are skipped. Explicit null
 nullable fields match `enum` or `const` only when the schema literal set includes
 `null`. No Java `enum` types are generated.
+
+For tagged `oneOf` roots, validators accept the sealed root interface and
+dispatch with explicit branch type checks. Branch field validation reuses the
+same `MJJBV-*` codes and ordering as basic object validators. The branch type
+itself represents the exactly-one supported branch; no reflection, annotations,
+runtime subtype discovery, or generic one-of matching is used.

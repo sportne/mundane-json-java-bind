@@ -17,6 +17,7 @@ public record BindingDiagnostic(String code, String message, JsonPointer pointer
       "MJJBG-BINDING-UNSUPPORTED-LITERAL-CONSTRAINT";
   public static final String INVALID_LITERAL_CONSTRAINT_CODE =
       "MJJBG-BINDING-INVALID-LITERAL-CONSTRAINT";
+  public static final String UNSUPPORTED_ONE_OF_CODE = "MJJBG-BINDING-UNSUPPORTED-ONEOF";
   public static final String UNKNOWN_REQUIRED_CODE = "MJJBG-BINDING-UNKNOWN-REQUIRED";
   public static final String NAME_COLLISION_CODE = "MJJBG-BINDING-NAME-COLLISION";
 

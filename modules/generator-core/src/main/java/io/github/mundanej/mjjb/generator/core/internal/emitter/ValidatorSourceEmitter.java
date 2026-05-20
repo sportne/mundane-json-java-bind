@@ -6,6 +6,7 @@ import io.github.mundanej.mjjb.generator.core.internal.binding.FieldBinding;
 import io.github.mundanej.mjjb.generator.core.internal.binding.JavaScalarType;
 import io.github.mundanej.mjjb.generator.core.internal.binding.LiteralConstraints;
 import io.github.mundanej.mjjb.generator.core.internal.binding.LiteralValue;
+import io.github.mundanej.mjjb.generator.core.internal.binding.TaggedUnionBranch;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -42,11 +43,20 @@ public final class ValidatorSourceEmitter {
             + "\"MJJBV-001\", \"Expected generated object value.\", JsonPath.ROOT));");
     lines.add("      return errors.toResult();");
     lines.add("    }");
-    for (FieldBinding field : model.rootObject().fields()) {
-      lines.addAll(validateFieldLines(field));
+    if (model.taggedUnion().isPresent()) {
+      lines.addAll(taggedUnionDispatchLines(model));
+    } else {
+      for (FieldBinding field : model.rootObject().fields()) {
+        lines.addAll(validateFieldLines(field));
+      }
     }
     lines.add("    return errors.toResult();");
     lines.add("  }");
+    if (model.taggedUnion().isPresent()) {
+      for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+        lines.addAll(branchValidatorLines(model, branch));
+      }
+    }
     if (hasNumberField(model)) {
       lines.add("");
       lines.add(
@@ -126,6 +136,36 @@ public final class ValidatorSourceEmitter {
   public static String validatorTypeName(BindingModel model) {
     Objects.requireNonNull(model, "model");
     return model.rootTypeName() + "JsonValidator";
+  }
+
+  private static List<String> taggedUnionDispatchLines(BindingModel model) {
+    ArrayList<String> lines = new ArrayList<>();
+    for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+      String typeName = model.rootTypeName() + "." + branch.object().javaTypeName();
+      lines.add("    if (value instanceof " + typeName + " branch) {");
+      lines.add("      validate" + branch.object().javaTypeName() + "(branch, errors);");
+      lines.add("      return errors.toResult();");
+      lines.add("    }");
+    }
+    return lines;
+  }
+
+  private static List<String> branchValidatorLines(BindingModel model, TaggedUnionBranch branch) {
+    ArrayList<String> lines = new ArrayList<>();
+    String typeName = model.rootTypeName() + "." + branch.object().javaTypeName();
+    lines.add("");
+    lines.add(
+        "  private static ValidationResult validate"
+            + branch.object().javaTypeName()
+            + "("
+            + typeName
+            + " value, ValidationErrors errors) {");
+    for (FieldBinding field : branch.object().fields()) {
+      lines.addAll(validateFieldLines(field));
+    }
+    lines.add("    return errors.toResult();");
+    lines.add("  }");
+    return lines;
   }
 
   private static List<String> imports(BindingModel model) {
@@ -387,8 +427,7 @@ public final class ValidatorSourceEmitter {
   }
 
   private static boolean hasNumberField(BindingModel model) {
-    return model.rootObject().fields().stream()
-        .anyMatch(field -> field.scalarType() == JavaScalarType.NUMBER);
+    return allFields(model).stream().anyMatch(field -> field.scalarType() == JavaScalarType.NUMBER);
   }
 
   private static List<String> validateStringFacetLines(FieldBinding field, String valueExpression) {
@@ -602,12 +641,12 @@ public final class ValidatorSourceEmitter {
   }
 
   private static boolean hasArrayWithMinItems(BindingModel model) {
-    return model.rootObject().fields().stream()
+    return allFields(model).stream()
         .anyMatch(field -> field.array() && field.valueType().minItems().isPresent());
   }
 
   private static boolean hasArrayWithMaxItems(BindingModel model) {
-    return model.rootObject().fields().stream()
+    return allFields(model).stream()
         .anyMatch(field -> field.array() && field.valueType().maxItems().isPresent());
   }
 
@@ -709,67 +748,74 @@ public final class ValidatorSourceEmitter {
   }
 
   private static boolean hasMinLengthFacet(BindingModel model) {
-    return model.rootObject().fields().stream()
+    return allFields(model).stream()
         .anyMatch(field -> field.valueType().facets().minLength().isPresent());
   }
 
   private static boolean hasMaxLengthFacet(BindingModel model) {
-    return model.rootObject().fields().stream()
+    return allFields(model).stream()
         .anyMatch(field -> field.valueType().facets().maxLength().isPresent());
   }
 
   private static boolean hasPatternFacet(BindingModel model) {
-    return model.rootObject().fields().stream()
+    return allFields(model).stream()
         .anyMatch(field -> field.valueType().facets().pattern().isPresent());
   }
 
   private static boolean hasFormatFacet(BindingModel model) {
-    return model.rootObject().fields().stream()
+    return allFields(model).stream()
         .anyMatch(field -> field.valueType().facets().format().isPresent());
   }
 
   private static boolean hasMinimumFacet(BindingModel model) {
-    return model.rootObject().fields().stream()
+    return allFields(model).stream()
         .anyMatch(field -> field.valueType().facets().minimum().isPresent());
   }
 
   private static boolean hasMaximumFacet(BindingModel model) {
-    return model.rootObject().fields().stream()
+    return allFields(model).stream()
         .anyMatch(field -> field.valueType().facets().maximum().isPresent());
   }
 
   private static boolean hasExclusiveMinimumFacet(BindingModel model) {
-    return model.rootObject().fields().stream()
+    return allFields(model).stream()
         .anyMatch(field -> field.valueType().facets().exclusiveMinimum().isPresent());
   }
 
   private static boolean hasExclusiveMaximumFacet(BindingModel model) {
-    return model.rootObject().fields().stream()
+    return allFields(model).stream()
         .anyMatch(field -> field.valueType().facets().exclusiveMaximum().isPresent());
   }
 
   private static boolean hasNumericFacet(BindingModel model) {
-    return model.rootObject().fields().stream()
+    return allFields(model).stream()
         .anyMatch(field -> field.valueType().facets().hasNumericFacets());
   }
 
   private static boolean hasEnumConstraint(BindingModel model) {
-    return model.rootObject().fields().stream()
-        .anyMatch(field -> field.valueType().literals().hasEnum());
+    return allFields(model).stream().anyMatch(field -> field.valueType().literals().hasEnum());
   }
 
   private static boolean hasConstConstraint(BindingModel model) {
-    return model.rootObject().fields().stream()
-        .anyMatch(field -> field.valueType().literals().hasConst());
+    return allFields(model).stream().anyMatch(field -> field.valueType().literals().hasConst());
   }
 
   private static boolean hasNumberLiteralConstraint(BindingModel model) {
-    return model.rootObject().fields().stream()
+    return allFields(model).stream()
         .anyMatch(
             field ->
                 field.scalarType() == JavaScalarType.NUMBER
                     && (field.valueType().literals().hasEnum()
                         || field.valueType().literals().hasConst()));
+  }
+
+  private static List<FieldBinding> allFields(BindingModel model) {
+    if (model.taggedUnion().isEmpty()) {
+      return model.rootObject().fields();
+    }
+    return model.taggedUnion().orElseThrow().branches().stream()
+        .flatMap(branch -> branch.object().fields().stream())
+        .toList();
   }
 
   private static List<String> validateMinLengthHelper() {

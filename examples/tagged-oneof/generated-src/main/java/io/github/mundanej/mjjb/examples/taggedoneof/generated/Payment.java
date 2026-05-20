@@ -1,0 +1,32 @@
+package io.github.mundanej.mjjb.examples.taggedoneof.generated;
+
+import io.github.mundanej.mjjb.runtime.JsonField;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+public sealed interface Payment permits
+    Payment.Card,
+    Payment.BankTransfer {
+
+  record Card(
+      String last4,
+      double amount,
+      Optional<List<String>> labels) implements Payment {
+    public Card {
+      last4 = Objects.requireNonNull(last4, "last4");
+      labels = Objects.requireNonNull(labels, "labels").map(List::copyOf);
+    }
+  }
+
+  record BankTransfer(
+      String iban,
+      Optional<Boolean> urgent,
+      JsonField<String> memo) implements Payment {
+    public BankTransfer {
+      iban = Objects.requireNonNull(iban, "iban");
+      urgent = Objects.requireNonNull(urgent, "urgent");
+      memo = Objects.requireNonNull(memo, "memo");
+    }
+  }
+}

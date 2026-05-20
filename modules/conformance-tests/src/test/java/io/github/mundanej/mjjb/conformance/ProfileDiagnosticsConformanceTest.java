@@ -119,6 +119,39 @@ final class ProfileDiagnosticsConformanceTest {
   }
 
   @Test
+  void acceptsTaggedOneOfBindingThroughGenerator() throws IOException {
+    GeneratorResult result =
+        generate(
+            """
+            {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {"type": "string", "const": "card"},
+                    "last4": {"type": "string"}
+                  },
+                  "required": ["kind", "last4"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {"type": "string", "const": "bank-transfer"},
+                    "iban": {"type": "string"}
+                  },
+                  "required": ["kind", "iban"],
+                  "additionalProperties": false
+                }
+              ]
+            }
+            """);
+
+    assertTrue(result.successful());
+    assertEquals(4, result.generatedSources().size());
+  }
+
+  @Test
   void rejectsNullableArrayItemBindingThroughGenerator() throws IOException {
     GeneratorResult result =
         generate(
@@ -214,6 +247,63 @@ final class ProfileDiagnosticsConformanceTest {
     assertFalse(arrayItems.successful());
     assertEquals("MJJBG-SCHEMA-INVALID-KEYWORD-VALUE", arrayItems.diagnostics().getFirst().code());
     assertEquals("/items", arrayItems.diagnostics().getFirst().schemaPointer());
+  }
+
+  @Test
+  void rejectsGenericAndMalformedOneOfFormsThroughGenerator() throws IOException {
+    GeneratorResult generic = generate("{\"oneOf\":[{\"type\":\"string\"},{\"type\":\"number\"}]}");
+    GeneratorResult missingTag =
+        generate(
+            """
+            {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {"kind": {"type": "string"}},
+                  "required": ["kind"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {"kind": {"type": "string", "const": "bank"}},
+                  "required": ["kind"],
+                  "additionalProperties": false
+                }
+              ]
+            }
+            """);
+    GeneratorResult duplicateTag =
+        generate(
+            """
+            {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {"kind": {"type": "string", "const": "same"}},
+                  "required": ["kind"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {"kind": {"type": "string", "const": "same"}},
+                  "required": ["kind"],
+                  "additionalProperties": false
+                }
+              ]
+            }
+            """);
+
+    assertFalse(generic.successful());
+    assertEquals("MJJBG-SCHEMA-UNSUPPORTED-KEYWORD-VALUE", generic.diagnostics().getFirst().code());
+    assertEquals("/oneOf", generic.diagnostics().getFirst().schemaPointer());
+    assertFalse(missingTag.successful());
+    assertEquals(
+        "MJJBG-SCHEMA-UNSUPPORTED-KEYWORD-VALUE", missingTag.diagnostics().getFirst().code());
+    assertEquals("/oneOf", missingTag.diagnostics().getFirst().schemaPointer());
+    assertFalse(duplicateTag.successful());
+    assertEquals(
+        "MJJBG-SCHEMA-UNSUPPORTED-KEYWORD-VALUE", duplicateTag.diagnostics().getFirst().code());
+    assertEquals("/oneOf", duplicateTag.diagnostics().getFirst().schemaPointer());
   }
 
   private GeneratorResult generate(String source) throws IOException {

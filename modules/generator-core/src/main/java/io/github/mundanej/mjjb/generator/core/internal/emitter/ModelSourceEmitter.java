@@ -3,6 +3,7 @@ package io.github.mundanej.mjjb.generator.core.internal.emitter;
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModel;
 import io.github.mundanej.mjjb.generator.core.internal.binding.FieldBinding;
 import io.github.mundanej.mjjb.generator.core.internal.binding.LiteralValue;
+import io.github.mundanej.mjjb.generator.core.internal.binding.TaggedUnionBranch;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -23,14 +24,18 @@ public final class ModelSourceEmitter {
       }
     }
     lines.add("");
-    lines.addAll(recordLines(model));
+    if (model.taggedUnion().isPresent()) {
+      lines.addAll(taggedUnionLines(model));
+    } else {
+      lines.addAll(recordLines(model));
+    }
     lines.add("");
     return String.join("\n", lines);
   }
 
   private static List<String> imports(BindingModel model) {
     Set<String> imports = new TreeSet<>();
-    for (FieldBinding field : model.rootObject().fields()) {
+    for (FieldBinding field : allFields(model)) {
       if (requiresNullCheck(field)) {
         imports.add("java.util.Objects");
       }
@@ -48,6 +53,79 @@ public final class ModelSourceEmitter {
       }
     }
     return List.copyOf(imports);
+  }
+
+  private static List<String> taggedUnionLines(BindingModel model) {
+    ArrayList<String> lines = new ArrayList<>();
+    List<TaggedUnionBranch> branches = model.taggedUnion().orElseThrow().branches();
+    lines.add("public sealed interface " + model.rootTypeName() + " permits");
+    for (int index = 0; index < branches.size(); index++) {
+      String suffix = index == branches.size() - 1 ? " {" : ",";
+      lines.add(
+          "    "
+              + model.rootTypeName()
+              + "."
+              + branches.get(index).object().javaTypeName()
+              + suffix);
+    }
+    for (TaggedUnionBranch branch : branches) {
+      lines.add("");
+      lines.addAll(branchRecordLines(model, branch));
+    }
+    lines.add("}");
+    return lines;
+  }
+
+  private static List<String> branchRecordLines(BindingModel model, TaggedUnionBranch branch) {
+    List<FieldBinding> fields = branch.object().fields();
+    String typeName = branch.object().javaTypeName();
+    if (fields.isEmpty()) {
+      return List.of("  record " + typeName + "() implements " + model.rootTypeName() + " {}");
+    }
+    ArrayList<String> lines = new ArrayList<>();
+    lines.add("  record " + typeName + "(");
+    for (int index = 0; index < fields.size(); index++) {
+      FieldBinding field = fields.get(index);
+      String suffix =
+          index == fields.size() - 1 ? ") implements " + model.rootTypeName() + " {" : ",";
+      lines.add("      " + javaType(field) + " " + field.javaFieldName() + suffix);
+    }
+    List<FieldBinding> defaultFields =
+        fields.stream().filter(field -> field.valueType().literals().hasDefault()).toList();
+    for (FieldBinding field : defaultFields) {
+      lines.addAll(indent(defaultAccessorLines(field), "  "));
+    }
+    List<FieldBinding> checkedFields =
+        fields.stream().filter(ModelSourceEmitter::requiresNullCheck).toList();
+    if (checkedFields.isEmpty()) {
+      lines.add("  }");
+      return lines;
+    }
+    if (!defaultFields.isEmpty()) {
+      lines.add("");
+    }
+    lines.add("    public " + typeName + " {");
+    for (FieldBinding field : checkedFields) {
+      for (String assignmentLine : constructorAssignmentLines(field)) {
+        lines.add("      " + assignmentLine);
+      }
+    }
+    lines.add("    }");
+    lines.add("  }");
+    return lines;
+  }
+
+  private static List<FieldBinding> allFields(BindingModel model) {
+    if (model.taggedUnion().isEmpty()) {
+      return model.rootObject().fields();
+    }
+    return model.taggedUnion().orElseThrow().branches().stream()
+        .flatMap(branch -> branch.object().fields().stream())
+        .toList();
+  }
+
+  private static List<String> indent(List<String> lines, String indent) {
+    return lines.stream().map(line -> line.isEmpty() ? line : indent + line).toList();
   }
 
   private static List<String> recordLines(BindingModel model) {

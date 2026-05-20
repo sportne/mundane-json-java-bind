@@ -11,6 +11,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -255,10 +256,40 @@ public final class SchemaSupportProfile {
         return;
       }
     }
-    diagnostics.add(
-        unsupportedValue(
-            "Tagged 'oneOf' is part of the profile scope but is implemented in TASK-0020.",
-            value.pointer()));
+    if (!taggedOneOfShape(arrayValue, diagnostics)) {
+      diagnostics.add(
+          unsupportedValue(
+              "JSP-DATA-2020-12 supports oneOf only as root tagged object branches.",
+              value.pointer()));
+    }
+  }
+
+  private static boolean taggedOneOfShape(
+      ArrayValue oneOf, List<SchemaSupportDiagnostic> diagnostics) {
+    if (oneOf.items().size() < 2) {
+      return false;
+    }
+    String tagName = null;
+    HashSet<String> tagValues = new HashSet<>();
+    for (SchemaSyntaxValue item : oneOf.items()) {
+      if (!(item instanceof ObjectValue branch)) {
+        return false;
+      }
+      validateSchema(branch, diagnostics);
+      Optional<TagCandidate> tagCandidate = tagCandidate(branch);
+      if (tagCandidate.isEmpty()) {
+        return false;
+      }
+      if (tagName == null) {
+        tagName = tagCandidate.get().name();
+      } else if (!tagName.equals(tagCandidate.get().name())) {
+        return false;
+      }
+      if (!tagValues.add(tagCandidate.get().value())) {
+        return false;
+      }
+    }
+    return diagnostics.isEmpty();
   }
 
   private static void validateSchemaObjectOnly(
@@ -275,6 +306,59 @@ public final class SchemaSupportProfile {
       return;
     }
     diagnostics.add(invalidValue(message, value.pointer()));
+  }
+
+  private static Optional<TagCandidate> tagCandidate(ObjectValue branch) {
+    if (!stringMember(branch, "type").filter("object"::equals).isPresent()) {
+      return Optional.empty();
+    }
+    Optional<ObjectValue> properties = objectMember(branch, "properties");
+    Optional<ArrayValue> required = arrayMember(branch, "required");
+    if (properties.isEmpty() || required.isEmpty()) {
+      return Optional.empty();
+    }
+    for (SchemaSyntaxValue requiredItem : required.get().items()) {
+      if (!(requiredItem instanceof StringValue requiredName)) {
+        continue;
+      }
+      Optional<ObjectValue> propertySchema = objectMember(properties.get(), requiredName.value());
+      if (propertySchema.isEmpty()) {
+        continue;
+      }
+      Optional<String> type = stringMember(propertySchema.get(), "type");
+      Optional<String> constValue = stringMember(propertySchema.get(), "const");
+      if (type.filter("string"::equals).isPresent() && constValue.isPresent()) {
+        return Optional.of(new TagCandidate(requiredName.value(), constValue.get()));
+      }
+    }
+    return Optional.empty();
+  }
+
+  private static Optional<String> stringMember(ObjectValue object, String name) {
+    return member(object, name)
+        .filter(member -> member.value() instanceof StringValue)
+        .map(member -> ((StringValue) member.value()).value());
+  }
+
+  private static Optional<ObjectValue> objectMember(ObjectValue object, String name) {
+    return member(object, name)
+        .filter(member -> member.value() instanceof ObjectValue)
+        .map(member -> (ObjectValue) member.value());
+  }
+
+  private static Optional<ArrayValue> arrayMember(ObjectValue object, String name) {
+    return member(object, name)
+        .filter(member -> member.value() instanceof ArrayValue)
+        .map(member -> (ArrayValue) member.value());
+  }
+
+  private static Optional<Member> member(ObjectValue object, String name) {
+    for (Member member : object.members()) {
+      if (name.equals(member.name())) {
+        return Optional.of(member);
+      }
+    }
+    return Optional.empty();
   }
 
   private static void validateEnum(
@@ -393,5 +477,12 @@ public final class SchemaSupportProfile {
 
   private static SchemaSupportDiagnostic unsupportedValue(String message, JsonPointer pointer) {
     return new SchemaSupportDiagnostic(UNSUPPORTED_KEYWORD_VALUE_CODE, message, pointer);
+  }
+
+  private record TagCandidate(String name, String value) {
+    private TagCandidate {
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(value, "value");
+    }
   }
 }

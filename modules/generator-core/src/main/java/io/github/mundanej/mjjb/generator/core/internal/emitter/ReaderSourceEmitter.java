@@ -3,6 +3,7 @@ package io.github.mundanej.mjjb.generator.core.internal.emitter;
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModel;
 import io.github.mundanej.mjjb.generator.core.internal.binding.FieldBinding;
 import io.github.mundanej.mjjb.generator.core.internal.binding.JavaScalarType;
+import io.github.mundanej.mjjb.generator.core.internal.binding.TaggedUnionBranch;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -34,35 +35,17 @@ public final class ReaderSourceEmitter {
             + "\"MJJBR-001\", \"Expected root JSON object.\", JsonPath.ROOT, reader.location());");
     lines.add("    }");
     lines.add("    reader.beginObject();");
-    lines.addAll(fieldInitializers(model));
-    String propertyNameLocal = propertyNameLocal(model);
-    lines.add("    while (reader.hasNext()) {");
-    lines.add("      String " + propertyNameLocal + " = reader.nextName();");
-    lines.add("      switch (" + propertyNameLocal + ") {");
-    for (FieldBinding field : model.rootObject().fields()) {
-      lines.addAll(fieldCase(field));
+    if (model.taggedUnion().isPresent()) {
+      lines.addAll(taggedUnionReadLines(model));
+    } else {
+      lines.addAll(objectReadLines(model.rootObject().fields(), model.rootTypeName()));
     }
-    lines.add("        default ->");
-    lines.add(
-        "            throw error("
-            + "\"MJJBR-004\", \"Unknown JSON property '\" + "
-            + propertyNameLocal
-            + " + \"'.\", "
-            + "propertyPath("
-            + propertyNameLocal
-            + "), reader.location());");
-    lines.add("      }");
-    lines.add("    }");
-    lines.add("    reader.endObject();");
-    lines.addAll(requiredChecks(model));
-    lines.add("    if (reader.peek() != JsonToken.END_DOCUMENT) {");
-    lines.add(
-        "      throw error("
-            + "\"MJJBR-002\", \"Unexpected JSON content after root value.\", "
-            + "JsonPath.ROOT, reader.location());");
-    lines.add("    }");
-    lines.add("    return new " + model.rootTypeName() + "(" + constructorArguments(model) + ");");
     lines.add("  }");
+    if (model.taggedUnion().isPresent()) {
+      for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+        lines.addAll(branchReaderLines(model, branch));
+      }
+    }
     lines.addAll(helperLines(model));
     lines.add("}");
     lines.add("");
@@ -89,16 +72,142 @@ public final class ReaderSourceEmitter {
       imports.add("java.util.ArrayList");
       imports.add("java.util.List");
     }
-    if (model.rootObject().fields().stream()
+    if (allFields(model).stream()
         .anyMatch(field -> !field.required() && !field.valueType().nullable())) {
       imports.add("java.util.Optional");
     }
     return List.copyOf(imports);
   }
 
-  private static List<String> fieldInitializers(BindingModel model) {
+  private static List<String> objectReadLines(List<FieldBinding> fields, String constructorType) {
     ArrayList<String> lines = new ArrayList<>();
-    for (FieldBinding field : model.rootObject().fields()) {
+    lines.addAll(fieldInitializers(fields));
+    String propertyNameLocal = propertyNameLocal(fields);
+    lines.add("    while (reader.hasNext()) {");
+    lines.add("      String " + propertyNameLocal + " = reader.nextName();");
+    lines.add("      switch (" + propertyNameLocal + ") {");
+    for (FieldBinding field : fields) {
+      lines.addAll(fieldCase(field));
+    }
+    lines.add("        default ->");
+    lines.add(
+        "            throw error("
+            + "\"MJJBR-004\", \"Unknown JSON property '\" + "
+            + propertyNameLocal
+            + " + \"'.\", "
+            + "propertyPath("
+            + propertyNameLocal
+            + "), reader.location());");
+    lines.add("      }");
+    lines.add("    }");
+    lines.add("    reader.endObject();");
+    lines.addAll(requiredChecks(fields));
+    lines.add("    if (reader.peek() != JsonToken.END_DOCUMENT) {");
+    lines.add(
+        "      throw error("
+            + "\"MJJBR-002\", \"Unexpected JSON content after root value.\", "
+            + "JsonPath.ROOT, reader.location());");
+    lines.add("    }");
+    lines.add("    return new " + constructorType + "(" + constructorArguments(fields) + ");");
+    return lines;
+  }
+
+  private static List<String> taggedUnionReadLines(BindingModel model) {
+    ArrayList<String> lines = new ArrayList<>();
+    String tagProperty = model.taggedUnion().orElseThrow().tagPropertyName();
+    lines.add("    if (!reader.hasNext()) {");
+    lines.add(
+        "      throw missingRequired("
+            + javaStringLiteral(tagProperty)
+            + ", propertyPath("
+            + javaStringLiteral(tagProperty)
+            + "), reader.location());");
+    lines.add("    }");
+    lines.add("    String tagName = reader.nextName();");
+    lines.add("    if (!" + javaStringLiteral(tagProperty) + ".equals(tagName)) {");
+    lines.add(
+        "      throw missingRequired("
+            + javaStringLiteral(tagProperty)
+            + ", propertyPath("
+            + javaStringLiteral(tagProperty)
+            + "), reader.location());");
+    lines.add("    }");
+    lines.add(
+        "    String tagValue = readString(reader, propertyPath("
+            + javaStringLiteral(tagProperty)
+            + "));");
+    lines.add("    " + model.rootTypeName() + " value =");
+    lines.add("        switch (tagValue) {");
+    for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+      lines.add(
+          "          case "
+              + javaStringLiteral(branch.tagValue())
+              + " -> read"
+              + branch.object().javaTypeName()
+              + "(reader);");
+    }
+    lines.add(
+        "          default -> throw error(\"MJJBR-011\", \"Unknown tagged oneOf value '\" + tagValue + \"'.\", propertyPath("
+            + javaStringLiteral(tagProperty)
+            + "), reader.location());");
+    lines.add("        };");
+    lines.add("    if (reader.peek() != JsonToken.END_DOCUMENT) {");
+    lines.add(
+        "      throw error("
+            + "\"MJJBR-002\", \"Unexpected JSON content after root value.\", "
+            + "JsonPath.ROOT, reader.location());");
+    lines.add("    }");
+    lines.add("    return value;");
+    return lines;
+  }
+
+  private static List<String> branchReaderLines(BindingModel model, TaggedUnionBranch branch) {
+    ArrayList<String> lines = new ArrayList<>();
+    String branchTypeName = model.rootTypeName() + "." + branch.object().javaTypeName();
+    String tagProperty = model.taggedUnion().orElseThrow().tagPropertyName();
+    List<FieldBinding> fields = branch.object().fields();
+    lines.add("");
+    lines.add(
+        "  private static "
+            + branchTypeName
+            + " read"
+            + branch.object().javaTypeName()
+            + "(JsonReader reader) throws JsonReadException {");
+    lines.addAll(fieldInitializers(fields));
+    String propertyNameLocal = propertyNameLocal(fields);
+    lines.add("    while (reader.hasNext()) {");
+    lines.add("      String " + propertyNameLocal + " = reader.nextName();");
+    lines.add("      switch (" + propertyNameLocal + ") {");
+    lines.add("        case " + javaStringLiteral(tagProperty) + " -> {");
+    lines.add(
+        "          throw duplicateProperty("
+            + javaStringLiteral(tagProperty)
+            + ", reader.location());");
+    lines.add("        }");
+    for (FieldBinding field : fields) {
+      lines.addAll(fieldCase(field));
+    }
+    lines.add("        default ->");
+    lines.add(
+        "            throw error("
+            + "\"MJJBR-004\", \"Unknown JSON property '\" + "
+            + propertyNameLocal
+            + " + \"'.\", "
+            + "propertyPath("
+            + propertyNameLocal
+            + "), reader.location());");
+    lines.add("      }");
+    lines.add("    }");
+    lines.add("    reader.endObject();");
+    lines.addAll(requiredChecks(fields));
+    lines.add("    return new " + branchTypeName + "(" + constructorArguments(fields) + ");");
+    lines.add("  }");
+    return lines;
+  }
+
+  private static List<String> fieldInitializers(List<FieldBinding> fields) {
+    ArrayList<String> lines = new ArrayList<>();
+    for (FieldBinding field : fields) {
       if (field.valueType().nullable()) {
         lines.add(
             "    " + localJavaType(field) + " " + field.javaFieldName() + " = JsonField.absent();");
@@ -151,9 +260,9 @@ public final class ReaderSourceEmitter {
     return lines;
   }
 
-  private static List<String> requiredChecks(BindingModel model) {
+  private static List<String> requiredChecks(List<FieldBinding> fields) {
     ArrayList<String> lines = new ArrayList<>();
-    for (FieldBinding field : model.rootObject().fields()) {
+    for (FieldBinding field : fields) {
       if (!field.required()) {
         continue;
       }
@@ -188,7 +297,7 @@ public final class ReaderSourceEmitter {
             + "\"MJJBR-005\", \"Missing required JSON property '\" + name + \"'.\", "
             + "path, location);");
     lines.add("  }");
-    if (hasScalarType(model, JavaScalarType.STRING)) {
+    if (hasScalarType(model, JavaScalarType.STRING) || model.taggedUnion().isPresent()) {
       lines.addAll(stringHelper());
       if (hasNullableScalarType(model, JavaScalarType.STRING)) {
         lines.addAll(nullableScalarHelper(JavaScalarType.STRING));
@@ -236,7 +345,7 @@ public final class ReaderSourceEmitter {
         lines.addAll(nullableArrayHelper(JavaScalarType.BOOLEAN));
       }
     }
-    if (!model.rootObject().fields().isEmpty()) {
+    if (!allFields(model).isEmpty() || model.taggedUnion().isPresent()) {
       lines.addAll(requireTokenHelper());
       if (hasNullableField(model)) {
         lines.addAll(nullableHelper());
@@ -478,18 +587,29 @@ public final class ReaderSourceEmitter {
         "  }");
   }
 
-  private static String constructorArguments(BindingModel model) {
-    return model.rootObject().fields().stream()
+  private static String constructorArguments(List<FieldBinding> fields) {
+    if (fields.isEmpty()) {
+      return "";
+    }
+    return fields.stream()
         .map(FieldBinding::javaFieldName)
         .collect(java.util.stream.Collectors.joining(", "));
   }
 
-  private static String propertyNameLocal(BindingModel model) {
-    if (model.rootObject().fields().stream()
-        .noneMatch(field -> "name".equals(field.javaFieldName()))) {
+  private static String propertyNameLocal(List<FieldBinding> fields) {
+    if (fields.stream().noneMatch(field -> "name".equals(field.javaFieldName()))) {
       return "name";
     }
     return "__mjjbPropertyName";
+  }
+
+  private static List<FieldBinding> allFields(BindingModel model) {
+    if (model.taggedUnion().isEmpty()) {
+      return model.rootObject().fields();
+    }
+    return model.taggedUnion().orElseThrow().branches().stream()
+        .flatMap(branch -> branch.object().fields().stream())
+        .toList();
   }
 
   private static String readExpression(FieldBinding field, String pathExpression) {
@@ -545,31 +665,31 @@ public final class ReaderSourceEmitter {
   }
 
   private static boolean hasScalarType(BindingModel model, JavaScalarType scalarType) {
-    return model.rootObject().fields().stream().anyMatch(field -> field.scalarType() == scalarType);
+    return allFields(model).stream().anyMatch(field -> field.scalarType() == scalarType);
   }
 
   private static boolean hasNullableField(BindingModel model) {
-    return model.rootObject().fields().stream().anyMatch(field -> field.valueType().nullable());
+    return allFields(model).stream().anyMatch(field -> field.valueType().nullable());
   }
 
   private static boolean hasArrayField(BindingModel model) {
-    return model.rootObject().fields().stream().anyMatch(FieldBinding::array);
+    return allFields(model).stream().anyMatch(FieldBinding::array);
   }
 
   private static boolean hasArrayType(BindingModel model, JavaScalarType scalarType) {
-    return model.rootObject().fields().stream()
+    return allFields(model).stream()
         .anyMatch(field -> field.array() && field.scalarType() == scalarType);
   }
 
   private static boolean hasNullableScalarType(BindingModel model, JavaScalarType scalarType) {
-    return model.rootObject().fields().stream()
+    return allFields(model).stream()
         .anyMatch(
             field ->
                 field.valueType().nullable() && !field.array() && field.scalarType() == scalarType);
   }
 
   private static boolean hasNullableArrayType(BindingModel model, JavaScalarType scalarType) {
-    return model.rootObject().fields().stream()
+    return allFields(model).stream()
         .anyMatch(
             field ->
                 field.valueType().nullable() && field.array() && field.scalarType() == scalarType);

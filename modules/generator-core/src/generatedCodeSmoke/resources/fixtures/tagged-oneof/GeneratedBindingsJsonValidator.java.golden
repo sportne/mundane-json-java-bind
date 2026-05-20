@@ -1,0 +1,165 @@
+package io.github.mundanej.mjjb.generated;
+
+import io.github.mundanej.mjjb.runtime.JsonPath;
+import io.github.mundanej.mjjb.runtime.ValidationError;
+import io.github.mundanej.mjjb.runtime.ValidationErrors;
+import io.github.mundanej.mjjb.runtime.ValidationMode;
+import io.github.mundanej.mjjb.runtime.ValidationResult;
+import java.math.BigDecimal;
+import java.util.Objects;
+
+public final class GeneratedBindingsJsonValidator {
+  private GeneratedBindingsJsonValidator() {}
+
+  public static ValidationResult validate(GeneratedBindings value) {
+    return validate(value, ValidationMode.ACCUMULATE);
+  }
+
+  public static ValidationResult validate(GeneratedBindings value, ValidationMode mode) {
+    Objects.requireNonNull(mode, "mode");
+    ValidationErrors errors = ValidationErrors.create(mode);
+    if (value == null) {
+      errors.add(ValidationError.of("MJJBV-001", "Expected generated object value.", JsonPath.ROOT));
+      return errors.toResult();
+    }
+    if (value instanceof GeneratedBindings.Card branch) {
+      validateCard(branch, errors);
+      return errors.toResult();
+    }
+    if (value instanceof GeneratedBindings.BankTransfer branch) {
+      validateBankTransfer(branch, errors);
+      return errors.toResult();
+    }
+    return errors.toResult();
+  }
+
+  private static ValidationResult validateCard(GeneratedBindings.Card value, ValidationErrors errors) {
+    if (value.last4() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-002", "Required property 'last4' must not be null.", JsonPath.ROOT.property("last4")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.last4() != null) {
+      if (!validateMinLength(errors, value.last4(), 4L, JsonPath.ROOT.property("last4"))) {
+        return errors.toResult();
+      }
+      if (!validateMaxLength(errors, value.last4(), 4L, JsonPath.ROOT.property("last4"))) {
+        return errors.toResult();
+      }
+    }
+    if (!validateFinite(errors, value.amount(), JsonPath.ROOT.property("amount"))) {
+      return errors.toResult();
+    }
+    if (Double.isFinite(value.amount())) {
+      if (!validateMinimum(errors, BigDecimal.valueOf(value.amount()), "0", JsonPath.ROOT.property("amount"))) {
+        return errors.toResult();
+      }
+    }
+    if (value.labels() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-003", "Optional property container 'labels' must not be null.", JsonPath.ROOT.property("labels")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.labels() != null && value.labels().isPresent()) {
+      if (!validateMinItems(errors, value.labels().orElseThrow().size(), 1L, JsonPath.ROOT.property("labels"))) {
+        return errors.toResult();
+      }
+      int index = 0;
+      for (String item : value.labels().orElseThrow()) {
+          if (true) {
+            if (!validateMinLength(errors, item, 2L, JsonPath.ROOT.property("labels").index(index))) {
+              return errors.toResult();
+            }
+          }
+        index++;
+      }
+    }
+    return errors.toResult();
+  }
+
+  private static ValidationResult validateBankTransfer(GeneratedBindings.BankTransfer value, ValidationErrors errors) {
+    if (value.iban() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-002", "Required property 'iban' must not be null.", JsonPath.ROOT.property("iban")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.iban() != null) {
+      if (!validateMinLength(errors, value.iban(), 8L, JsonPath.ROOT.property("iban"))) {
+        return errors.toResult();
+      }
+    }
+    if (value.urgent() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-003", "Optional property container 'urgent' must not be null.", JsonPath.ROOT.property("urgent")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.memo() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-003", "Optional nullable property 'memo' field state must not be null.", JsonPath.ROOT.property("memo")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.memo() != null && !value.memo().isAbsent()) {
+      if (!validateEnum(errors, (value.memo().isExplicitNull() && true) || (value.memo().hasValue() && (value.memo().requireValue().equals("payroll"))), JsonPath.ROOT.property("memo"))) {
+        return errors.toResult();
+      }
+    }
+    return errors.toResult();
+  }
+
+  private static boolean validateFinite(ValidationErrors errors, double value, JsonPath path) {
+    if (Double.isFinite(value)) {
+      return true;
+    }
+    return errors.add(ValidationError.of("MJJBV-004", "Expected finite JSON number.", path));
+  }
+
+  private static boolean validateMinItems(ValidationErrors errors, int size, long minItems, JsonPath path) {
+    if (size >= minItems) {
+      return true;
+    }
+    return errors.add(ValidationError.of("MJJBV-005", "Expected at least " + minItems + " array items.", path));
+  }
+
+  private static boolean validateMinLength(
+      ValidationErrors errors, String value, long minLength, JsonPath path) {
+    if (value.codePointCount(0, value.length()) >= minLength) {
+      return true;
+    }
+    return errors.add(
+        ValidationError.of(
+            "MJJBV-007",
+            "Expected at least " + minLength + " string code points.",
+            path));
+  }
+
+  private static boolean validateMaxLength(
+      ValidationErrors errors, String value, long maxLength, JsonPath path) {
+    if (value.codePointCount(0, value.length()) <= maxLength) {
+      return true;
+    }
+    return errors.add(
+        ValidationError.of(
+            "MJJBV-008",
+            "Expected at most " + maxLength + " string code points.",
+            path));
+  }
+
+  private static boolean validateMinimum(
+      ValidationErrors errors, BigDecimal value, String minimum, JsonPath path) {
+    if (value.compareTo(new BigDecimal(minimum)) >= 0) {
+      return true;
+    }
+    return errors.add(
+        ValidationError.of(
+            "MJJBV-011", "Expected number to be at least " + minimum + ".", path));
+  }
+
+  private static boolean validateEnum(
+      ValidationErrors errors, boolean matches, JsonPath path) {
+    if (matches) {
+      return true;
+    }
+    return errors.add(
+        ValidationError.of("MJJBV-015", "Expected value to match enum.", path));
+  }
+}

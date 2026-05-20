@@ -156,6 +156,35 @@ final class SchemaSupportProfileTest {
   }
 
   @Test
+  void acceptsTaggedOneOfKeywordShape() {
+    assertValid(
+        """
+        {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {"type": "string", "const": "card"},
+                "last4": {"type": "string"}
+              },
+              "required": ["kind", "last4"],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {"type": "string", "const": "bank-transfer"},
+                "iban": {"type": "string"}
+              },
+              "required": ["kind", "iban"],
+              "additionalProperties": false
+            }
+          ]
+        }
+        """);
+  }
+
+  @Test
   void ignoresUnknownExtensionKeywordsAsAnnotations() {
     assertValid("{\"type\":\"object\",\"x-extension\":{\"$ref\":\"annotation text\"}}");
   }
@@ -206,6 +235,26 @@ final class SchemaSupportProfileTest {
     assertUnsupportedValue("{\"items\": false}", "/items");
     assertUnsupportedKeyword("{\"prefixItems\": [{\"type\":\"string\"}]}", "/prefixItems");
     assertUnsupportedValue("{\"oneOf\": [{\"type\":\"string\"}, {\"type\":\"number\"}]}", "/oneOf");
+    assertUnsupportedValue(
+        """
+        {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {"kind": {"type": "string", "const": "same"}},
+              "required": ["kind"],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {"kind": {"type": "string", "const": "same"}},
+              "required": ["kind"],
+              "additionalProperties": false
+            }
+          ]
+        }
+        """,
+        "/oneOf");
   }
 
   private static void assertValid(String source) {

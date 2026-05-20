@@ -230,6 +230,49 @@ final class BindingModelBuilderTest {
   }
 
   @Test
+  void buildsTaggedOneOfBindings() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {"type": "string", "const": "card"},
+                    "last4": {"type": "string"},
+                    "amount": {"type": "number"}
+                  },
+                  "required": ["kind", "last4"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {"type": "string", "const": "bank-transfer"},
+                    "iban": {"type": "string"},
+                    "urgent": {"type": "boolean"}
+                  },
+                  "required": ["kind", "iban"],
+                  "additionalProperties": false
+                }
+              ]
+            }
+            """);
+
+    assertTrue(result.diagnostics().isEmpty());
+    BindingModel model = result.model().orElseThrow();
+    TaggedUnionBinding union = model.taggedUnion().orElseThrow();
+    assertEquals("kind", union.tagPropertyName());
+    assertEquals(List.of("card", "bank-transfer"), tagValues(union));
+    assertEquals(List.of("Card", "BankTransfer"), branchTypeNames(union));
+    assertEquals(List.of("last4", "amount"), branchJsonPropertyNames(union.branches().get(0)));
+    assertEquals(List.of("iban", "urgent"), branchJsonPropertyNames(union.branches().get(1)));
+    assertEquals(List.of(true, false), branchRequiredFlags(union.branches().get(0)));
+    assertEquals(List.of(true, false), branchRequiredFlags(union.branches().get(1)));
+  }
+
+  @Test
   void rejectsJavaFieldNameCollisions() {
     BindingBuildResult result =
         build(
@@ -444,6 +487,38 @@ final class BindingModelBuilderTest {
     assertEquals("/required/0", result.diagnostics().getFirst().pointer().value());
   }
 
+  @Test
+  void rejectsUnsupportedTaggedOneOfBindings() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {"type": "string", "const": "event-a"},
+                    "value": {"type": "string"}
+                  },
+                  "required": ["kind"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {"type": "string", "const": "event_a"}
+                  },
+                  "required": ["kind"],
+                  "additionalProperties": false
+                }
+              ]
+            }
+            """);
+
+    assertEquals(BindingDiagnostic.NAME_COLLISION_CODE, result.diagnostics().getFirst().code());
+    assertEquals("/oneOf/1/properties/kind", result.diagnostics().getFirst().pointer().value());
+  }
+
   private static BindingBuildResult build(String schema) {
     SchemaSyntaxParseResult parseResult = SchemaSyntaxParser.parse(schema);
     assertTrue(parseResult.diagnostics().isEmpty());
@@ -487,5 +562,21 @@ final class BindingModelBuilderTest {
 
   private static List<String> diagnosticCodes(BindingBuildResult result) {
     return result.diagnostics().stream().map(BindingDiagnostic::code).toList();
+  }
+
+  private static List<String> tagValues(TaggedUnionBinding union) {
+    return union.branches().stream().map(TaggedUnionBranch::tagValue).toList();
+  }
+
+  private static List<String> branchTypeNames(TaggedUnionBinding union) {
+    return union.branches().stream().map(branch -> branch.object().javaTypeName()).toList();
+  }
+
+  private static List<String> branchJsonPropertyNames(TaggedUnionBranch branch) {
+    return branch.object().fields().stream().map(FieldBinding::jsonPropertyName).toList();
+  }
+
+  private static List<Boolean> branchRequiredFlags(TaggedUnionBranch branch) {
+    return branch.object().fields().stream().map(FieldBinding::required).toList();
   }
 }

@@ -1,7 +1,7 @@
 # TASK-0020: Tagged `oneOf` Support
 
 Task ID: `TASK-0020`
-Status: `draft`
+Status: `complete`
 Gate: Object shape expansion
 Depends on: `TASK-0019`
 Specification references: JSON Schema Draft 2020-12 Applicator keyword `oneOf`

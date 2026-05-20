@@ -328,6 +328,61 @@ final class CoreGeneratorTest {
   }
 
   @Test
+  void writesTaggedOneOfSourcesMatchingGoldenSource() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(
+        schema,
+        """
+        {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {"type": "string", "const": "card"},
+                "last4": {"type": "string", "minLength": 4, "maxLength": 4},
+                "amount": {"type": "number", "minimum": 0},
+                "labels": {"type": "array", "items": {"type": "string", "minLength": 2}, "minItems": 1}
+              },
+              "required": ["kind", "last4", "amount"],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {"type": "string", "const": "bank-transfer"},
+                "iban": {"type": "string", "minLength": 8},
+                "urgent": {"type": "boolean"},
+                "memo": {"type": ["null", "string"], "enum": ["payroll", null]}
+              },
+              "required": ["kind", "iban"],
+              "additionalProperties": false
+            }
+          ]
+        }
+        """);
+
+    GeneratorResult result =
+        new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
+
+    assertTrue(result.successful());
+    assertEquals(4, result.generatedSources().size());
+    Path modelSource = sourceNamed(result, "GeneratedBindings.java");
+    Path writerSource = sourceNamed(result, "GeneratedBindingsJsonWriter.java");
+    Path readerSource = sourceNamed(result, "GeneratedBindingsJsonReader.java");
+    Path validatorSource = sourceNamed(result, "GeneratedBindingsJsonValidator.java");
+    assertEquals(golden("tagged-oneof", "GeneratedBindings.java"), Files.readString(modelSource));
+    assertEquals(
+        golden("tagged-oneof", "GeneratedBindingsJsonWriter.java"), Files.readString(writerSource));
+    assertEquals(
+        golden("tagged-oneof", "GeneratedBindingsJsonReader.java"), Files.readString(readerSource));
+    assertEquals(
+        golden("tagged-oneof", "GeneratedBindingsJsonValidator.java"),
+        Files.readString(validatorSource));
+    generatedSourceVerifier.compileGeneratedSources(
+        "tagged-oneof", result.generatedSources(), tempDir.resolve("tagged-oneof-classes"));
+  }
+
+  @Test
   void writesCustomRootTypeSources() throws IOException {
     Path schema = tempDir.resolve("schema.json");
     Files.writeString(

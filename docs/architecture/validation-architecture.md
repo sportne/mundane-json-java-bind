@@ -29,6 +29,14 @@ stable generated-validator codes `MJJBV-005` and `MJJBV-006`. Validation that
 targets an array item, such as non-finite `number` items, reports the indexed
 instance path, for example `$.scores[0]`.
 
+Tagged `oneOf` validators validate the generated sealed root interface. The
+generated validator checks root null first, then dispatches by concrete nested
+branch record type and validates that branch's fields in schema property order.
+For the supported tagged form, exactly-one-branch semantics are represented by
+the Java branch type selected by the generated reader or direct construction;
+the validator does not perform runtime reflection, subtype discovery, or
+generic branch matching.
+
 ## Supported Facets
 
 Generated validators enforce scalar facets on scalar fields and homogeneous

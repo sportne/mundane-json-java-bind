@@ -87,6 +87,10 @@ public final class BindingModelBuilder {
           rootTypeDiagnostic("The root schema must be an object schema.", root.pointer()));
       return BindingBuildResult.failure(sorted(diagnostics));
     }
+    Optional<Member> oneOfMember = member(rootObject, "oneOf");
+    if (oneOfMember.isPresent()) {
+      return buildTaggedUnion(rootObject, oneOfMember.get(), packageName, rootTypeName);
+    }
 
     validateRootType(rootObject, diagnostics);
     validateAdditionalProperties(rootObject, diagnostics);
@@ -159,6 +163,164 @@ public final class BindingModelBuilder {
     }
     ObjectBinding rootBinding = new ObjectBinding(rootTypeName, root.pointer(), fields);
     return BindingBuildResult.success(new BindingModel(packageName, rootTypeName, rootBinding));
+  }
+
+  private static BindingBuildResult buildTaggedUnion(
+      ObjectValue rootObject, Member oneOfMember, String packageName, String rootTypeName) {
+    ArrayList<BindingDiagnostic> diagnostics = new ArrayList<>();
+    if (member(rootObject, "type").isPresent() || member(rootObject, "properties").isPresent()) {
+      diagnostics.add(
+          unsupportedOneOf(
+              "Root tagged oneOf schemas must not also declare root object binding keywords.",
+              oneOfMember.pointer()));
+      return BindingBuildResult.failure(sorted(diagnostics));
+    }
+    if (!(oneOfMember.value() instanceof ArrayValue oneOf) || oneOf.items().size() < 2) {
+      diagnostics.add(
+          unsupportedOneOf(
+              "Tagged oneOf binding requires at least two object schema branches.",
+              oneOfMember.pointer()));
+      return BindingBuildResult.failure(sorted(diagnostics));
+    }
+    ArrayList<TaggedUnionBranch> branches = new ArrayList<>();
+    HashSet<String> tagValues = new HashSet<>();
+    HashSet<String> branchTypeNames = new HashSet<>();
+    String tagPropertyName = null;
+    for (int index = 0; index < oneOf.items().size(); index++) {
+      SchemaSyntaxValue item = oneOf.items().get(index);
+      if (!(item instanceof ObjectValue branchSchema)) {
+        diagnostics.add(
+            unsupportedOneOf("Tagged oneOf branches must be object schemas.", item.pointer()));
+        continue;
+      }
+      validateRootType(branchSchema, diagnostics);
+      validateAdditionalProperties(branchSchema, diagnostics);
+      validateRootLiteralConstraints(branchSchema, diagnostics);
+      ObjectValue properties = propertiesObject(branchSchema);
+      RequiredNames requiredNames = requiredNames(branchSchema);
+      diagnostics.addAll(requiredNames.diagnostics());
+      if (properties == null) {
+        diagnostics.add(
+            unsupportedOneOf(
+                "Tagged oneOf branches must declare object properties.", branchSchema.pointer()));
+        continue;
+      }
+      Optional<TagProperty> tagProperty = tagProperty(properties, requiredNames, diagnostics);
+      if (tagProperty.isEmpty()) {
+        diagnostics.add(
+            unsupportedOneOf(
+                "Tagged oneOf branches must have one required string const tag property.",
+                branchSchema.pointer()));
+        continue;
+      }
+      if (tagPropertyName == null) {
+        tagPropertyName = tagProperty.get().name();
+      } else if (!tagPropertyName.equals(tagProperty.get().name())) {
+        diagnostics.add(
+            unsupportedOneOf(
+                "Tagged oneOf branches must use the same tag property name.",
+                tagProperty.get().pointer()));
+        continue;
+      }
+      if (!tagValues.add(tagProperty.get().value())) {
+        diagnostics.add(
+            unsupportedOneOf(
+                "Tagged oneOf branch tag values must be unique.", tagProperty.get().pointer()));
+        continue;
+      }
+      String branchTypeName = toJavaTypeName(tagProperty.get().value(), index);
+      if (!branchTypeNames.add(branchTypeName)) {
+        diagnostics.add(
+            nameCollision(
+                "Tagged oneOf branch tag value '"
+                    + tagProperty.get().value()
+                    + "' maps to Java type name '"
+                    + branchTypeName
+                    + "', which is already used by another branch.",
+                tagProperty.get().pointer()));
+        continue;
+      }
+      List<FieldBinding> fields =
+          branchFields(properties, requiredNames, tagProperty.get(), diagnostics);
+      branches.add(
+          new TaggedUnionBranch(
+              tagProperty.get().value(),
+              new ObjectBinding(branchTypeName, branchSchema.pointer(), fields)));
+    }
+    List<BindingDiagnostic> sortedDiagnostics = sorted(diagnostics);
+    if (!sortedDiagnostics.isEmpty()) {
+      return BindingBuildResult.failure(sortedDiagnostics);
+    }
+    TaggedUnionBinding union =
+        new TaggedUnionBinding(tagPropertyName, oneOfMember.pointer(), branches);
+    ObjectBinding rootBinding = new ObjectBinding(rootTypeName, rootObject.pointer(), List.of());
+    return BindingBuildResult.success(
+        new BindingModel(packageName, rootTypeName, rootBinding, Optional.of(union)));
+  }
+
+  private static List<FieldBinding> branchFields(
+      ObjectValue properties,
+      RequiredNames requiredNames,
+      TagProperty tagProperty,
+      List<BindingDiagnostic> diagnostics) {
+    ArrayList<FieldBinding> fields = new ArrayList<>();
+    HashSet<String> declaredProperties = new HashSet<>();
+    HashMap<String, JsonPointer> javaNames = new HashMap<>();
+    for (Member property : properties.members()) {
+      declaredProperties.add(property.name());
+      if (tagProperty.name().equals(property.name())) {
+        continue;
+      }
+      if (!(property.value() instanceof ObjectValue propertySchema)) {
+        diagnostics.add(
+            unsupportedPropertyType(
+                "Property '" + property.name() + "' must be described by a schema object.",
+                property.pointer()));
+        continue;
+      }
+      Optional<Member> typeMember = member(propertySchema, "type");
+      if (typeMember.isEmpty()) {
+        diagnostics.add(
+            missingPropertyType(
+                "Property '" + property.name() + "' must declare a scalar 'type'.",
+                property.pointer()));
+        continue;
+      }
+      Optional<FieldValueType> valueType =
+          valueType(property.name(), propertySchema, typeMember.get(), diagnostics);
+      if (valueType.isEmpty()) {
+        continue;
+      }
+      String javaFieldName = toJavaFieldName(property.name());
+      JsonPointer existingPointer = javaNames.putIfAbsent(javaFieldName, property.pointer());
+      if (existingPointer != null) {
+        diagnostics.add(
+            nameCollision(
+                "Property '"
+                    + property.name()
+                    + "' maps to Java field name '"
+                    + javaFieldName
+                    + "', which is already used by another property.",
+                property.pointer()));
+        continue;
+      }
+      fields.add(
+          new FieldBinding(
+              property.name(),
+              javaFieldName,
+              valueType.get(),
+              requiredNames.names().contains(property.name()),
+              property.pointer()));
+    }
+    for (Map.Entry<String, JsonPointer> requiredName : requiredNames.pointers().entrySet()) {
+      if (!declaredProperties.contains(requiredName.getKey())) {
+        diagnostics.add(
+            unknownRequired(
+                "Required property '" + requiredName.getKey() + "' is not declared in properties.",
+                requiredName.getValue()));
+      }
+    }
+    return fields;
   }
 
   private static void validateRootType(
@@ -592,6 +754,49 @@ public final class BindingModelBuilder {
     return Optional.empty();
   }
 
+  private static Optional<TagProperty> tagProperty(
+      ObjectValue properties, RequiredNames requiredNames, List<BindingDiagnostic> diagnostics) {
+    ArrayList<TagProperty> candidates = new ArrayList<>();
+    for (Member property : properties.members()) {
+      if (!requiredNames.names().contains(property.name())) {
+        continue;
+      }
+      if (!(property.value() instanceof ObjectValue propertySchema)) {
+        continue;
+      }
+      Optional<Member> typeMember = member(propertySchema, "type");
+      Optional<Member> constMember = member(propertySchema, "const");
+      if (typeMember.isEmpty() || constMember.isEmpty()) {
+        continue;
+      }
+      if (!(typeMember.get().value() instanceof StringValue typeValue)
+          || !"string".equals(typeValue.value())) {
+        diagnostics.add(
+            unsupportedOneOf(
+                "Tagged oneOf tag properties must use type string.", typeMember.get().pointer()));
+        continue;
+      }
+      if (!(constMember.get().value() instanceof StringValue constValue)) {
+        diagnostics.add(
+            unsupportedOneOf(
+                "Tagged oneOf tag properties must use string const values.",
+                constMember.get().pointer()));
+        continue;
+      }
+      candidates.add(new TagProperty(property.name(), constValue.value(), property.pointer()));
+    }
+    if (candidates.size() == 1) {
+      return Optional.of(candidates.getFirst());
+    }
+    if (candidates.size() > 1) {
+      diagnostics.add(
+          unsupportedOneOf(
+              "Tagged oneOf branches must have exactly one required string const tag property.",
+              candidates.get(1).pointer()));
+    }
+    return Optional.empty();
+  }
+
   private static String toJavaFieldName(String propertyName) {
     ArrayList<String> words = new ArrayList<>();
     StringBuilder current = new StringBuilder();
@@ -622,6 +827,38 @@ public final class BindingModelBuilder {
       return fieldName + "Value";
     }
     return fieldName;
+  }
+
+  private static String toJavaTypeName(String tagValue, int index) {
+    ArrayList<String> words = new ArrayList<>();
+    StringBuilder current = new StringBuilder();
+    for (int characterIndex = 0; characterIndex < tagValue.length(); characterIndex++) {
+      char character = tagValue.charAt(characterIndex);
+      if (isAsciiLetterOrDigit(character)) {
+        current.append(character);
+      } else if (current.length() > 0) {
+        words.add(current.toString());
+        current.setLength(0);
+      }
+    }
+    if (current.length() > 0) {
+      words.add(current.toString());
+    }
+    if (words.isEmpty()) {
+      return "Variant" + (index + 1);
+    }
+    StringBuilder result = new StringBuilder(subsequentWord(words.getFirst()));
+    for (int wordIndex = 1; wordIndex < words.size(); wordIndex++) {
+      result.append(subsequentWord(words.get(wordIndex)));
+    }
+    if (Character.isDigit(result.charAt(0))) {
+      result.insert(0, "Variant");
+    }
+    String typeName = result.toString();
+    if (JAVA_KEYWORDS.contains(typeName.toLowerCase(Locale.ROOT))) {
+      return typeName + "Variant";
+    }
+    return typeName;
   }
 
   private static String firstWord(String word) {
@@ -688,6 +925,10 @@ public final class BindingModelBuilder {
         BindingDiagnostic.INVALID_LITERAL_CONSTRAINT_CODE, message, pointer);
   }
 
+  private static BindingDiagnostic unsupportedOneOf(String message, JsonPointer pointer) {
+    return new BindingDiagnostic(BindingDiagnostic.UNSUPPORTED_ONE_OF_CODE, message, pointer);
+  }
+
   private static BindingDiagnostic unknownRequired(String message, JsonPointer pointer) {
     return new BindingDiagnostic(BindingDiagnostic.UNKNOWN_REQUIRED_CODE, message, pointer);
   }
@@ -711,6 +952,14 @@ public final class BindingModelBuilder {
       names = Set.copyOf(Objects.requireNonNull(names, "names"));
       pointers = Map.copyOf(Objects.requireNonNull(pointers, "pointers"));
       diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, "diagnostics"));
+    }
+  }
+
+  private record TagProperty(String name, String value, JsonPointer pointer) {
+    private TagProperty {
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(value, "value");
+      Objects.requireNonNull(pointer, "pointer");
     }
   }
 }

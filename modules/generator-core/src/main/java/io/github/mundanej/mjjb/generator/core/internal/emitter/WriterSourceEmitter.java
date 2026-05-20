@@ -3,6 +3,7 @@ package io.github.mundanej.mjjb.generator.core.internal.emitter;
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModel;
 import io.github.mundanej.mjjb.generator.core.internal.binding.FieldBinding;
 import io.github.mundanej.mjjb.generator.core.internal.binding.JavaScalarType;
+import io.github.mundanej.mjjb.generator.core.internal.binding.TaggedUnionBranch;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -29,13 +30,22 @@ public final class WriterSourceEmitter {
             + " value) throws JsonWriteException {");
     lines.add("    Objects.requireNonNull(writer, \"writer\");");
     lines.add("    Objects.requireNonNull(value, \"value\");");
-    lines.addAll(numberPreflightLines(model));
-    lines.add("    writer.beginObject();");
-    for (FieldBinding field : model.rootObject().fields()) {
-      lines.addAll(writeFieldLines(field));
+    if (model.taggedUnion().isPresent()) {
+      lines.addAll(taggedUnionDispatchLines(model));
+    } else {
+      lines.addAll(numberPreflightLines(model.rootObject().fields()));
+      lines.add("    writer.beginObject();");
+      for (FieldBinding field : model.rootObject().fields()) {
+        lines.addAll(writeFieldLines(field));
+      }
+      lines.add("    writer.endObject();");
     }
-    lines.add("    writer.endObject();");
     lines.add("  }");
+    if (model.taggedUnion().isPresent()) {
+      for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+        lines.addAll(branchWriterLines(model, branch));
+      }
+    }
     if (hasNumberField(model)) {
       lines.add("");
       lines.add(
@@ -66,9 +76,9 @@ public final class WriterSourceEmitter {
     return List.copyOf(imports);
   }
 
-  private static List<String> numberPreflightLines(BindingModel model) {
+  private static List<String> numberPreflightLines(List<FieldBinding> fields) {
     ArrayList<String> lines = new ArrayList<>();
-    for (FieldBinding field : model.rootObject().fields()) {
+    for (FieldBinding field : fields) {
       if (field.scalarType() != JavaScalarType.NUMBER) {
         continue;
       }
@@ -120,6 +130,45 @@ public final class WriterSourceEmitter {
         lines.add("    }");
       }
     }
+    return lines;
+  }
+
+  private static List<String> taggedUnionDispatchLines(BindingModel model) {
+    ArrayList<String> lines = new ArrayList<>();
+    for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+      String typeName = model.rootTypeName() + "." + branch.object().javaTypeName();
+      lines.add("    if (value instanceof " + typeName + " branch) {");
+      lines.add("      write" + branch.object().javaTypeName() + "(writer, branch);");
+      lines.add("      return;");
+      lines.add("    }");
+    }
+    lines.add(
+        "    throw new JsonWriteException(\"Unsupported tagged oneOf branch: \" + value.getClass().getName());");
+    return lines;
+  }
+
+  private static List<String> branchWriterLines(BindingModel model, TaggedUnionBranch branch) {
+    ArrayList<String> lines = new ArrayList<>();
+    String typeName = model.rootTypeName() + "." + branch.object().javaTypeName();
+    lines.add("");
+    lines.add(
+        "  private static void write"
+            + branch.object().javaTypeName()
+            + "(JsonWriter writer, "
+            + typeName
+            + " value) throws JsonWriteException {");
+    lines.addAll(numberPreflightLines(branch.object().fields()));
+    lines.add("    writer.beginObject();");
+    lines.add(
+        "    writer.name("
+            + javaStringLiteral(model.taggedUnion().orElseThrow().tagPropertyName())
+            + ");");
+    lines.add("    writer.value(" + javaStringLiteral(branch.tagValue()) + ");");
+    for (FieldBinding field : branch.object().fields()) {
+      lines.addAll(writeFieldLines(field));
+    }
+    lines.add("    writer.endObject();");
+    lines.add("  }");
     return lines;
   }
 
@@ -207,8 +256,16 @@ public final class WriterSourceEmitter {
   }
 
   private static boolean hasNumberField(BindingModel model) {
-    return model.rootObject().fields().stream()
-        .anyMatch(field -> field.scalarType() == JavaScalarType.NUMBER);
+    return allFields(model).stream().anyMatch(field -> field.scalarType() == JavaScalarType.NUMBER);
+  }
+
+  private static List<FieldBinding> allFields(BindingModel model) {
+    if (model.taggedUnion().isEmpty()) {
+      return model.rootObject().fields();
+    }
+    return model.taggedUnion().orElseThrow().branches().stream()
+        .flatMap(branch -> branch.object().fields().stream())
+        .toList();
   }
 
   private static String javaStringLiteral(String value) {
