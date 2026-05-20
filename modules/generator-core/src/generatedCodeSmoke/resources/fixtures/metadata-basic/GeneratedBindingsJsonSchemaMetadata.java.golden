@@ -1,0 +1,61 @@
+package io.github.mundanej.mjjb.generated;
+
+import io.github.mundanej.mjjb.runtime.SchemaAnnotations;
+import io.github.mundanej.mjjb.runtime.SchemaBranchMetadata;
+import io.github.mundanej.mjjb.runtime.SchemaObjectMetadata;
+import io.github.mundanej.mjjb.runtime.SchemaPropertyMetadata;
+import io.github.mundanej.mjjb.runtime.SchemaRootMetadata;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+public final class GeneratedBindingsJsonSchemaMetadata {
+  private static final SchemaRootMetadata ROOT = rootMetadata();
+
+  private GeneratedBindingsJsonSchemaMetadata() {}
+
+  public static SchemaRootMetadata root() {
+    return ROOT;
+  }
+
+  public static List<SchemaPropertyMetadata> properties() {
+    return ROOT.rootObject().properties();
+  }
+
+  public static Optional<SchemaPropertyMetadata> property(String jsonName) {
+    Objects.requireNonNull(jsonName, "jsonName");
+    return properties().stream()
+        .filter(property -> jsonName.equals(property.jsonName()))
+        .findFirst();
+  }
+
+  public static List<SchemaBranchMetadata> branches() {
+    return ROOT.branches();
+  }
+
+  private static SchemaRootMetadata rootMetadata() {
+    return
+        new SchemaRootMetadata(
+            "https://json-schema.org/draft/2020-12/schema",
+            "GeneratedBindings",
+            rootObject(),
+            Optional.empty(),
+            List.of());
+  }
+
+  private static SchemaObjectMetadata rootObject() {
+    return new SchemaObjectMetadata("", "GeneratedBindings", new SchemaAnnotations(Optional.of("Metadata Root"), Optional.of("Root description"), Optional.of("Root comment"), List.of("{\"id\":\"abc\",\"count\":3}"), Optional.of(false), Optional.of(true), Optional.of(false), Optional.empty()), List.of(rootProperty0(), rootProperty1(), rootProperty2()));
+  }
+
+  private static SchemaPropertyMetadata rootProperty0() {
+    return new SchemaPropertyMetadata("id", "id", "/properties/id", true, "String", false, false, new SchemaAnnotations(Optional.of("Identifier"), Optional.of("Stable identifier"), Optional.empty(), List.of("\"abc\"", "\"def\""), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of("\"abc\"")));
+  }
+
+  private static SchemaPropertyMetadata rootProperty1() {
+    return new SchemaPropertyMetadata("count", "count", "/properties/count", false, "Optional<Long>", false, false, new SchemaAnnotations(Optional.empty(), Optional.empty(), Optional.empty(), List.of(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of("3")));
+  }
+
+  private static SchemaPropertyMetadata rootProperty2() {
+    return new SchemaPropertyMetadata("tags", "tags", "/properties/tags", false, "JsonField<List<String>>", true, true, new SchemaAnnotations(Optional.empty(), Optional.empty(), Optional.empty(), List.of("[\"red\",\"blue\"]"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+  }
+}

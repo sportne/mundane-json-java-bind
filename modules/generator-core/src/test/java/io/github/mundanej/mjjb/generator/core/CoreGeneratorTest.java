@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.mundanej.mjjb.generator.api.GeneratorProfile;
 import io.github.mundanej.mjjb.generator.api.GeneratorRequest;
 import io.github.mundanej.mjjb.generator.api.GeneratorResult;
 import io.github.mundanej.mjjb.generator.core.generated.GeneratedSourceVerifier;
@@ -383,6 +384,105 @@ final class CoreGeneratorTest {
   }
 
   @Test
+  void writesBasicObjectMetadataHelperWhenEnabled() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(
+        schema,
+        """
+        {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "title": "Metadata Root",
+          "description": "Root description",
+          "$comment": "Root comment",
+          "examples": [{"id": "abc", "count": 3}],
+          "deprecated": false,
+          "readOnly": true,
+          "writeOnly": false,
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "title": "Identifier",
+              "description": "Stable identifier",
+              "examples": ["abc", "def"],
+              "default": "abc"
+            },
+            "count": {
+              "type": "integer",
+              "default": 3
+            },
+            "tags": {
+              "type": ["null", "array"],
+              "items": {"type": "string"},
+              "examples": [["red", "blue"]]
+            }
+          },
+          "required": ["id"],
+          "additionalProperties": false
+        }
+        """);
+
+    GeneratorResult result = generateWithMetadata(schema);
+
+    assertTrue(result.successful());
+    assertEquals(5, result.generatedSources().size());
+    Path metadataSource = sourceNamed(result, "GeneratedBindingsJsonSchemaMetadata.java");
+    assertEquals(
+        golden("metadata-basic", "GeneratedBindingsJsonSchemaMetadata.java"),
+        Files.readString(metadataSource));
+    generatedSourceVerifier.compileGeneratedSources(
+        "metadata-basic", result.generatedSources(), tempDir.resolve("metadata-basic-classes"));
+  }
+
+  @Test
+  void writesTaggedOneOfMetadataHelperWhenEnabled() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(
+        schema,
+        """
+        {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "title": "Payment",
+          "oneOf": [
+            {
+              "title": "Card branch",
+              "type": "object",
+              "properties": {
+                "kind": {"type": "string", "const": "card"},
+                "last4": {"type": "string", "title": "Last four", "default": "0000"},
+                "amount": {"type": "number"}
+              },
+              "required": ["kind", "last4", "amount"],
+              "additionalProperties": false
+            },
+            {
+              "title": "Bank branch",
+              "type": "object",
+              "properties": {
+                "kind": {"type": "string", "const": "bank-transfer"},
+                "iban": {"type": "string"},
+                "urgent": {"type": "boolean", "default": false}
+              },
+              "required": ["kind", "iban"],
+              "additionalProperties": false
+            }
+          ]
+        }
+        """);
+
+    GeneratorResult result = generateWithMetadata(schema);
+
+    assertTrue(result.successful());
+    assertEquals(5, result.generatedSources().size());
+    Path metadataSource = sourceNamed(result, "GeneratedBindingsJsonSchemaMetadata.java");
+    assertEquals(
+        golden("metadata-tagged", "GeneratedBindingsJsonSchemaMetadata.java"),
+        Files.readString(metadataSource));
+    generatedSourceVerifier.compileGeneratedSources(
+        "metadata-tagged", result.generatedSources(), tempDir.resolve("metadata-tagged-classes"));
+  }
+
+  @Test
   void writesCustomRootTypeSources() throws IOException {
     Path schema = tempDir.resolve("schema.json");
     Files.writeString(
@@ -621,6 +721,19 @@ final class CoreGeneratorTest {
     assertFalse(result.successful());
     assertEquals("MJJBG-SCHEMA-INVALID-JSON", result.diagnostics().getFirst().code());
     assertEquals(pointer, result.diagnostics().getFirst().schemaPointer());
+  }
+
+  private GeneratorResult generateWithMetadata(Path schema) {
+    return new CoreGenerator()
+        .generate(
+            new GeneratorRequest(
+                List.of(schema),
+                tempDir.resolve("out"),
+                GeneratorProfile.JSP_DATA_2020_12,
+                GeneratorRequest.DEFAULT_PACKAGE,
+                GeneratorRequest.DEFAULT_ROOT_TYPE_NAME,
+                Map.of(),
+                true));
   }
 
   private static Path sourceNamed(GeneratorResult result, String fileName) {

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Metadata Root",
+  "description": "Root description",
+  "$comment": "Root comment",
+  "examples": [{"id": "abc", "count": 3}],
+  "deprecated": false,
+  "readOnly": true,
+  "writeOnly": false,
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "title": "Identifier",
+      "description": "Stable identifier",
+      "examples": ["abc", "def"],
+      "default": "abc"
+    },
+    "count": {
+      "type": "integer",
+      "default": 3
+    },
+    "tags": {
+      "type": ["null", "array"],
+      "items": {"type": "string"},
+      "examples": [["red", "blue"]]
+    }
+  },
+  "required": ["id"],
+  "additionalProperties": false
+}

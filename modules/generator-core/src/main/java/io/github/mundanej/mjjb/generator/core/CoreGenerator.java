@@ -8,6 +8,7 @@ import io.github.mundanej.mjjb.generator.core.internal.binding.BindingBuildResul
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingDiagnostic;
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModel;
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModelBuilder;
+import io.github.mundanej.mjjb.generator.core.internal.emitter.MetadataSourceEmitter;
 import io.github.mundanej.mjjb.generator.core.internal.emitter.ModelSourceEmitter;
 import io.github.mundanej.mjjb.generator.core.internal.emitter.ReaderSourceEmitter;
 import io.github.mundanej.mjjb.generator.core.internal.emitter.ValidatorSourceEmitter;
@@ -50,7 +51,11 @@ public final class CoreGenerator implements Generator {
     }
     try {
       Files.createDirectories(request.outputDirectory());
-      return GeneratorResult.success(writeSources(request.outputDirectory(), models.getFirst()));
+      return GeneratorResult.success(
+          writeSources(
+              request.outputDirectory(),
+              models.getFirst(),
+              request.generateSchemaMetadataHelpers()));
     } catch (IOException exception) {
       return GeneratorResult.failure(
           List.of(
@@ -146,21 +151,33 @@ public final class CoreGenerator implements Generator {
         diagnostic.code(), diagnostic.message(), schemaPath, diagnostic.pointer().value());
   }
 
-  private List<Path> writeSources(Path outputDirectory, BindingModel model) throws IOException {
+  private List<Path> writeSources(Path outputDirectory, BindingModel model, boolean metadata)
+      throws IOException {
+    ArrayList<Path> sources = new ArrayList<>();
     Path packageDirectory = outputDirectory.resolve(model.packageName().replace('.', '/'));
     Files.createDirectories(packageDirectory);
     Path modelSource = packageDirectory.resolve(model.rootTypeName() + ".java");
     Files.writeString(modelSource, new ModelSourceEmitter().emit(model));
+    sources.add(modelSource);
     Path writerSource =
         packageDirectory.resolve(WriterSourceEmitter.writerTypeName(model) + ".java");
     Files.writeString(writerSource, new WriterSourceEmitter().emit(model));
+    sources.add(writerSource);
     Path readerSource =
         packageDirectory.resolve(ReaderSourceEmitter.readerTypeName(model) + ".java");
     Files.writeString(readerSource, new ReaderSourceEmitter().emit(model));
+    sources.add(readerSource);
     Path validatorSource =
         packageDirectory.resolve(ValidatorSourceEmitter.validatorTypeName(model) + ".java");
     Files.writeString(validatorSource, new ValidatorSourceEmitter().emit(model));
-    return List.of(modelSource, writerSource, readerSource, validatorSource);
+    sources.add(validatorSource);
+    if (metadata) {
+      Path metadataSource =
+          packageDirectory.resolve(MetadataSourceEmitter.metadataTypeName(model) + ".java");
+      Files.writeString(metadataSource, new MetadataSourceEmitter().emit(model));
+      sources.add(metadataSource);
+    }
+    return List.copyOf(sources);
   }
 
   private record ValidatedSchema(

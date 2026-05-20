@@ -230,6 +230,48 @@ final class BindingModelBuilderTest {
   }
 
   @Test
+  void collectsSchemaAnnotationMetadata() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "title": "Root title",
+              "description": "Root description",
+              "$comment": "Root comment",
+              "examples": [{"id": "abc"}],
+              "deprecated": true,
+              "readOnly": false,
+              "writeOnly": true,
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "title": "Identifier",
+                  "examples": ["abc"],
+                  "default": "abc"
+                }
+              },
+              "required": ["id"],
+              "additionalProperties": false
+            }
+            """);
+
+    assertTrue(result.diagnostics().isEmpty());
+    BindingModel model = result.model().orElseThrow();
+    assertEquals("Root title", model.rootObject().annotations().title().orElseThrow());
+    assertEquals("Root description", model.rootObject().annotations().description().orElseThrow());
+    assertEquals("Root comment", model.rootObject().annotations().comment().orElseThrow());
+    assertEquals("{\"id\":\"abc\"}", model.rootObject().annotations().examplesJson().getFirst());
+    assertEquals(true, model.rootObject().annotations().deprecated().orElseThrow());
+    assertEquals(false, model.rootObject().annotations().readOnly().orElseThrow());
+    assertEquals(true, model.rootObject().annotations().writeOnly().orElseThrow());
+    FieldBinding field = model.rootObject().fields().getFirst();
+    assertEquals("Identifier", field.annotations().title().orElseThrow());
+    assertEquals("\"abc\"", field.annotations().examplesJson().getFirst());
+    assertEquals("\"abc\"", field.annotations().defaultJson().orElseThrow());
+  }
+
+  @Test
   void buildsTaggedOneOfBindings() {
     BindingBuildResult result =
         build(

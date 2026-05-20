@@ -1,0 +1,81 @@
+package io.github.mundanej.mjjb.generated;
+
+import io.github.mundanej.mjjb.runtime.SchemaAnnotations;
+import io.github.mundanej.mjjb.runtime.SchemaBranchMetadata;
+import io.github.mundanej.mjjb.runtime.SchemaObjectMetadata;
+import io.github.mundanej.mjjb.runtime.SchemaPropertyMetadata;
+import io.github.mundanej.mjjb.runtime.SchemaRootMetadata;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+public final class GeneratedBindingsJsonSchemaMetadata {
+  private static final SchemaRootMetadata ROOT = rootMetadata();
+
+  private GeneratedBindingsJsonSchemaMetadata() {}
+
+  public static SchemaRootMetadata root() {
+    return ROOT;
+  }
+
+  public static List<SchemaPropertyMetadata> properties() {
+    return ROOT.rootObject().properties();
+  }
+
+  public static Optional<SchemaPropertyMetadata> property(String jsonName) {
+    Objects.requireNonNull(jsonName, "jsonName");
+    return properties().stream()
+        .filter(property -> jsonName.equals(property.jsonName()))
+        .findFirst();
+  }
+
+  public static List<SchemaBranchMetadata> branches() {
+    return ROOT.branches();
+  }
+
+  private static SchemaRootMetadata rootMetadata() {
+    return
+        new SchemaRootMetadata(
+            "https://json-schema.org/draft/2020-12/schema",
+            "GeneratedBindings",
+            rootObject(),
+            Optional.of("kind"),
+            List.of(branch0(), branch1()));
+  }
+
+  private static SchemaObjectMetadata rootObject() {
+    return new SchemaObjectMetadata("", "GeneratedBindings", new SchemaAnnotations(Optional.of("Payment"), Optional.empty(), Optional.empty(), List.of(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()), List.of());
+  }
+
+  private static SchemaBranchMetadata branch0() {
+    return new SchemaBranchMetadata("card", "Card", branch0Object());
+  }
+
+  private static SchemaObjectMetadata branch0Object() {
+    return new SchemaObjectMetadata("/oneOf/0", "Card", new SchemaAnnotations(Optional.of("Card branch"), Optional.empty(), Optional.empty(), List.of(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()), List.of(branch0Property0(), branch0Property1()));
+  }
+
+  private static SchemaPropertyMetadata branch0Property0() {
+    return new SchemaPropertyMetadata("last4", "last4", "/oneOf/0/properties/last4", true, "String", false, false, new SchemaAnnotations(Optional.of("Last four"), Optional.empty(), Optional.empty(), List.of(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of("\"0000\"")));
+  }
+
+  private static SchemaPropertyMetadata branch0Property1() {
+    return new SchemaPropertyMetadata("amount", "amount", "/oneOf/0/properties/amount", true, "double", false, false, new SchemaAnnotations(Optional.empty(), Optional.empty(), Optional.empty(), List.of(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+  }
+
+  private static SchemaBranchMetadata branch1() {
+    return new SchemaBranchMetadata("bank-transfer", "BankTransfer", branch1Object());
+  }
+
+  private static SchemaObjectMetadata branch1Object() {
+    return new SchemaObjectMetadata("/oneOf/1", "BankTransfer", new SchemaAnnotations(Optional.of("Bank branch"), Optional.empty(), Optional.empty(), List.of(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()), List.of(branch1Property0(), branch1Property1()));
+  }
+
+  private static SchemaPropertyMetadata branch1Property0() {
+    return new SchemaPropertyMetadata("iban", "iban", "/oneOf/1/properties/iban", true, "String", false, false, new SchemaAnnotations(Optional.empty(), Optional.empty(), Optional.empty(), List.of(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+  }
+
+  private static SchemaPropertyMetadata branch1Property1() {
+    return new SchemaPropertyMetadata("urgent", "urgent", "/oneOf/1/properties/urgent", false, "Optional<Boolean>", false, false, new SchemaAnnotations(Optional.empty(), Optional.empty(), Optional.empty(), List.of(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of("false")));
+  }
+}

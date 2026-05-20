@@ -1,0 +1,36 @@
+package io.github.mundanej.mjjb.generated;
+
+import java.util.Objects;
+import java.util.Optional;
+
+public sealed interface GeneratedBindings permits
+    GeneratedBindings.Card,
+    GeneratedBindings.BankTransfer {
+
+  record Card(
+      String last4,
+      double amount) implements GeneratedBindings {
+
+    public static Optional<String> defaultLast4() {
+      return Optional.of("0000");
+    }
+
+    public Card {
+      last4 = Objects.requireNonNull(last4, "last4");
+    }
+  }
+
+  record BankTransfer(
+      String iban,
+      Optional<Boolean> urgent) implements GeneratedBindings {
+
+    public static Optional<Boolean> defaultUrgent() {
+      return Optional.of(false);
+    }
+
+    public BankTransfer {
+      iban = Objects.requireNonNull(iban, "iban");
+      urgent = Objects.requireNonNull(urgent, "urgent");
+    }
+  }
+}

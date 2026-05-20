@@ -144,7 +144,8 @@ public final class BindingModelBuilder {
                 javaFieldName,
                 valueType.get(),
                 requiredNames.names().contains(property.name()),
-                property.pointer()));
+                property.pointer(),
+                annotations(propertySchema)));
       }
     }
 
@@ -161,7 +162,8 @@ public final class BindingModelBuilder {
     if (!sortedDiagnostics.isEmpty()) {
       return BindingBuildResult.failure(sortedDiagnostics);
     }
-    ObjectBinding rootBinding = new ObjectBinding(rootTypeName, root.pointer(), fields);
+    ObjectBinding rootBinding =
+        new ObjectBinding(rootTypeName, root.pointer(), fields, annotations(rootObject));
     return BindingBuildResult.success(new BindingModel(packageName, rootTypeName, rootBinding));
   }
 
@@ -245,7 +247,8 @@ public final class BindingModelBuilder {
       branches.add(
           new TaggedUnionBranch(
               tagProperty.get().value(),
-              new ObjectBinding(branchTypeName, branchSchema.pointer(), fields)));
+              new ObjectBinding(
+                  branchTypeName, branchSchema.pointer(), fields, annotations(branchSchema))));
     }
     List<BindingDiagnostic> sortedDiagnostics = sorted(diagnostics);
     if (!sortedDiagnostics.isEmpty()) {
@@ -253,7 +256,8 @@ public final class BindingModelBuilder {
     }
     TaggedUnionBinding union =
         new TaggedUnionBinding(tagPropertyName, oneOfMember.pointer(), branches);
-    ObjectBinding rootBinding = new ObjectBinding(rootTypeName, rootObject.pointer(), List.of());
+    ObjectBinding rootBinding =
+        new ObjectBinding(rootTypeName, rootObject.pointer(), List.of(), annotations(rootObject));
     return BindingBuildResult.success(
         new BindingModel(packageName, rootTypeName, rootBinding, Optional.of(union)));
   }
@@ -310,7 +314,8 @@ public final class BindingModelBuilder {
               javaFieldName,
               valueType.get(),
               requiredNames.names().contains(property.name()),
-              property.pointer()));
+              property.pointer(),
+              annotations(propertySchema)));
     }
     for (Map.Entry<String, JsonPointer> requiredName : requiredNames.pointers().entrySet()) {
       if (!declaredProperties.contains(requiredName.getKey())) {
@@ -407,6 +412,100 @@ public final class BindingModelBuilder {
       }
     }
     return Optional.empty();
+  }
+
+  private static SchemaAnnotationsBinding annotations(ObjectValue schema) {
+    return new SchemaAnnotationsBinding(
+        stringAnnotation(schema, "title"),
+        stringAnnotation(schema, "description"),
+        stringAnnotation(schema, "$comment"),
+        examplesJson(schema),
+        booleanAnnotation(schema, "deprecated"),
+        booleanAnnotation(schema, "readOnly"),
+        booleanAnnotation(schema, "writeOnly"),
+        member(schema, "default").map(member -> compactJson(member.value())));
+  }
+
+  private static Optional<String> stringAnnotation(ObjectValue schema, String name) {
+    return member(schema, name)
+        .filter(member -> member.value() instanceof StringValue)
+        .map(member -> ((StringValue) member.value()).value());
+  }
+
+  private static Optional<Boolean> booleanAnnotation(ObjectValue schema, String name) {
+    return member(schema, name)
+        .filter(member -> member.value() instanceof BooleanValue)
+        .map(member -> ((BooleanValue) member.value()).value());
+  }
+
+  private static List<String> examplesJson(ObjectValue schema) {
+    Optional<Member> examples = member(schema, "examples");
+    if (examples.isEmpty() || !(examples.get().value() instanceof ArrayValue arrayValue)) {
+      return List.of();
+    }
+    return arrayValue.items().stream().map(BindingModelBuilder::compactJson).toList();
+  }
+
+  private static String compactJson(SchemaSyntaxValue value) {
+    StringBuilder builder = new StringBuilder();
+    appendCompactJson(builder, value);
+    return builder.toString();
+  }
+
+  private static void appendCompactJson(StringBuilder builder, SchemaSyntaxValue value) {
+    switch (value) {
+      case ObjectValue objectValue -> {
+        builder.append('{');
+        for (int index = 0; index < objectValue.members().size(); index++) {
+          if (index > 0) {
+            builder.append(',');
+          }
+          Member member = objectValue.members().get(index);
+          appendJsonString(builder, member.name());
+          builder.append(':');
+          appendCompactJson(builder, member.value());
+        }
+        builder.append('}');
+      }
+      case ArrayValue arrayValue -> {
+        builder.append('[');
+        for (int index = 0; index < arrayValue.items().size(); index++) {
+          if (index > 0) {
+            builder.append(',');
+          }
+          appendCompactJson(builder, arrayValue.items().get(index));
+        }
+        builder.append(']');
+      }
+      case StringValue stringValue -> appendJsonString(builder, stringValue.value());
+      case NumberValue numberValue -> builder.append(numberValue.literal());
+      case BooleanValue booleanValue -> builder.append(booleanValue.value());
+      case NullValue ignored -> builder.append("null");
+    }
+  }
+
+  private static void appendJsonString(StringBuilder builder, String value) {
+    builder.append('"');
+    for (int index = 0; index < value.length(); index++) {
+      char current = value.charAt(index);
+      switch (current) {
+        case '"' -> builder.append("\\\"");
+        case '\\' -> builder.append("\\\\");
+        case '\b' -> builder.append("\\b");
+        case '\f' -> builder.append("\\f");
+        case '\n' -> builder.append("\\n");
+        case '\r' -> builder.append("\\r");
+        case '\t' -> builder.append("\\t");
+        default -> {
+          if (current < 0x20) {
+            builder.append(String.format("\\u%04x", (int) current));
+          } else {
+            builder.append(current);
+          }
+        }
+      }
+    }
+    builder.append('"');
   }
 
   private static Optional<JavaScalarType> scalarType(SchemaSyntaxValue value) {

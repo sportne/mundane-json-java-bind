@@ -1,0 +1,29 @@
+package io.github.mundanej.mjjb.generated;
+
+import io.github.mundanej.mjjb.runtime.JsonField;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+public record GeneratedBindings(
+    String id,
+    Optional<Long> count,
+    JsonField<List<String>> tags) {
+
+  public static Optional<String> defaultId() {
+    return Optional.of("abc");
+  }
+
+  public static Optional<Long> defaultCount() {
+    return Optional.of(3L);
+  }
+
+  public GeneratedBindings {
+    id = Objects.requireNonNull(id, "id");
+    count = Objects.requireNonNull(count, "count");
+    tags = Objects.requireNonNull(tags, "tags");
+    if (tags.hasValue()) {
+      tags = JsonField.value(List.copyOf(tags.requireValue()));
+    }
+  }
+}

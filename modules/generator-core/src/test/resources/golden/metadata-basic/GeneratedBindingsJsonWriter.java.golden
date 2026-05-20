@@ -1,0 +1,34 @@
+package io.github.mundanej.mjjb.generated;
+
+import io.github.mundanej.mjjb.runtime.JsonWriteException;
+import io.github.mundanej.mjjb.runtime.JsonWriter;
+import java.util.Objects;
+
+public final class GeneratedBindingsJsonWriter {
+  private GeneratedBindingsJsonWriter() {}
+
+  public static void write(JsonWriter writer, GeneratedBindings value) throws JsonWriteException {
+    Objects.requireNonNull(writer, "writer");
+    Objects.requireNonNull(value, "value");
+    writer.beginObject();
+    writer.name("id");
+    writer.value(value.id());
+    if (value.count().isPresent()) {
+      writer.name("count");
+      writer.number(Long.toString(value.count().orElseThrow()));
+    }
+    if (!value.tags().isAbsent()) {
+      writer.name("tags");
+      if (value.tags().isExplicitNull()) {
+        writer.nullValue();
+      } else {
+        writer.beginArray();
+        for (String item : value.tags().requireValue()) {
+          writer.value(item);
+        }
+        writer.endArray();
+      }
+    }
+    writer.endObject();
+  }
+}

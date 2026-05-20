@@ -9,12 +9,29 @@ public record FieldBinding(
     String javaFieldName,
     FieldValueType valueType,
     boolean required,
-    JsonPointer schemaPointer) {
+    JsonPointer schemaPointer,
+    SchemaAnnotationsBinding annotations) {
+  public FieldBinding(
+      String jsonPropertyName,
+      String javaFieldName,
+      FieldValueType valueType,
+      boolean required,
+      JsonPointer schemaPointer) {
+    this(
+        jsonPropertyName,
+        javaFieldName,
+        valueType,
+        required,
+        schemaPointer,
+        SchemaAnnotationsBinding.EMPTY);
+  }
+
   public FieldBinding {
     Objects.requireNonNull(jsonPropertyName, "jsonPropertyName");
     Objects.requireNonNull(javaFieldName, "javaFieldName");
     Objects.requireNonNull(valueType, "valueType");
     Objects.requireNonNull(schemaPointer, "schemaPointer");
+    Objects.requireNonNull(annotations, "annotations");
     if (javaFieldName.isBlank()) {
       throw new IllegalArgumentException("javaFieldName must not be blank");
     }

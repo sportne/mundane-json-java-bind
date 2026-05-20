@@ -12,7 +12,8 @@ public record GeneratedSourceFixture(
     String schemaResource,
     List<String> goldenResources,
     Optional<String> behaviorProbeResource,
-    String packageName) {
+    String packageName,
+    boolean generateSchemaMetadataHelpers) {
   public GeneratedSourceFixture(String name) {
     this(
         name,
@@ -23,7 +24,23 @@ public record GeneratedSourceFixture(
             "fixtures/" + name + "/GeneratedBindingsJsonReader.java.golden",
             "fixtures/" + name + "/GeneratedBindingsJsonValidator.java.golden"),
         Optional.of("fixtures/" + name + "/BindingBehaviorProbe.java"),
-        GeneratorRequest.DEFAULT_PACKAGE);
+        GeneratorRequest.DEFAULT_PACKAGE,
+        false);
+  }
+
+  public GeneratedSourceFixture(String name, boolean generateSchemaMetadataHelpers) {
+    this(
+        name,
+        "fixtures/" + name + "/schema.json",
+        List.of(
+            "fixtures/" + name + "/GeneratedBindings.java.golden",
+            "fixtures/" + name + "/GeneratedBindingsJsonWriter.java.golden",
+            "fixtures/" + name + "/GeneratedBindingsJsonReader.java.golden",
+            "fixtures/" + name + "/GeneratedBindingsJsonValidator.java.golden",
+            "fixtures/" + name + "/GeneratedBindingsJsonSchemaMetadata.java.golden"),
+        Optional.of("fixtures/" + name + "/BindingBehaviorProbe.java"),
+        GeneratorRequest.DEFAULT_PACKAGE,
+        generateSchemaMetadataHelpers);
   }
 
   public GeneratedSourceFixture {
@@ -50,6 +67,8 @@ public record GeneratedSourceFixture(
         outputDirectory,
         io.github.mundanej.mjjb.generator.api.GeneratorProfile.JSP_DATA_2020_12,
         packageName,
-        Map.of());
+        GeneratorRequest.DEFAULT_ROOT_TYPE_NAME,
+        Map.of(),
+        generateSchemaMetadataHelpers);
   }
 }

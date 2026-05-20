@@ -266,3 +266,34 @@ dispatch with explicit branch type checks. Branch field validation reuses the
 same `MJJBV-*` codes and ordering as basic object validators. The branch type
 itself represents the exactly-one supported branch; no reflection, annotations,
 runtime subtype discovery, or generic one-of matching is used.
+
+## Optional Schema Metadata Helpers
+
+Metadata helper generation is opt-in through the public generator request. When
+enabled, the generator emits one additional final utility class named after the
+root type, such as `GeneratedBindingsJsonSchemaMetadata`.
+
+```java
+public final class GeneratedBindingsJsonSchemaMetadata {
+  public static SchemaRootMetadata root() {}
+
+  public static List<SchemaPropertyMetadata> properties() {}
+
+  public static Optional<SchemaPropertyMetadata> property(String jsonName) {}
+
+  public static List<SchemaBranchMetadata> branches() {}
+}
+```
+
+The helper returns typed immutable metadata records from `runtime-core`. It may
+include root, branch, and property schema pointers; Java type names; required,
+nullable, and array flags; tagged `oneOf` tag metadata; and accepted annotation
+values such as `title`, `description`, `$comment`, `examples`, `deprecated`,
+`readOnly`, `writeOnly`, and `default`.
+
+JSON-valued metadata is represented as deterministic compact JSON strings, not
+as a runtime JSON tree. Metadata helpers are documentation and diagnostic aids
+only. Generated models, readers, writers, and validators must not depend on
+metadata helper presence for correctness, and no reflection, annotations,
+ServiceLoader, runtime scanning, dynamic discovery, or schema interpretation is
+introduced.

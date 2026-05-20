@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -149,6 +150,42 @@ final class ProfileDiagnosticsConformanceTest {
 
     assertTrue(result.successful());
     assertEquals(4, result.generatedSources().size());
+  }
+
+  @Test
+  void optionalMetadataHelpersCompileThroughGenerator() throws IOException {
+    Path schema = Files.createTempFile(tempDir, "schema", ".json");
+    Files.writeString(
+        schema,
+        """
+        {
+          "title": "Metadata",
+          "type": "object",
+          "properties": {
+            "id": {"type": "string", "title": "Identifier", "default": "abc"}
+          },
+          "required": ["id"],
+          "additionalProperties": false
+        }
+        """);
+
+    GeneratorResult result =
+        new CoreGenerator()
+            .generate(
+                new GeneratorRequest(
+                    List.of(schema),
+                    tempDir.resolve("metadata-generated"),
+                    null,
+                    GeneratorRequest.DEFAULT_PACKAGE,
+                    GeneratorRequest.DEFAULT_ROOT_TYPE_NAME,
+                    Map.of(),
+                    true));
+
+    assertTrue(result.successful());
+    assertEquals(5, result.generatedSources().size());
+    assertTrue(
+        result.generatedSources().stream()
+            .anyMatch(path -> path.toString().endsWith("JsonSchemaMetadata.java")));
   }
 
   @Test

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Payment",
+  "oneOf": [
+    {
+      "title": "Card branch",
+      "type": "object",
+      "properties": {
+        "kind": {"type": "string", "const": "card"},
+        "last4": {"type": "string", "title": "Last four", "default": "0000"},
+        "amount": {"type": "number"}
+      },
+      "required": ["kind", "last4", "amount"],
+      "additionalProperties": false
+    },
+    {
+      "title": "Bank branch",
+      "type": "object",
+      "properties": {
+        "kind": {"type": "string", "const": "bank-transfer"},
+        "iban": {"type": "string"},
+        "urgent": {"type": "boolean", "default": false}
+      },
+      "required": ["kind", "iban"],
+      "additionalProperties": false
+    }
+  ]
+}

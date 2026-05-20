@@ -1,7 +1,7 @@
 # TASK-0021: Optional Schema Metadata Helpers
 
 Task ID: `TASK-0021`
-Status: `draft`
+Status: `complete`
 Gate: Object shape expansion
 Depends on: `TASK-0020`
 Specification references: JSON Schema Draft 2020-12 Core identifiers and Validation annotations used by the accepted profile

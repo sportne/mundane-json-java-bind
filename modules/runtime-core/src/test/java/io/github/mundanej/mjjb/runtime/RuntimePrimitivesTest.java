@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 final class RuntimePrimitivesTest {
@@ -130,6 +131,46 @@ final class RuntimePrimitivesTest {
   void readerDefaultReadsNullableStringState() throws JsonReadException {
     assertTrue(new NullableStringReader(true).nextNullableString().isExplicitNull());
     assertEquals("value", new NullableStringReader(false).nextNullableString().requireValue());
+  }
+
+  @Test
+  void schemaMetadataRecordsDefensivelyCopyAndValidateValues() {
+    SchemaAnnotations annotations =
+        new SchemaAnnotations(
+            Optional.of("Title"),
+            Optional.of("Description"),
+            Optional.of("Comment"),
+            List.of("{\"id\":1}"),
+            Optional.of(false),
+            Optional.of(true),
+            Optional.empty(),
+            Optional.of("\"default\""));
+    SchemaPropertyMetadata property =
+        new SchemaPropertyMetadata(
+            "id", "id", "/properties/id", true, "String", false, false, annotations);
+    SchemaObjectMetadata object =
+        new SchemaObjectMetadata("", "GeneratedBindings", annotations, List.of(property));
+    SchemaBranchMetadata branch = new SchemaBranchMetadata("card", "Card", object);
+    SchemaRootMetadata root =
+        new SchemaRootMetadata(
+            "https://json-schema.org/draft/2020-12/schema",
+            "GeneratedBindings",
+            object,
+            Optional.of("kind"),
+            List.of(branch));
+
+    assertEquals("Title", root.rootObject().annotations().title().orElseThrow());
+    assertEquals("{\"id\":1}", annotations.examplesJson().getFirst());
+    assertEquals("id", root.rootObject().properties().getFirst().jsonName());
+    assertEquals("card", root.branches().getFirst().tagValue());
+    assertThrows(UnsupportedOperationException.class, () -> annotations.examplesJson().add("{}"));
+    assertThrows(UnsupportedOperationException.class, () -> object.properties().add(property));
+    assertThrows(UnsupportedOperationException.class, () -> root.branches().add(branch));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new SchemaPropertyMetadata(
+                "id", "id", "not-a-pointer", true, "String", false, false, annotations));
   }
 
   private static final class NullableStringReader implements JsonReader {

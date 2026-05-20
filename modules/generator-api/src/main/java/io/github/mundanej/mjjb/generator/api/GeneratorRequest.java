@@ -13,7 +13,8 @@ public record GeneratorRequest(
     GeneratorProfile profile,
     String defaultPackage,
     String rootTypeName,
-    Map<String, String> packageMappings) {
+    Map<String, String> packageMappings,
+    boolean generateSchemaMetadataHelpers) {
   public static final String DEFAULT_PACKAGE = "io.github.mundanej.mjjb.generated";
   public static final String DEFAULT_ROOT_TYPE_NAME = "GeneratedBindings";
 
@@ -34,6 +35,23 @@ public record GeneratorRequest(
       Path outputDirectory,
       GeneratorProfile profile,
       String defaultPackage,
+      String rootTypeName,
+      Map<String, String> packageMappings) {
+    this(
+        schemaPaths,
+        outputDirectory,
+        profile,
+        defaultPackage,
+        rootTypeName,
+        packageMappings,
+        false);
+  }
+
+  public GeneratorRequest(
+      List<Path> schemaPaths,
+      Path outputDirectory,
+      GeneratorProfile profile,
+      String defaultPackage,
       Map<String, String> packageMappings) {
     this(
         schemaPaths,
@@ -41,7 +59,8 @@ public record GeneratorRequest(
         profile,
         defaultPackage,
         DEFAULT_ROOT_TYPE_NAME,
-        packageMappings);
+        packageMappings,
+        false);
   }
 
   public static GeneratorRequest of(List<Path> schemaPaths, Path outputDirectory) {
@@ -51,7 +70,8 @@ public record GeneratorRequest(
         GeneratorProfile.JSP_DATA_2020_12,
         DEFAULT_PACKAGE,
         DEFAULT_ROOT_TYPE_NAME,
-        Map.of());
+        Map.of(),
+        false);
   }
 
   @Override

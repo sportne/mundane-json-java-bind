@@ -60,6 +60,11 @@ The command writes `ExampleBinding.java`, `ExampleBindingJsonWriter.java`,
 `ExampleBindingJsonReader.java`, and `ExampleBindingJsonValidator.java` under
 the requested package directory.
 
+Programmatic generator requests can opt in to an additional
+`ExampleBindingJsonSchemaMetadata.java` helper. Metadata helpers expose generated
+schema facts for documentation and diagnostics; readers, writers, validators,
+and model construction do not depend on them.
+
 ## Gradle Plugin
 
 Gradle projects can generate the same basic object binding slice during Java
