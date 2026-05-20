@@ -167,6 +167,34 @@ final class ProfileDiagnosticsConformanceTest {
   }
 
   @Test
+  void reportsNestedUnsupportedKeywordsInDeterministicManifestOrder() throws IOException {
+    GeneratorResult result =
+        generate(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "z": {"$ref": "other.json"},
+                "a": {"allOf": []}
+              },
+              "additionalProperties": false
+            }
+            """);
+
+    assertFalse(result.successful());
+    assertEquals(2, result.diagnostics().size());
+    assertEquals("/properties/a/allOf", result.diagnostics().get(0).schemaPointer());
+    assertEquals("/properties/z/$ref", result.diagnostics().get(1).schemaPointer());
+    assertTrue(
+        result
+            .diagnostics()
+            .get(0)
+            .toManifestLine()
+            .contains("MJJBG-SCHEMA-UNSUPPORTED-KEYWORD | "));
+    assertTrue(result.diagnostics().get(0).toManifestLine().contains("#/properties/a/allOf | "));
+  }
+
+  @Test
   void rejectsUnsupportedProfileKeywordValueThroughGenerator() throws IOException {
     GeneratorResult result = generate("{\"type\":\"object\",\"additionalProperties\":true}");
 

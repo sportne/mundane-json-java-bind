@@ -15,6 +15,15 @@ final class RuntimePrimitivesTest {
   void jsonPathBuildsDeterministicPaths() {
     assertEquals(
         "$.user.names[1]", JsonPath.ROOT.property("user").property("names").index(1).value());
+    assertEquals(
+        "$[\"a.b\"][\"quote\\\"slash\\\\\"][\"line\\nfeed\"][\"\\u0001\"][0]",
+        JsonPath.ROOT
+            .property("a.b")
+            .property("quote\"slash\\")
+            .property("line\nfeed")
+            .property("\u0001")
+            .index(0)
+            .value());
     assertThrows(IllegalArgumentException.class, () -> new JsonPath(""));
     assertThrows(
         IllegalArgumentException.class,

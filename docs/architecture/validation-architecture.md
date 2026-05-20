@@ -10,6 +10,9 @@ exception-driven.
 Each validation error carries a stable code, human message, JSON instance path,
 optional JSON location, and schema location where available.
 
+The cross-layer error-reporting model, including parser and generated-reader
+ownership, is documented in `docs/architecture/error-reporting.md`.
+
 The first generated-validator slice validates generated model instances rather
 than raw JSON input. Generated readers own parse and type diagnostics for raw
 JSON. Generated validators own model-level invariants that can still be broken

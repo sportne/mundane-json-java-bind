@@ -32,6 +32,25 @@ final class JsonStreamReaderTest {
   }
 
   @Test
+  void streamsDuplicateObjectPropertiesInOrderWithDistinctLocations() throws JsonReadException {
+    JsonStreamReader reader = new JsonStreamReader("duplicates.json", "{\"id\":1,\"id\":2}");
+
+    reader.beginObject();
+    assertTrue(reader.hasNext());
+    assertEquals("id", reader.nextName());
+    assertEquals(1, reader.location().lineNumber());
+    assertEquals(7, reader.location().columnNumber());
+    assertEquals("1", reader.nextNumberLiteral());
+    assertTrue(reader.hasNext());
+    assertEquals("id", reader.nextName());
+    assertEquals(1, reader.location().lineNumber());
+    assertEquals(14, reader.location().columnNumber());
+    assertEquals("2", reader.nextNumberLiteral());
+    assertFalse(reader.hasNext());
+    reader.endObject();
+  }
+
+  @Test
   void readsArraysWithCallerHasNextLoop() throws JsonReadException {
     JsonStreamReader reader = new JsonStreamReader("[\"a\",\"b\"]");
 

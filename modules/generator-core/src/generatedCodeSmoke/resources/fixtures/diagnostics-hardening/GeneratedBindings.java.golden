@@ -1,0 +1,17 @@
+package io.github.mundanej.mjjb.generated;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+public record GeneratedBindings(
+    String name,
+    long count,
+    Optional<List<Double>> scores,
+    Optional<List<String>> labels) {
+  public GeneratedBindings {
+    name = Objects.requireNonNull(name, "name");
+    scores = Objects.requireNonNull(scores, "scores").map(List::copyOf);
+    labels = Objects.requireNonNull(labels, "labels").map(List::copyOf);
+  }
+}

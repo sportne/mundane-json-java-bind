@@ -35,17 +35,22 @@ public final class ReaderSourceEmitter {
     lines.add("    }");
     lines.add("    reader.beginObject();");
     lines.addAll(fieldInitializers(model));
+    String propertyNameLocal = propertyNameLocal(model);
     lines.add("    while (reader.hasNext()) {");
-    lines.add("      String name = reader.nextName();");
-    lines.add("      switch (name) {");
+    lines.add("      String " + propertyNameLocal + " = reader.nextName();");
+    lines.add("      switch (" + propertyNameLocal + ") {");
     for (FieldBinding field : model.rootObject().fields()) {
       lines.addAll(fieldCase(field));
     }
     lines.add("        default ->");
     lines.add(
         "            throw error("
-            + "\"MJJBR-004\", \"Unknown JSON property '\" + name + \"'.\", "
-            + "propertyPath(name), reader.location());");
+            + "\"MJJBR-004\", \"Unknown JSON property '\" + "
+            + propertyNameLocal
+            + " + \"'.\", "
+            + "propertyPath("
+            + propertyNameLocal
+            + "), reader.location());");
     lines.add("      }");
     lines.add("    }");
     lines.add("    reader.endObject();");
@@ -477,6 +482,14 @@ public final class ReaderSourceEmitter {
     return model.rootObject().fields().stream()
         .map(FieldBinding::javaFieldName)
         .collect(java.util.stream.Collectors.joining(", "));
+  }
+
+  private static String propertyNameLocal(BindingModel model) {
+    if (model.rootObject().fields().stream()
+        .noneMatch(field -> "name".equals(field.javaFieldName()))) {
+      return "name";
+    }
+    return "__mjjbPropertyName";
   }
 
   private static String readExpression(FieldBinding field, String pathExpression) {
