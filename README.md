@@ -1,51 +1,67 @@
 # mundane-json-java-bind
 
-`mundane-json-java-bind` is a JSON Schema driven Java binding and code generation
-project.
+`mundane-json-java-bind` generates explicit Java 21 binding source from a
+narrow JSON Schema Draft 2020-12 profile.
 
-The project generates explicit Java 21 source for model types, JSON readers,
-JSON writers, and validators from a strict JSON Schema Draft 2020-12 subset. It
-does not provide runtime object mapping, reflection-based binding, annotation
-scanning, dynamic class loading, or a plugin framework.
+The generated source includes model types, JSON readers, JSON writers,
+validators, and optional schema metadata helpers. It does not provide runtime
+object mapping, reflection-based binding, annotation scanning, dynamic class
+loading, schema interpretation, or a plugin framework.
 
-## Design Principles
+## Why It Exists
 
-- Explicit generated code over runtime reflection.
-- GraalVM Native Image friendliness first.
-- Tiny runtime dependency footprint.
-- Deterministic generation, diagnostics, and generated source ordering.
-- Human-readable generated Java source.
-- Boring, maintainable engineering over framework magic.
+- Generate readable Java source instead of runtime reflection.
+- Keep generated bindings friendly to GraalVM Native Image.
+- Keep the default runtime path free of third-party dependencies.
+- Preserve deterministic generation, diagnostics, and source ordering.
+- Support a deliberately small JSON Schema profile before widening scope.
 
-## Specification Baseline
+## Quickstart From Source
 
-The truth-driving specification inputs are:
-
-- JSON Schema Draft 2020-12 Core: <https://json-schema.org/draft/2020-12/json-schema-core.html>
-- JSON Schema Draft 2020-12 Validation: <https://json-schema.org/draft/2020-12/json-schema-validation>
-- JSON Schema Draft 2020-12 default meta-schema: <https://json-schema.org/draft/2020-12/schema>
-- JSON Schema Test Suite: <https://github.com/json-schema-org/JSON-Schema-Test-Suite>
-
-The v1 profile is intentionally partial. Unsupported JSON Schema features must
-fail with deterministic diagnostics and exact schema locations.
-
-## Build
+Build and verify the repository with the default local gate:
 
 ```bash
 ./gradlew qualityGate --console=plain
 ```
 
-Native Image smoke tests are separate because they require a GraalVM
-`native-image` toolchain:
+Run the checked-in examples:
+
+```bash
+./gradlew :examples:basic-record:check --console=plain
+./gradlew :examples:tagged-oneof:check --console=plain
+```
+
+Native Image smoke tests are separate because they require a GraalVM Java 21
+toolchain with `native-image`:
 
 ```bash
 ./gradlew nativeSmoke --console=plain
 ```
 
+## Supported Profile
+
+The v1 profile token is `JSP-DATA-2020-12`. It accepts closed root object
+bindings and a narrow tagged `oneOf` root form. Supported object fields include:
+
+- scalar `string`, `integer`, `number`, and `boolean` values;
+- homogeneous scalar arrays with `items`;
+- optional fields through omitted entries in `required`;
+- nullable field-level type arrays such as `["null", "string"]`;
+- scalar and array-item facets including length, pattern, format, item count,
+  and numeric bounds;
+- scalar `enum`, `const`, and `default` annotation handling;
+- accepted annotations such as `title`, `description`, `$comment`, `examples`,
+  `deprecated`, `readOnly`, and `writeOnly`.
+
+Unsupported Draft 2020-12 features fail during generation with deterministic
+generator diagnostics and exact schema JSON Pointer locations. The detailed
+profile contract is documented in
+[`docs/supported-profile.md`](docs/supported-profile.md), with standards
+traceability in [`docs/standards-baseline.md`](docs/standards-baseline.md).
+
 ## CLI
 
-The CLI can generate the current basic object binding slice from a supported
-JSON Schema object:
+The CLI generates Java source from supported schemas:
 
 ```bash
 mjjb generate \
@@ -56,19 +72,26 @@ mjjb generate \
   --profile JSP-DATA-2020-12
 ```
 
-The command writes `ExampleBinding.java`, `ExampleBindingJsonWriter.java`,
-`ExampleBindingJsonReader.java`, and `ExampleBindingJsonValidator.java` under
-the requested package directory.
+The command writes:
+
+- `ExampleBinding.java`
+- `ExampleBindingJsonWriter.java`
+- `ExampleBindingJsonReader.java`
+- `ExampleBindingJsonValidator.java`
+
+The files are written under the requested package directory. Successful
+generation prints one `Generated <path>` line per emitted source. Diagnostics
+are written to standard error in the shared manifest-line format. CLI behavior
+and exit codes are documented in [`docs/architecture/cli.md`](docs/architecture/cli.md).
 
 Programmatic generator requests can opt in to an additional
-`ExampleBindingJsonSchemaMetadata.java` helper. Metadata helpers expose generated
-schema facts for documentation and diagnostics; readers, writers, validators,
-and model construction do not depend on them.
+`ExampleBindingJsonSchemaMetadata.java` helper. Metadata helpers expose
+generated schema facts for documentation and diagnostics; models, readers,
+writers, validators, and model construction do not depend on them.
 
 ## Gradle Plugin
 
-Gradle projects can generate the same basic object binding slice during Java
-compilation:
+Gradle projects can generate bindings during Java compilation:
 
 ```groovy
 plugins {
@@ -90,34 +113,49 @@ mjjb {
 ```
 
 When the Java plugin is present, `compileJava` depends on `generateMjjb` and
-compiles the generated source directory.
+compiles the generated source directory. The plugin does not apply Java and
+does not add runtime dependencies for the consuming project. See
+[`docs/architecture/gradle-plugin.md`](docs/architecture/gradle-plugin.md).
 
-## Basic Example
+## Examples
 
-The checked-in basic record example demonstrates the completed first binding
-slice: schema, generated model, reader, validator, writer, and deterministic
-failure diagnostics.
+The basic record example demonstrates a closed object schema with required and
+optional scalar fields:
 
 ```bash
 ./gradlew :examples:basic-record:check --console=plain
 ```
 
-The example schema lives at
-`examples/basic-record/src/main/schema/basic-record.schema.json`. Its generated
-sources are checked in under `examples/basic-record/generated-src/main/java`,
-and conformance tests verify they match current generator output.
+The example lives in [`examples/basic-record`](examples/basic-record), with its
+schema at
+[`examples/basic-record/src/main/schema/basic-record.schema.json`](examples/basic-record/src/main/schema/basic-record.schema.json)
+and checked-in generated sources under
+[`examples/basic-record/generated-src/main/java`](examples/basic-record/generated-src/main/java).
 
-## Tagged oneOf Example
-
-The checked-in tagged `oneOf` example demonstrates the narrow supported union
-slice: a root sealed interface with nested branch records, tag-first generated
-reading and writing, validation dispatch, and deterministic tag diagnostics.
+The tagged `oneOf` example demonstrates a root sealed interface with nested
+branch records, tag-first generated reading and writing, validation dispatch,
+arrays, nullable fields, literal constraints, and deterministic tag diagnostics:
 
 ```bash
 ./gradlew :examples:tagged-oneof:check --console=plain
 ```
 
-The example schema lives at
-`examples/tagged-oneof/src/main/schema/tagged-oneof.schema.json`. Its generated
-sources are checked in under `examples/tagged-oneof/generated-src/main/java`,
-and conformance tests verify they match current generator output.
+The example lives in [`examples/tagged-oneof`](examples/tagged-oneof), with its
+schema at
+[`examples/tagged-oneof/src/main/schema/tagged-oneof.schema.json`](examples/tagged-oneof/src/main/schema/tagged-oneof.schema.json)
+and checked-in generated sources under
+[`examples/tagged-oneof/generated-src/main/java`](examples/tagged-oneof/generated-src/main/java).
+
+## Design And Verification
+
+- Project scope and non-goals: [`docs/charter.md`](docs/charter.md)
+- Supported profile and diagnostics: [`docs/supported-profile.md`](docs/supported-profile.md)
+- Generated source contract: [`docs/architecture/generated-code-contract.md`](docs/architecture/generated-code-contract.md)
+- Module boundaries: [`docs/architecture/module-boundaries.md`](docs/architecture/module-boundaries.md)
+- Error reporting: [`docs/architecture/error-reporting.md`](docs/architecture/error-reporting.md)
+- Generated source verification: [`docs/verification/generated-source-verification.md`](docs/verification/generated-source-verification.md)
+- JSON Schema Test Suite trace: [`docs/verification/json-schema-test-suite.md`](docs/verification/json-schema-test-suite.md)
+- Native Image verification: [`docs/verification/native-image.md`](docs/verification/native-image.md)
+- Performance evidence: [`docs/verification/performance.md`](docs/verification/performance.md)
+
+The roadmap and task history live in [`docs/roadmap.md`](docs/roadmap.md).

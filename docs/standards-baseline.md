@@ -17,6 +17,10 @@ The implementation must not invent alternate semantics for supported keywords.
 If a keyword is unsupported by the active generated-binding profile, generation
 must fail with a deterministic diagnostic at the exact schema JSON Pointer.
 
+The user-facing v1 profile contract is documented in
+[`supported-profile.md`](supported-profile.md). This baseline remains the
+standards traceability source for that profile.
+
 Schema document syntax parsing lives in `schema-model`. It parses JSON Schema
 documents as JSON syntax values with schema JSON Pointer locations; runtime JSON
 instance parsing remains the responsibility of `parser-core` and generated

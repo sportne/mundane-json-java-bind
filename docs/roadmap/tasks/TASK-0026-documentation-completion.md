@@ -1,7 +1,7 @@
 # TASK-0026: Documentation Completion
 
 Task ID: `TASK-0026`
-Status: `draft`
+Status: `complete`
 Gate: Completion hardening
 Depends on: `TASK-0025`
 Specification references: JSON Schema Draft 2020-12 Core, Validation, default meta-schema, and official test suite
