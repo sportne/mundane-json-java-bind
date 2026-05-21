@@ -18,3 +18,5 @@ GraalVM `native-image` toolchain.
 A Native Image failure caused by reflection, resource lookup, proxy generation,
 serialization metadata, or classpath scanning is treated as an architecture
 issue unless a future ADR explicitly permits it.
+
+The executable verification guide is `docs/verification/native-image.md`.

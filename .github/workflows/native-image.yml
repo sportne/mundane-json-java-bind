@@ -1,0 +1,24 @@
+name: Native Image
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  native-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v4
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: graalvm
+          native-image-job-reports: true
+
+      - name: Run Native Image smoke lane
+        run: ./gradlew nativeSmoke --console=plain

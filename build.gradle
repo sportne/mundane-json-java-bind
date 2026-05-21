@@ -41,11 +41,11 @@ tasks.register('qualityGate') {
 tasks.register('nativeSmoke') {
     group = 'verification'
     description = 'Runs the representative GraalVM Native Image smoke lane.'
-    dependsOn ':modules:runtime-core:nativeTest'
-    dependsOn ':modules:parser-core:nativeTest'
-    dependsOn ':modules:generator-core:generatedCodeNativeSmoke'
-    dependsOn ':examples:basic-record:nativeTest'
-    dependsOn ':examples:tagged-oneof:nativeTest'
+    dependsOn ':modules:runtime-core:nativeSmokeTest'
+    dependsOn ':modules:parser-core:nativeSmokeTest'
+    dependsOn ':modules:generator-cli:nativeSmokeTest'
+    dependsOn ':examples:basic-record:nativeSmokeTest'
+    dependsOn ':examples:tagged-oneof:nativeSmokeTest'
 }
 
 tasks.register('printPublishedArtifacts') {

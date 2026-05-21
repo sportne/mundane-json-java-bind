@@ -9,6 +9,7 @@ def requiredFiles = [
     'docs/architecture/architecture-rule-catalog.md',
     'docs/architecture/architecture-rules.md',
     'docs/verification/native-image-test-plan.md',
+    'docs/verification/native-image.md',
 ]
 def rootDirectory = rootProject.layout.projectDirectory.asFile
 

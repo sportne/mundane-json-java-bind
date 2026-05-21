@@ -2,10 +2,46 @@ plugins {
     id 'org.graalvm.buildtools.native'
 }
 
+import org.gradle.api.services.BuildService
+import org.gradle.api.services.BuildServiceParameters
+import org.gradle.api.artifacts.VersionCatalogsExtension
+
+abstract class MjjbNativeImageBuildService implements BuildService<BuildServiceParameters.None> {}
+
+def nativeImageBuildService = gradle.sharedServices.registerIfAbsent('mjjbNativeImageBuildService', MjjbNativeImageBuildService) {
+    maxParallelUsages = 1
+}
+
+def libs = extensions.getByType(VersionCatalogsExtension).named('libs')
+
+def nativeSmokeTestSourceSet = sourceSets.create('nativeSmokeTest') {
+    java.srcDir 'src/nativeSmokeTest/java'
+    compileClasspath += sourceSets.main.output + configurations.compileClasspath
+    runtimeClasspath += sourceSets.main.output + configurations.runtimeClasspath
+}
+
+dependencies {
+    nativeSmokeTestImplementation platform(libs.findLibrary('junit-bom').get())
+    nativeSmokeTestImplementation libs.findLibrary('junit-jupiter').get()
+    nativeSmokeTestRuntimeOnly libs.findLibrary('junit-platform-launcher').get()
+}
+
+def nativeSmokeJvmTest = tasks.register('nativeSmokeJvmTest', Test) {
+    group = 'verification'
+    description = 'Runs the JVM discovery pass for Native Image smoke tests.'
+    testClassesDirs = nativeSmokeTestSourceSet.output.classesDirs
+    classpath = nativeSmokeTestSourceSet.runtimeClasspath
+    shouldRunAfter tasks.named('test')
+}
+
 graalvmNative {
     toolchainDetection = true
     metadataRepository {
         enabled = false
+    }
+    registerTestBinary('smokeTest') {
+        forTestTask(nativeSmokeJvmTest)
+        usingSourceSet(nativeSmokeTestSourceSet)
     }
     binaries {
         test {
@@ -14,5 +50,27 @@ graalvmNative {
             buildArgs.add('--no-fallback')
             buildArgs.add('-H:+ReportExceptionStackTraces')
         }
+        smokeTest {
+            quickBuild = true
+            useFatJar = true
+            buildArgs.add('--no-fallback')
+            buildArgs.add('-H:+ReportExceptionStackTraces')
+        }
     }
+}
+
+configurations.named('nativeImageSmokeTestClasspath') {
+    exclude group: 'com.tngtech.archunit'
+}
+
+tasks.withType(org.graalvm.buildtools.gradle.tasks.BuildNativeImageTask).configureEach {
+    usesService(nativeImageBuildService)
+}
+
+tasks.withType(org.graalvm.buildtools.gradle.tasks.GenerateResourcesConfigFile).configureEach {
+    usesService(nativeImageBuildService)
+}
+
+tasks.withType(org.graalvm.buildtools.gradle.tasks.NativeRunTask).configureEach {
+    usesService(nativeImageBuildService)
 }

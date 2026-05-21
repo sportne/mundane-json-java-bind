@@ -1,7 +1,7 @@
 # TASK-0024: Native Image Smoke Lane
 
 Task ID: `TASK-0024`
-Status: `draft`
+Status: `complete`
 Gate: Completion hardening
 Depends on: `TASK-0023`
 Specification references: Project Native Image compatibility constraints
