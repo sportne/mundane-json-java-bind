@@ -1,7 +1,7 @@
 # TASK-0025: Performance and Memory Evidence
 
 Task ID: `TASK-0025`
-Status: `draft`
+Status: `complete`
 Gate: Completion hardening
 Depends on: `TASK-0024`
 Specification references: Project predictable performance and memory behavior goals

@@ -12,3 +12,14 @@ dependencies {
     testImplementation project(':modules:schema-model')
     testImplementation project(':modules:testing-support')
 }
+
+tasks.register('performanceEvidence', JavaExec) {
+    group = 'verification'
+    description = 'Writes repeatable parser and generated-binding performance evidence.'
+    mainClass = 'io.github.mundanej.mjjb.conformance.PerformanceEvidence'
+    classpath = sourceSets.test.runtimeClasspath
+    args layout.buildDirectory.dir('reports/performance').get().asFile.absolutePath,
+            layout.buildDirectory.dir('performance-evidence').get().asFile.absolutePath,
+            sourceSets.test.runtimeClasspath.asPath
+    dependsOn tasks.named('testClasses')
+}

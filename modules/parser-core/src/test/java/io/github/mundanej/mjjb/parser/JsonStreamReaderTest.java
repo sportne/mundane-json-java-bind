@@ -265,6 +265,48 @@ final class JsonStreamReaderTest {
     assertEquals(JsonToken.END_DOCUMENT, reader.peek());
   }
 
+  @Test
+  void streamsMediumObjectArrayDocumentFromReader() throws JsonReadException {
+    String sourceText = mediumObjectArrayDocument(128);
+    CountingReader source = new CountingReader(sourceText);
+    JsonStreamReader reader = JsonStreamReader.fromReader("medium.json", source);
+    int sum = 0;
+
+    reader.beginObject();
+    assertEquals("records", reader.nextName());
+    reader.beginArray();
+    assertTrue(reader.hasNext());
+    reader.beginObject();
+    assertEquals("id", reader.nextName());
+    assertEquals("id-0", reader.nextString());
+    assertEquals("value", reader.nextName());
+    sum += Integer.parseInt(reader.nextNumberLiteral());
+    assertEquals("active", reader.nextName());
+    assertTrue(reader.nextBoolean());
+    assertFalse(reader.hasNext());
+    reader.endObject();
+    assertTrue(source.readCount() < sourceText.length());
+    for (int i = 1; i < 128; i++) {
+      assertTrue(reader.hasNext());
+      reader.beginObject();
+      assertEquals("id", reader.nextName());
+      assertEquals("id-" + i, reader.nextString());
+      assertEquals("value", reader.nextName());
+      sum += Integer.parseInt(reader.nextNumberLiteral());
+      assertEquals("active", reader.nextName());
+      assertEquals(i % 2 == 0, reader.nextBoolean());
+      assertFalse(reader.hasNext());
+      reader.endObject();
+    }
+    assertFalse(reader.hasNext());
+    reader.endArray();
+    assertFalse(reader.hasNext());
+    reader.endObject();
+
+    assertEquals(8128, sum);
+    assertEquals(JsonToken.END_DOCUMENT, reader.peek());
+  }
+
   private static void assertReadExceptionCode(String input, String code) {
     assertReadExceptionCode(new JsonStreamReader(input)::skipValue, code);
   }
@@ -272,6 +314,25 @@ final class JsonStreamReaderTest {
   private static void assertReadExceptionCode(ThrowingReaderAction action, String code) {
     JsonReadException exception = assertThrows(JsonReadException.class, action::run);
     assertEquals(code, exception.diagnostic().code());
+  }
+
+  private static String mediumObjectArrayDocument(int records) {
+    StringBuilder builder = new StringBuilder("{\"records\":[");
+    for (int i = 0; i < records; i++) {
+      if (i > 0) {
+        builder.append(',');
+      }
+      builder
+          .append("{\"id\":\"id-")
+          .append(i)
+          .append("\",\"value\":")
+          .append(i)
+          .append(",\"active\":")
+          .append(i % 2 == 0)
+          .append('}');
+    }
+    builder.append("]}");
+    return builder.toString();
   }
 
   @FunctionalInterface
