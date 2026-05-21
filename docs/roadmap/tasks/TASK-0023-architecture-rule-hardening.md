@@ -1,7 +1,7 @@
 # TASK-0023: Architecture Rule Hardening
 
 Task ID: `TASK-0023`
-Status: `draft`
+Status: `complete`
 Gate: Completion hardening
 Depends on: `TASK-0022`
 Specification references: Project architecture charter and Native Image constraints

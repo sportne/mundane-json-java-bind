@@ -1,5 +1,6 @@
-package io.github.mundanej.mjjb.runtime;
+package io.github.mundanej.mjjb.parser;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.fields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
@@ -11,29 +12,26 @@ import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 
 @AnalyzeClasses(
-    packages = "io.github.mundanej.mjjb.runtime",
+    packages = "io.github.mundanej.mjjb.parser",
     importOptions = ImportOption.DoNotIncludeTests.class)
-final class RuntimeArchitectureTest {
+final class ParserArchitectureTest {
   @ArchTest
-  static final ArchRule runtimeDependenciesStayNarrow =
-      noClasses()
+  static final ArchRule parserOnlyDependsOnRuntimeAndJdk =
+      classes()
           .should()
-          .dependOnClassesThat()
+          .onlyDependOnClassesThat()
           .resideInAnyPackage(
-              "io.github.mundanej.mjjb.generator..",
-              "io.github.mundanej.mjjb.parser..",
-              "io.github.mundanej.mjjb.schema..",
-              "io.github.mundanej.mjjb.testkit..");
+              "io.github.mundanej.mjjb.parser..", "io.github.mundanej.mjjb.runtime..", "java..");
 
   @ArchTest
-  static final ArchRule runtimeDoesNotUseReflectionOrMethodHandles =
+  static final ArchRule parserDoesNotUseReflectionOrMethodHandles =
       noClasses()
           .should()
           .dependOnClassesThat()
           .resideInAnyPackage("java.lang.reflect..", "java.lang.invoke..");
 
   @ArchTest
-  static final ArchRule runtimeDoesNotUseDynamicDiscoveryOrClassLoading =
+  static final ArchRule parserDoesNotUseDynamicDiscoveryOrClassLoading =
       noClasses()
           .should()
           .dependOnClassesThat()
@@ -49,7 +47,7 @@ final class RuntimeArchitectureTest {
           .haveFullyQualifiedName("java.lang.reflect.Proxy");
 
   @ArchTest
-  static final ArchRule runtimeDoesNotUseNativeProcessOrSerializationHooks =
+  static final ArchRule parserDoesNotUseNativeProcessOrSerializationHooks =
       noClasses()
           .should()
           .dependOnClassesThat()
@@ -71,10 +69,10 @@ final class RuntimeArchitectureTest {
           .haveFullyQualifiedName("jdk.internal.misc.Unsafe");
 
   @ArchTest
-  static final ArchRule runtimeDoesNotDeclareNativeMethodsOrFinalizers =
+  static final ArchRule parserDoesNotDeclareNativeMethodsOrFinalizers =
       noMethods().should().haveModifier(JavaModifier.NATIVE).orShould().haveName("finalize");
 
   @ArchTest
-  static final ArchRule runtimePublicStaticFieldsAreFinal =
+  static final ArchRule parserPublicStaticFieldsAreFinal =
       fields().that().arePublic().and().areStatic().should().beFinal().allowEmptyShould(true);
 }

@@ -679,6 +679,44 @@ final class CoreGeneratorTest {
   }
 
   @Test
+  void generatedProductionSourcesKeepRuntimeOnlyDependencyBoundary() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(
+        schema,
+        """
+        {
+          "type": "object",
+          "properties": {
+            "id": {"type": "string", "minLength": 1},
+            "tags": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+            "score": {"type": ["null", "number"], "maximum": 10},
+            "active": {"type": "boolean", "default": true}
+          },
+          "required": ["id", "tags"],
+          "additionalProperties": false
+        }
+        """);
+
+    GeneratorResult result = generateWithMetadata(schema);
+
+    assertTrue(result.successful());
+    assertEquals(5, result.generatedSources().size());
+    for (Path source : result.generatedSources()) {
+      String content = Files.readString(source);
+      generatedSourceVerifier.verifyAllowedTokens("generated-dependency-boundary", source);
+      assertTrue(
+          content
+              .lines()
+              .filter(line -> line.startsWith("import "))
+              .allMatch(
+                  line ->
+                      line.startsWith("import java.")
+                          || line.startsWith("import io.github.mundanej.mjjb.runtime.")),
+          source + " must import only JDK and runtime-core types");
+    }
+  }
+
+  @Test
   void reportsInvalidJsonNumbersInSchemaInput() throws IOException {
     assertInvalidSchema("{\"minimum\":1.}", "/minimum");
     assertInvalidSchema("{\"minimum\":1e}", "/minimum");
