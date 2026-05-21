@@ -46,3 +46,21 @@ added to the v1 subset.
 `pattern` uses generated Java `Pattern` checks with JSON Schema search
 semantics. Patterns must compile during schema/profile validation; there is no
 runtime regex registry or extension lookup.
+
+## JSON Schema Test Suite Traceability
+
+`modules/conformance-tests` contains a curated allowlist and skip manifest tied
+to the official JSON Schema Test Suite commit
+`ba30ec795b67fb0bb636fedda3210b95d8cf558b`. The manifest is projected into the
+generated root-object binding shape instead of interpreted dynamically; see
+`docs/verification/json-schema-test-suite.md`.
+
+| Supported category | Representative upstream fixture files | TASK-0022 coverage | Skip policy |
+|---|---|---|---|
+| Scalar `type` | `tests/draft2020-12/type.json` | String and boolean valid/invalid cases projected through a `value` property. | Root scalar schemas and broader integer equivalence are skipped as `ROOT_NON_OBJECT_BINDING` or `NUMERIC_SEMANTICS_DEFERRED`. |
+| String length | `tests/draft2020-12/minLength.json`, `tests/draft2020-12/maxLength.json` | Boundary success and failure cases for generated string validators. | Non-string applicability cases remain outside the generated binding projection. |
+| Numeric bounds | `tests/draft2020-12/minimum.json`, `maximum.json`, `exclusiveMinimum.json`, `exclusiveMaximum.json` | Boundary success and failure cases for generated `number` validators. | Broader numeric equivalence and unsupported numeric keywords stay deferred. |
+| Array length | `tests/draft2020-12/minItems.json`, `maxItems.json` | Boundary success and failure cases for homogeneous integer arrays. | Tuple, containment, and unique-item fixtures are skipped by unsupported keyword policy. |
+| Literal constraints | `tests/draft2020-12/enum.json`, `const.json` | Scalar match and mismatch cases through generated validators and reader failures. | Object/array literal constraints outside scalar or scalar-item bindings stay unsupported. |
+| Object/applicator/reference behavior | `required.json`, `properties.json`, `allOf.json`, `additionalProperties.json`, `ref.json` | Representative unsupported cases are documented in the skip manifest. | Skips use `MISSING_REQUIRED_BINDING_SHAPE`, `UNTYPED_PROPERTY_SCHEMA`, `UNSUPPORTED_KEYWORD`, `UNSUPPORTED_KEYWORD_VALUE`, or `REMOTE_REFERENCE`. |
+| Format assertions | `tests/draft2020-12/format.json` | Supported local formats are covered by generator tests. | Optional upstream formats outside `date`, `date-time`, and `uuid` are skipped as `OPTIONAL_FORMAT_SCOPE`. |

@@ -1,7 +1,7 @@
 # TASK-0022: JSON Schema Test Suite Allowlist
 
 Task ID: `TASK-0022`
-Status: `draft`
+Status: `complete`
 Gate: Completion hardening
 Depends on: `TASK-0021`
 Specification references: Official JSON Schema Test Suite Draft 2020-12 fixtures
