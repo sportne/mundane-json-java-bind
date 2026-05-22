@@ -23,6 +23,21 @@ def checkedProjects = [
 ]
 
 def qualityProjects = checkedProjects.findAll { it != ':modules:mjjb-bom' }
+def publishedArtifacts = [
+    ':modules:mjjb-bom'               : 'mjjb-bom',
+    ':modules:runtime-core'           : 'mjjb-runtime-core',
+    ':modules:parser-core'            : 'mjjb-parser-core',
+    ':modules:schema-model'           : 'mjjb-schema-model',
+    ':modules:generator-api'          : 'mjjb-generator-api',
+    ':modules:generator-core'         : 'mjjb-generator-core',
+    ':modules:generator-cli'          : 'mjjb-cli',
+    ':modules:generator-gradle-plugin': 'mjjb-gradle-plugin',
+    ':modules:testing-support'        : 'mjjb-testing-support',
+]
+def publishedRuntimeArtifacts = publishedArtifacts.findAll { it.value != 'mjjb-bom' }
+def releaseDryRunRepository = layout.buildDirectory.dir('release-dry-run/maven')
+def releaseGroupPath = group.toString().replace('.', '/')
+def releaseVersion = version.toString()
 
 tasks.register('checkAll') {
     group = 'verification'
@@ -46,6 +61,115 @@ tasks.register('nativeSmoke') {
     dependsOn ':modules:generator-cli:nativeSmokeTest'
     dependsOn ':examples:basic-record:nativeSmokeTest'
     dependsOn ':examples:tagged-oneof:nativeSmokeTest'
+}
+
+tasks.register('cleanReleaseDryRun', Delete) {
+    group = 'verification'
+    description = 'Deletes the local release dry-run Maven repository.'
+    delete releaseDryRunRepository
+}
+
+def publishReleaseDryRunTasks =
+    publishedArtifacts.keySet().collect { "${it}:publishAllPublicationsToReleaseDryRunRepository" }
+
+tasks.register('verifyReleaseDryRun') {
+    group = 'verification'
+    description = 'Verifies locally staged publication metadata and artifacts.'
+    dependsOn publishReleaseDryRunTasks
+    mustRunAfter tasks.named('cleanReleaseDryRun')
+
+    doLast {
+        def repository = releaseDryRunRepository.get().asFile
+        def versionText = releaseVersion
+        def groupPath = releaseGroupPath
+        def slurper = new groovy.xml.XmlSlurper(false, false)
+        def publishedFile = { File artifactDirectory, String artifactId, String extension, String classifier ->
+            def classifierPart = classifier == null || classifier.isBlank() ? '' : "-${classifier}"
+            if (!versionText.endsWith('-SNAPSHOT')) {
+                return new File(artifactDirectory, "${artifactId}-${versionText}${classifierPart}.${extension}")
+            }
+
+            def metadataFile = new File(artifactDirectory, 'maven-metadata.xml')
+            if (!metadataFile.isFile()) {
+                throw new GradleException("Missing snapshot metadata for ${artifactId}: ${metadataFile}")
+            }
+            def metadata = slurper.parse(metadataFile)
+            def snapshotVersion = metadata.versioning.snapshotVersions.snapshotVersion.find {
+                it.extension.text() == extension && it.classifier.text() == (classifier ?: '')
+            }
+            if (snapshotVersion == null) {
+                throw new GradleException(
+                    "Missing snapshot version for ${artifactId} ${classifierPart}.${extension}")
+            }
+            return new File(artifactDirectory, "${artifactId}-${snapshotVersion.value.text()}${classifierPart}.${extension}")
+        }
+
+        publishedArtifacts.each { projectPath, artifactId ->
+            def artifactDirectory = new File(repository, "${groupPath}/${artifactId}/${versionText}")
+            def pomFile = publishedFile(artifactDirectory, artifactId, 'pom', null)
+            if (!pomFile.isFile()) {
+                throw new GradleException("Missing release dry-run POM for ${projectPath}: ${pomFile}")
+            }
+
+            def pom = slurper.parse(pomFile)
+            if (pom.name.text().isBlank()) {
+                throw new GradleException("Missing POM name for ${artifactId}")
+            }
+            if (pom.description.text().isBlank()) {
+                throw new GradleException("Missing POM description for ${artifactId}")
+            }
+            if (pom.url.text() != 'https://github.com/sportne/mundane-json-java-bind') {
+                throw new GradleException("Unexpected POM URL for ${artifactId}: ${pom.url.text()}")
+            }
+            if (pom.licenses.license.name.text() != 'BSD 3-Clause License') {
+                throw new GradleException("Missing BSD 3-Clause license metadata for ${artifactId}")
+            }
+            if (pom.developers.developer.id.text() != 'sportne') {
+                throw new GradleException("Missing developer metadata for ${artifactId}")
+            }
+            if (pom.scm.url.text() != 'https://github.com/sportne/mundane-json-java-bind') {
+                throw new GradleException("Missing SCM metadata for ${artifactId}")
+            }
+
+            if (artifactId != 'mjjb-bom') {
+                [null, 'sources', 'javadoc'].each { classifier ->
+                    def artifactFile = publishedFile(artifactDirectory, artifactId, 'jar', classifier)
+                    if (!artifactFile.isFile()) {
+                        def label = classifier == null ? 'jar' : "${classifier}.jar"
+                        throw new GradleException("Missing ${label} artifact for ${artifactId}: ${artifactFile}")
+                    }
+                }
+            }
+        }
+
+        def bomDirectory = new File(repository, "${groupPath}/mjjb-bom/${versionText}")
+        def bomPomFile = publishedFile(bomDirectory, 'mjjb-bom', 'pom', null)
+        def bomPom = slurper.parse(bomPomFile)
+        def bomArtifactIds = bomPom.dependencyManagement.dependencies.dependency.artifactId*.text() as Set
+        def missingBomArtifacts = publishedRuntimeArtifacts.values().findAll { !bomArtifactIds.contains(it) }
+        if (!missingBomArtifacts.isEmpty()) {
+            throw new GradleException("BOM is missing published module constraints: ${missingBomArtifacts.join(', ')}")
+        }
+
+        println "Verified release dry-run repository at ${repository}"
+    }
+}
+
+gradle.projectsEvaluated {
+    publishedArtifacts.keySet().each { projectPath ->
+        project(projectPath).tasks.matching {
+            it.name == 'publishAllPublicationsToReleaseDryRunRepository'
+        }.configureEach {
+            mustRunAfter tasks.named('cleanReleaseDryRun')
+        }
+    }
+}
+
+tasks.register('releaseDryRun') {
+    group = 'verification'
+    description = 'Publishes public artifacts to build/release-dry-run/maven and verifies release metadata.'
+    dependsOn tasks.named('cleanReleaseDryRun')
+    dependsOn tasks.named('verifyReleaseDryRun')
 }
 
 tasks.register('printPublishedArtifacts') {

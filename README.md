@@ -117,6 +117,25 @@ compiles the generated source directory. The plugin does not apply Java and
 does not add runtime dependencies for the consuming project. See
 [`docs/architecture/gradle-plugin.md`](docs/architecture/gradle-plugin.md).
 
+## Artifacts
+
+The planned v1 Maven coordinates are:
+
+| Artifact | Coordinate |
+|---|---|
+| BOM | `io.github.mundanej:mjjb-bom` |
+| Runtime API | `io.github.mundanej:mjjb-runtime-core` |
+| Parser and writer implementation | `io.github.mundanej:mjjb-parser-core` |
+| Schema model | `io.github.mundanej:mjjb-schema-model` |
+| Generator API | `io.github.mundanej:mjjb-generator-api` |
+| Generator implementation | `io.github.mundanej:mjjb-generator-core` |
+| CLI | `io.github.mundanej:mjjb-cli` |
+| Gradle plugin | `io.github.mundanej:mjjb-gradle-plugin` |
+| Generated-binding test helpers | `io.github.mundanej:mjjb-testing-support` |
+
+Release dry-run verification is documented in
+[`docs/verification/release.md`](docs/verification/release.md).
+
 ## Examples
 
 The basic record example demonstrates a closed object schema with required and
@@ -157,5 +176,6 @@ and checked-in generated sources under
 - JSON Schema Test Suite trace: [`docs/verification/json-schema-test-suite.md`](docs/verification/json-schema-test-suite.md)
 - Native Image verification: [`docs/verification/native-image.md`](docs/verification/native-image.md)
 - Performance evidence: [`docs/verification/performance.md`](docs/verification/performance.md)
+- Release verification: [`docs/verification/release.md`](docs/verification/release.md)
 
 The roadmap and task history live in [`docs/roadmap.md`](docs/roadmap.md).

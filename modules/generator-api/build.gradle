@@ -9,7 +9,7 @@ description = 'Public generator configuration and API.'
 
 publishing {
     publications {
-        mavenJava(MavenPublication) {
+        named('mavenJava', MavenPublication) {
             artifactId = 'mjjb-generator-api'
         }
     }

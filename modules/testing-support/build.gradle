@@ -9,7 +9,7 @@ description = 'Test helpers for generated JSON bindings.'
 
 publishing {
     publications {
-        mavenJava(MavenPublication) {
+        named('mavenJava', MavenPublication) {
             artifactId = 'mjjb-testing-support'
         }
     }

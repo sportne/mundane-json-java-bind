@@ -10,7 +10,7 @@ description = 'Runtime core API and primitives; no third-party dependencies.'
 
 publishing {
     publications {
-        mavenJava(MavenPublication) {
+        named('mavenJava', MavenPublication) {
             artifactId = 'mjjb-runtime-core'
         }
     }

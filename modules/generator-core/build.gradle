@@ -9,7 +9,7 @@ description = 'JSON Schema to Java binding generator implementation.'
 
 publishing {
     publications {
-        mavenJava(MavenPublication) {
+        named('mavenJava', MavenPublication) {
             artifactId = 'mjjb-generator-core'
         }
     }

@@ -1,7 +1,7 @@
 # TASK-0027: Release and Publication Readiness
 
 Task ID: `TASK-0027`
-Status: `draft`
+Status: `complete`
 Gate: Completion hardening
 Depends on: `TASK-0026`
 Specification references: Project licensing, publication, and reproducibility requirements

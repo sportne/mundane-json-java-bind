@@ -2,10 +2,45 @@ plugins {
     id 'maven-publish'
 }
 
+def releaseDryRunRepository = rootProject.layout.buildDirectory.dir('release-dry-run/maven')
+
 publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            from components.java
+    repositories {
+        maven {
+            name = 'releaseDryRun'
+            url = releaseDryRunRepository
+        }
+    }
+}
+
+if (!pluginManager.hasPlugin('java-gradle-plugin')) {
+    publishing.publications.register('mavenJava', MavenPublication) {
+        from components.java
+    }
+}
+
+publishing.publications.withType(MavenPublication).configureEach {
+    pom {
+        name = provider { project.description ?: project.name }
+        description = provider { project.description ?: project.name }
+        url = 'https://github.com/sportne/mundane-json-java-bind'
+        licenses {
+            license {
+                name = 'BSD 3-Clause License'
+                url = 'https://opensource.org/license/bsd-3-clause/'
+                distribution = 'repo'
+            }
+        }
+        developers {
+            developer {
+                id = 'sportne'
+                name = 'sportne'
+            }
+        }
+        scm {
+            connection = 'scm:git:https://github.com/sportne/mundane-json-java-bind.git'
+            developerConnection = 'scm:git:ssh://git@github.com/sportne/mundane-json-java-bind.git'
+            url = 'https://github.com/sportne/mundane-json-java-bind'
         }
     }
 }

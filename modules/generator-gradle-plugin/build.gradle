@@ -19,8 +19,10 @@ gradlePlugin {
 
 publishing {
     publications {
-        mavenJava(MavenPublication) {
-            artifactId = 'mjjb-gradle-plugin'
+        withType(MavenPublication).configureEach {
+            if (name == 'pluginMaven') {
+                artifactId = 'mjjb-gradle-plugin'
+            }
         }
     }
 }

@@ -9,7 +9,7 @@ description = 'JSON Schema Draft 2020-12 subset vocabulary and profile model.'
 
 publishing {
     publications {
-        mavenJava(MavenPublication) {
+        named('mavenJava', MavenPublication) {
             artifactId = 'mjjb-schema-model'
         }
     }

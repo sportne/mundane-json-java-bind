@@ -10,7 +10,7 @@ description = 'Dependency-free streaming JSON tokenizer, parser, and writer.'
 
 publishing {
     publications {
-        mavenJava(MavenPublication) {
+        named('mavenJava', MavenPublication) {
             artifactId = 'mjjb-parser-core'
         }
     }

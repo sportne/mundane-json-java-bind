@@ -14,7 +14,7 @@ application {
 
 publishing {
     publications {
-        mavenJava(MavenPublication) {
+        named('mavenJava', MavenPublication) {
             artifactId = 'mjjb-cli'
         }
     }
