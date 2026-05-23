@@ -177,5 +177,6 @@ and checked-in generated sources under
 - Native Image verification: [`docs/verification/native-image.md`](docs/verification/native-image.md)
 - Performance evidence: [`docs/verification/performance.md`](docs/verification/performance.md)
 - Release verification: [`docs/verification/release.md`](docs/verification/release.md)
+- v1 readiness: [`docs/verification/v1-readiness.md`](docs/verification/v1-readiness.md)
 
 The roadmap and task history live in [`docs/roadmap.md`](docs/roadmap.md).

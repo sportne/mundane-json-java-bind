@@ -11,6 +11,7 @@ def requiredFiles = [
     'docs/verification/native-image-test-plan.md',
     'docs/verification/native-image.md',
     'docs/verification/release.md',
+    'docs/verification/v1-readiness.md',
 ]
 def rootDirectory = rootProject.layout.projectDirectory.asFile
 
