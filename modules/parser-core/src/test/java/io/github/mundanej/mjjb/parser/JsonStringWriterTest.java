@@ -109,6 +109,41 @@ final class JsonStringWriterTest {
   }
 
   @Test
+  void writesEmptyAndScalarRootValues() throws JsonWriteException {
+    JsonStringWriter objectWriter = new JsonStringWriter();
+    objectWriter.beginObject();
+    objectWriter.endObject();
+    assertEquals("{}", objectWriter.json());
+    assertEquals("{}", objectWriter.json());
+
+    JsonStringWriter arrayWriter = new JsonStringWriter();
+    arrayWriter.beginArray();
+    arrayWriter.endArray();
+    assertEquals("[]", arrayWriter.json());
+
+    JsonStringWriter booleanWriter = new JsonStringWriter();
+    booleanWriter.value(false);
+    assertEquals("false", booleanWriter.json());
+
+    JsonStringWriter numberWriter = new JsonStringWriter();
+    numberWriter.number("-0");
+    assertEquals("-0", numberWriter.json());
+
+    JsonStringWriter nullWriter = new JsonStringWriter();
+    nullWriter.nullValue();
+    assertEquals("null", nullWriter.json());
+  }
+
+  @Test
+  void rejectsNullNamesStringsAndNumberLiterals() {
+    JsonStringWriter writer = new JsonStringWriter();
+
+    assertThrows(NullPointerException.class, () -> writer.name(null));
+    assertThrows(NullPointerException.class, () -> writer.value(null));
+    assertThrows(NullPointerException.class, () -> writer.number(null));
+  }
+
+  @Test
   void rejectsMultipleRootValues() throws JsonWriteException {
     JsonStringWriter writer = new JsonStringWriter();
 

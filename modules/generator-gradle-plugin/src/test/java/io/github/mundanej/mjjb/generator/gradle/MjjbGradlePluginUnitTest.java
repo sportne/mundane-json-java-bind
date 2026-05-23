@@ -1,6 +1,7 @@
 package io.github.mundanej.mjjb.generator.gradle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -14,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.gradle.api.GradleException;
 import org.gradle.api.Project;
@@ -115,6 +117,86 @@ final class MjjbGradlePluginUnitTest {
   }
 
   @Test
+  void generateTaskHandlesMultipleSchemasInDeterministicPathOrder() throws IOException {
+    Path schemaDirectory = Files.createDirectories(tempDir.resolve("schemas"));
+    Path zetaSchema =
+        writeSchema(
+            schemaDirectory,
+            "zeta.schema.json",
+            "{\"type\":\"object\",\"properties\":{\"zeta\":{\"type\":\"string\"}},"
+                + "\"additionalProperties\":false}");
+    Path alphaSchema =
+        writeSchema(
+            schemaDirectory,
+            "alpha.schema.json",
+            "{\"type\":\"object\",\"properties\":{\"alpha\":{\"type\":\"string\"}},"
+                + "\"additionalProperties\":false}");
+    Path output = tempDir.resolve("generated-multiple");
+    Project project = newProject();
+    project.getPluginManager().apply(MjjbGradlePlugin.class);
+    MjjbExtension extension = project.getExtensions().getByType(MjjbExtension.class);
+    extension.schema(zetaSchema);
+    extension.schema(alphaSchema);
+    extension.getOutputDirectory().set(output.toFile());
+    extension.getDefaultPackage().set("com.example.generated");
+    extension.getRootTypeName().set("DeterministicBinding");
+
+    MjjbGenerateTask task = (MjjbGenerateTask) project.getTasks().getByName("generateMjjb");
+    task.generate();
+
+    String generatedModel =
+        Files.readString(output.resolve("com/example/generated/DeterministicBinding.java"));
+    assertTrue(generatedModel.contains("alpha"));
+    assertFalse(generatedModel.contains("zeta"));
+  }
+
+  @Test
+  void generateTaskDeletesStaleGeneratedSourcesWhenReplacingOutput() throws IOException {
+    Path schema =
+        writeSchema("{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}");
+    Path output = tempDir.resolve("generated-replace");
+    Path generatedPackage = Files.createDirectories(output.resolve("com/example/generated"));
+    Path stalePackage = Files.createDirectories(output.resolve("com/example/stale"));
+    Path staleSamePackage = generatedPackage.resolve("OldBinding.java");
+    Path staleOtherPackage = stalePackage.resolve("StaleBinding.java");
+    Files.writeString(staleSamePackage, "stale");
+    Files.writeString(staleOtherPackage, "stale");
+    Project project = newProject();
+    project.getPluginManager().apply(MjjbGradlePlugin.class);
+    MjjbExtension extension = project.getExtensions().getByType(MjjbExtension.class);
+    extension.schema(schema);
+    extension.getOutputDirectory().set(output.toFile());
+    extension.getDefaultPackage().set("com.example.generated");
+    extension.getRootTypeName().set("FreshBinding");
+
+    MjjbGenerateTask task = (MjjbGenerateTask) project.getTasks().getByName("generateMjjb");
+    task.generate();
+
+    assertTrue(Files.isRegularFile(output.resolve("com/example/generated/FreshBinding.java")));
+    assertFalse(Files.exists(staleSamePackage));
+    assertFalse(Files.exists(staleOtherPackage));
+  }
+
+  @Test
+  void packageMappingsConfiguredOnExtensionArePropagatedToGenerateTask() throws IOException {
+    Project project = newProject();
+    project.getPluginManager().apply(MjjbGradlePlugin.class);
+    MjjbExtension extension = project.getExtensions().getByType(MjjbExtension.class);
+    extension.packageMapping("https://schemas.example.test/zeta", "com.example.zeta");
+    extension.packageMapping("https://schemas.example.test/alpha", "com.example.alpha");
+
+    MjjbGenerateTask task = (MjjbGenerateTask) project.getTasks().getByName("generateMjjb");
+
+    assertEquals(
+        Map.of(
+            "https://schemas.example.test/alpha",
+            "com.example.alpha",
+            "https://schemas.example.test/zeta",
+            "com.example.zeta"),
+        task.getPackageMappings().get());
+  }
+
+  @Test
   void generateTaskRejectsInvalidProfile() throws IOException {
     MjjbGenerateTask task = configuredTask(writeSchema("{\"type\":\"object\"}"));
     task.getProfile().set("NOPE");
@@ -135,6 +217,16 @@ final class MjjbGradlePluginUnitTest {
   }
 
   @Test
+  void generateTaskRejectsJavaKeywordPackageSegment() throws IOException {
+    MjjbGenerateTask task = configuredTask(writeSchema("{\"type\":\"object\"}"));
+    task.getDefaultPackage().set("com.example.class");
+
+    GradleException exception = assertThrows(GradleException.class, task::generate);
+
+    assertTrue(exception.getMessage().contains("MJJB-GRADLE-002"));
+  }
+
+  @Test
   void generateTaskRejectsInvalidRootTypeName() throws IOException {
     MjjbGenerateTask task = configuredTask(writeSchema("{\"type\":\"object\"}"));
     task.getRootTypeName().set("1Bad");
@@ -142,6 +234,29 @@ final class MjjbGradlePluginUnitTest {
     GradleException exception = assertThrows(GradleException.class, task::generate);
 
     assertTrue(exception.getMessage().contains("MJJB-GRADLE-003"));
+  }
+
+  @Test
+  void generateTaskRejectsJavaKeywordRootTypeName() throws IOException {
+    MjjbGenerateTask task = configuredTask(writeSchema("{\"type\":\"object\"}"));
+    task.getRootTypeName().set("class");
+
+    GradleException exception = assertThrows(GradleException.class, task::generate);
+
+    assertTrue(exception.getMessage().contains("MJJB-GRADLE-003"));
+  }
+
+  @Test
+  void generateTaskSurfacesMissingSchemaCollectionDiagnostics() throws IOException {
+    Project project = newProject();
+    project.getPluginManager().apply(MjjbGradlePlugin.class);
+    MjjbExtension extension = project.getExtensions().getByType(MjjbExtension.class);
+    extension.getOutputDirectory().set(tempDir.resolve("out-empty").toFile());
+    MjjbGenerateTask task = (MjjbGenerateTask) project.getTasks().getByName("generateMjjb");
+
+    GradleException exception = assertThrows(GradleException.class, task::generate);
+
+    assertTrue(exception.getMessage().contains("MJJBG-GEN-001"));
   }
 
   @Test
@@ -217,6 +332,12 @@ final class MjjbGradlePluginUnitTest {
 
   private Path writeSchema(String schema) throws IOException {
     Path path = Files.createTempFile(tempDir, "schema", ".json");
+    Files.writeString(path, schema);
+    return path;
+  }
+
+  private Path writeSchema(Path directory, String fileName, String schema) throws IOException {
+    Path path = directory.resolve(fileName);
     Files.writeString(path, schema);
     return path;
   }

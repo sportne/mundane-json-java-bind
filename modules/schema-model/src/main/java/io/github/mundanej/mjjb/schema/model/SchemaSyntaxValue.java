@@ -62,7 +62,11 @@ public sealed interface SchemaSyntaxValue
   }
 
   /** Boolean value. */
-  record BooleanValue(JsonPointer pointer, boolean value) implements SchemaSyntaxValue {}
+  record BooleanValue(JsonPointer pointer, boolean value) implements SchemaSyntaxValue {
+    public BooleanValue {
+      Objects.requireNonNull(pointer, "pointer");
+    }
+  }
 
   /** Null value. */
   record NullValue(JsonPointer pointer) implements SchemaSyntaxValue {

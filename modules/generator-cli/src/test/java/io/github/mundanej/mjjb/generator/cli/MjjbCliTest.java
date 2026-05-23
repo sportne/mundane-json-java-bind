@@ -29,6 +29,64 @@ final class MjjbCliTest {
   }
 
   @Test
+  void noArgumentsPrintHelpAndExitSuccessfully() {
+    RunResult result = runCli();
+
+    assertEquals(0, result.exitCode());
+    assertTrue(result.stdout().contains("Usage:"));
+    assertEquals("", result.stderr());
+  }
+
+  @Test
+  void shortHelpExitsSuccessfully() {
+    RunResult result = runCli("-h");
+
+    assertEquals(0, result.exitCode());
+    assertTrue(result.stdout().contains("Usage:"));
+    assertEquals("", result.stderr());
+  }
+
+  @Test
+  void unsupportedCommandTokenIsArgumentError() {
+    RunResult result = runCli("compile");
+
+    assertEquals(2, result.exitCode());
+    assertTrue(result.stderr().contains("MJJB-CLI-001"));
+    assertTrue(result.stderr().contains("Unsupported argument compile."));
+  }
+
+  @Test
+  void unknownOptionIsArgumentError() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(schema, "{\"type\":\"object\"}");
+
+    RunResult result =
+        runCli(
+            "generate",
+            "--schema",
+            schema.toString(),
+            "--out",
+            tempDir.resolve("out").toString(),
+            "--bogus");
+
+    assertEquals(2, result.exitCode());
+    assertTrue(result.stderr().contains("MJJB-CLI-001"));
+    assertTrue(result.stderr().contains("Unsupported argument --bogus."));
+  }
+
+  @Test
+  void missingOptionValueIsArgumentError() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(schema, "{\"type\":\"object\"}");
+
+    RunResult result = runCli("generate", "--schema", schema.toString(), "--out");
+
+    assertEquals(2, result.exitCode());
+    assertTrue(result.stderr().contains("MJJB-CLI-003"));
+    assertTrue(result.stderr().contains("Missing value for --out."));
+  }
+
+  @Test
   void missingSchemaIsArgumentError() {
     RunResult result = runCli("generate", "--out", "build/generated");
 
@@ -88,6 +146,27 @@ final class MjjbCliTest {
   }
 
   @Test
+  void repeatedSchemaArgumentsValidateEverySchemaBeforeGenerating() throws IOException {
+    Path firstSchema = tempDir.resolve("first.json");
+    Path secondSchema = tempDir.resolve("second.json");
+    Files.writeString(firstSchema, "{\"type\":\"object\"}");
+
+    RunResult result =
+        runCli(
+            "generate",
+            "--schema",
+            firstSchema.toString(),
+            "--schema",
+            secondSchema.toString(),
+            "--out",
+            tempDir.resolve("out").toString());
+
+    assertEquals(1, result.exitCode());
+    assertTrue(result.stderr().contains("MJJBG-GEN-003"));
+    assertTrue(result.stderr().contains(secondSchema.toString()));
+  }
+
+  @Test
   void missingSchemaPathIsGenerationError() {
     RunResult result =
         runCli(
@@ -134,6 +213,44 @@ final class MjjbCliTest {
   }
 
   @Test
+  void packageWithKeywordPartIsArgumentError() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(schema, "{\"type\":\"object\"}");
+
+    RunResult result =
+        runCli(
+            "generate",
+            "--schema",
+            schema.toString(),
+            "--out",
+            tempDir.resolve("out").toString(),
+            "--package",
+            "com.class");
+
+    assertEquals(2, result.exitCode());
+    assertTrue(result.stderr().contains("MJJB-CLI-005"));
+  }
+
+  @Test
+  void packageWithEmptyPartIsArgumentError() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(schema, "{\"type\":\"object\"}");
+
+    RunResult result =
+        runCli(
+            "generate",
+            "--schema",
+            schema.toString(),
+            "--out",
+            tempDir.resolve("out").toString(),
+            "--package",
+            "com..example");
+
+    assertEquals(2, result.exitCode());
+    assertTrue(result.stderr().contains("MJJB-CLI-005"));
+  }
+
+  @Test
   void invalidRootTypeIsArgumentError() throws IOException {
     Path schema = tempDir.resolve("schema.json");
     Files.writeString(schema, "{\"type\":\"object\"}");
@@ -147,6 +264,44 @@ final class MjjbCliTest {
             tempDir.resolve("out").toString(),
             "--root-type",
             "1Bad");
+
+    assertEquals(2, result.exitCode());
+    assertTrue(result.stderr().contains("MJJB-CLI-006"));
+  }
+
+  @Test
+  void rootTypeKeywordIsArgumentError() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(schema, "{\"type\":\"object\"}");
+
+    RunResult result =
+        runCli(
+            "generate",
+            "--schema",
+            schema.toString(),
+            "--out",
+            tempDir.resolve("out").toString(),
+            "--root-type",
+            "class");
+
+    assertEquals(2, result.exitCode());
+    assertTrue(result.stderr().contains("MJJB-CLI-006"));
+  }
+
+  @Test
+  void rootTypeWithPunctuationIsArgumentError() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(schema, "{\"type\":\"object\"}");
+
+    RunResult result =
+        runCli(
+            "generate",
+            "--schema",
+            schema.toString(),
+            "--out",
+            tempDir.resolve("out").toString(),
+            "--root-type",
+            "Bad-Type");
 
     assertEquals(2, result.exitCode());
     assertTrue(result.stderr().contains("MJJB-CLI-006"));

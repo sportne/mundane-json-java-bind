@@ -64,6 +64,27 @@ final class JsonStreamReaderTest {
   }
 
   @Test
+  void readsEmptyContainersAndHasNextIsStable() throws JsonReadException {
+    JsonStreamReader reader = new JsonStreamReader("{\"emptyObject\":{},\"emptyArray\":[]}");
+
+    reader.beginObject();
+    assertTrue(reader.hasNext());
+    assertTrue(reader.hasNext());
+    assertEquals("emptyObject", reader.nextName());
+    reader.beginObject();
+    assertFalse(reader.hasNext());
+    assertFalse(reader.hasNext());
+    reader.endObject();
+    assertEquals("emptyArray", reader.nextName());
+    reader.beginArray();
+    assertFalse(reader.hasNext());
+    assertFalse(reader.hasNext());
+    reader.endArray();
+    assertFalse(reader.hasNext());
+    reader.endObject();
+  }
+
+  @Test
   void readsWhitespaceNestedValuesEscapesAndNumberForms() throws JsonReadException {
     JsonStreamReader reader =
         new JsonStreamReader(
@@ -205,6 +226,18 @@ final class JsonStreamReaderTest {
     assertReadExceptionCode(mismatchedEnd::endArray, "MJJBP-020");
 
     assertReadExceptionCode(new JsonStreamReader("")::skipValue, "MJJBP-007");
+  }
+
+  @Test
+  void rejectsMethodsCalledInWrongState() throws JsonReadException {
+    assertReadExceptionCode(new JsonStreamReader("\"name\"")::nextName, "MJJBP-021");
+    assertReadExceptionCode(new JsonStreamReader("[]")::beginObject, "MJJBP-019");
+    assertReadExceptionCode(new JsonStreamReader("{}")::beginArray, "MJJBP-019");
+
+    JsonStreamReader object = new JsonStreamReader("{\"id\":1}");
+    object.beginObject();
+    assertEquals("id", object.nextName());
+    assertReadExceptionCode(object::endObject, "MJJBP-002");
   }
 
   @Test
