@@ -65,7 +65,8 @@ during generation.
 
 `default` is an annotation. It does not change generated constructors, readers,
 writers, or validators. Supported defaults are exposed through generated model
-metadata accessors and optional schema metadata helpers.
+metadata accessors and optional schema metadata helpers, including root-object
+metadata.
 
 ## Accepted Annotations
 
@@ -105,6 +106,11 @@ reject duplicate and unknown properties, require all required properties, and
 require full-document consumption. Reader diagnostics use stable `MJJBR-*`
 codes; parser failures retain stable `MJJBP-*` codes and are re-pathed when the
 generated reader knows the active instance path.
+
+Generated Java field names are derived deterministically from JSON property
+names. When multiple JSON properties normalize to the same Java identifier, the
+later fields receive numeric suffixes such as `userId2` while metadata retains
+the original JSON property names.
 
 Generated writers emit deterministic schema property order, skip absent
 optional fields, write explicit nullable nulls, and validate JSON number

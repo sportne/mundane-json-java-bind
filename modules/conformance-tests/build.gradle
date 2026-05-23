@@ -13,6 +13,18 @@ dependencies {
     testImplementation project(':modules:testing-support')
 }
 
+sourceSets {
+    schemaStoreCorpusTest {
+        compileClasspath += sourceSets.test.output + sourceSets.main.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
+configurations {
+    schemaStoreCorpusTestImplementation.extendsFrom testImplementation
+    schemaStoreCorpusTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
 tasks.register('performanceEvidence', JavaExec) {
     group = 'verification'
     description = 'Writes repeatable parser and generated-binding performance evidence.'
@@ -22,4 +34,29 @@ tasks.register('performanceEvidence', JavaExec) {
             layout.buildDirectory.dir('performance-evidence').get().asFile.absolutePath,
             sourceSets.test.runtimeClasspath.asPath
     dependsOn tasks.named('testClasses')
+}
+
+tasks.register('schemaStoreCorpusTest', Test) {
+    group = 'verification'
+    description = 'Runs the explicit SchemaStore sidecar corpus evidence lane.'
+    testClassesDirs = sourceSets.schemaStoreCorpusTest.output.classesDirs
+    classpath = sourceSets.schemaStoreCorpusTest.runtimeClasspath
+    shouldRunAfter tasks.named('test')
+    systemProperty 'mjjb.schemaStoreReportDir',
+            layout.buildDirectory.dir('reports/schemastore-corpus').get().asFile.absolutePath
+    systemProperty 'mjjb.schemaStoreWorkspaceDir',
+            layout.buildDirectory.dir('schemastore-corpus').get().asFile.absolutePath
+    systemProperty 'mjjb.schemaStoreRefresh',
+            providers.gradleProperty('mjjb.schemaStoreRefresh').getOrElse('false')
+    if (providers.gradleProperty('mjjb.schemaStoreManifestPath').isPresent()) {
+        systemProperty 'mjjb.schemaStoreManifestPath',
+                providers.gradleProperty('mjjb.schemaStoreManifestPath').get()
+    }
+    setFinalizedBy([])
+}
+
+tasks.register('schemaStoreCorpus') {
+    group = 'verification'
+    description = 'Runs the explicit SchemaStore sidecar corpus evidence lane.'
+    dependsOn tasks.named('schemaStoreCorpusTest')
 }

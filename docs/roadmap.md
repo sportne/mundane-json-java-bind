@@ -30,7 +30,7 @@ The project is complete when it can:
 | Basic object binding | `TASK-0006` to `TASK-0014` | A basic object schema generates model, reader, writer, validator, CLI/Gradle output, and an executable example. |
 | Collections and value constraints | `TASK-0015` to `TASK-0018` | Arrays, scalar facets, enum/const/default, and nullable handling work through generated code. |
 | Object shape expansion | `TASK-0019` to `TASK-0021` | Object diagnostics, tagged `oneOf`, and optional metadata helpers are supported without runtime reflection. |
-| Completion hardening | `TASK-0022` to `TASK-0028` | Conformance allowlists, architecture rules, Native Image smoke tests, evidence docs, and release checks pass. |
+| Completion hardening | `TASK-0022` to `TASK-0029` | Conformance allowlists, architecture rules, Native Image smoke tests, external corpus evidence, evidence docs, and release checks pass. |
 
 ## Task Order
 
@@ -65,6 +65,7 @@ The project is complete when it can:
 | [TASK-0026](roadmap/tasks/TASK-0026-documentation-completion.md) | Documentation completion | Documentation |
 | [TASK-0027](roadmap/tasks/TASK-0027-release-publication-readiness.md) | Release and publication readiness | Release |
 | [TASK-0028](roadmap/tasks/TASK-0028-v1-readiness-review.md) | v1 readiness review | Final gate |
+| [TASK-0029](roadmap/tasks/TASK-0029-schemastore-sidecar-corpus-evidence.md) | SchemaStore sidecar corpus evidence | Final gate |
 
 ## Policy
 
@@ -74,5 +75,7 @@ The project is complete when it can:
   the task file explicitly defines a narrower temporary evidence command.
 - Native Image work remains separate from the default quality gate but must pass
   before v1 readiness.
+- SchemaStore corpus evidence remains separate from the default quality gate but
+  must pass before tagging `1.0.0`.
 - New scope outside JSON Schema to Java binding requires a charter update before
   implementation.

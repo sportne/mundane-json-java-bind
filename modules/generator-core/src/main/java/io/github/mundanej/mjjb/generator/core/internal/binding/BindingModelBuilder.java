@@ -125,19 +125,7 @@ public final class BindingModelBuilder {
         if (valueType.isEmpty()) {
           continue;
         }
-        String javaFieldName = toJavaFieldName(property.name());
-        JsonPointer existingPointer = javaNames.putIfAbsent(javaFieldName, property.pointer());
-        if (existingPointer != null) {
-          diagnostics.add(
-              nameCollision(
-                  "Property '"
-                      + property.name()
-                      + "' maps to Java field name '"
-                      + javaFieldName
-                      + "', which is already used by another property.",
-                  property.pointer()));
-          continue;
-        }
+        String javaFieldName = uniqueJavaFieldName(property.name(), javaNames, property.pointer());
         fields.add(
             new FieldBinding(
                 property.name(),
@@ -295,19 +283,7 @@ public final class BindingModelBuilder {
       if (valueType.isEmpty()) {
         continue;
       }
-      String javaFieldName = toJavaFieldName(property.name());
-      JsonPointer existingPointer = javaNames.putIfAbsent(javaFieldName, property.pointer());
-      if (existingPointer != null) {
-        diagnostics.add(
-            nameCollision(
-                "Property '"
-                    + property.name()
-                    + "' maps to Java field name '"
-                    + javaFieldName
-                    + "', which is already used by another property.",
-                property.pointer()));
-        continue;
-      }
+      String javaFieldName = uniqueJavaFieldName(property.name(), javaNames, property.pointer());
       fields.add(
           new FieldBinding(
               property.name(),
@@ -844,7 +820,7 @@ public final class BindingModelBuilder {
   }
 
   private static Optional<Member> firstLiteralConstraint(ObjectValue schema) {
-    for (String name : List.of("enum", "const", "default")) {
+    for (String name : List.of("enum", "const")) {
       Optional<Member> member = member(schema, name);
       if (member.isPresent()) {
         return member;
@@ -926,6 +902,19 @@ public final class BindingModelBuilder {
       return fieldName + "Value";
     }
     return fieldName;
+  }
+
+  private static String uniqueJavaFieldName(
+      String propertyName, Map<String, JsonPointer> javaNames, JsonPointer pointer) {
+    String baseName = toJavaFieldName(propertyName);
+    String candidate = baseName;
+    int suffix = 2;
+    while (javaNames.containsKey(candidate)) {
+      candidate = baseName + suffix;
+      suffix++;
+    }
+    javaNames.put(candidate, pointer);
+    return candidate;
   }
 
   private static String toJavaTypeName(String tagValue, int index) {

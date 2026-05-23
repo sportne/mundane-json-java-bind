@@ -5,9 +5,9 @@ This document records the final v1 readiness state for
 
 ## Status
 
-`TASK-0028` is complete. The default JVM quality gate, release dry-run gate, and
-Native Image smoke lane pass locally. Native Image was run with SDKMAN's GraalVM
-CE 21.0.2 Java 21 toolchain.
+`TASK-0028` is complete. The default JVM quality gate, release dry-run gate,
+Native Image smoke lane, and SchemaStore sidecar corpus lane pass locally.
+Native Image was run with SDKMAN's GraalVM CE 21.0.2 Java 21 toolchain.
 
 ## Roadmap Summary
 
@@ -26,6 +26,8 @@ All prerequisite roadmap tasks are complete:
   documentation completion, and release dry-run readiness.
 
 `TASK-0028` closes the roadmap subject to maintainer approval to tag v1.
+`TASK-0029` adds the maintainer-requested SchemaStore sidecar corpus evidence
+as an additional release blocker before tagging `1.0.0`.
 
 ## Profile Traceability
 
@@ -35,6 +37,7 @@ documented in:
 - [`../supported-profile.md`](../supported-profile.md)
 - [`../standards-baseline.md`](../standards-baseline.md)
 - [`json-schema-test-suite.md`](json-schema-test-suite.md)
+- [`schemastore-corpus.md`](schemastore-corpus.md)
 
 Supported behavior is generated Java binding behavior, not runtime schema
 interpretation. Unsupported Draft 2020-12 features fail before source emission
@@ -62,6 +65,7 @@ Local evidence:
 | Release dry-run | `./gradlew releaseDryRun --console=plain` | Pass |
 | Release version override | `./gradlew releaseDryRun -Pmjjb.version=0.1.0 --console=plain` | Pass |
 | Native Image smoke | `source "$HOME/.sdkman/bin/sdkman-init.sh" && ./gradlew nativeSmoke --console=plain` | Pass |
+| SchemaStore sidecar corpus | `./gradlew schemaStoreCorpus --console=plain` | Pass |
 
 Native Image toolchain evidence:
 
@@ -81,6 +85,7 @@ defined at `../../.github/workflows/native-image.yml`.
 1. Native Image evidence for the current tree is recorded.
 2. `./gradlew qualityGate --console=plain` passes.
 3. `./gradlew releaseDryRun --console=plain` passes.
-4. `git status --short --ignored` shows no unignored generated output.
+4. `./gradlew schemaStoreCorpus --console=plain` passes.
+5. `git status --short --ignored` shows no unignored generated output.
 
 Those conditions were satisfied for this readiness review.

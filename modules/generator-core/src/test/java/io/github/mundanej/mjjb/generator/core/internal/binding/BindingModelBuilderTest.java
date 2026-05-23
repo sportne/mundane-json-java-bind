@@ -1,7 +1,6 @@
 package io.github.mundanej.mjjb.generator.core.internal.binding;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxParseResult;
@@ -315,7 +314,7 @@ final class BindingModelBuilderTest {
   }
 
   @Test
-  void rejectsJavaFieldNameCollisions() {
+  void disambiguatesJavaFieldNameCollisions() {
     BindingBuildResult result =
         build(
             """
@@ -323,15 +322,36 @@ final class BindingModelBuilderTest {
               "type": "object",
               "properties": {
                 "user-id": {"type": "string"},
-                "user_id": {"type": "string"}
+                "user_id": {"type": "string"},
+                "user id": {"type": "string"}
               },
               "additionalProperties": false
             }
             """);
 
-    assertFalse(result.diagnostics().isEmpty());
-    assertEquals(BindingDiagnostic.NAME_COLLISION_CODE, result.diagnostics().getFirst().code());
-    assertEquals("/properties/user_id", result.diagnostics().getFirst().pointer().value());
+    assertTrue(result.diagnostics().isEmpty());
+    assertEquals(
+        List.of("userId", "userId2", "userId3"), javaFieldNames(result.model().orElseThrow()));
+  }
+
+  @Test
+  void treatsRootDefaultAsMetadataAnnotation() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "default": {},
+              "properties": {
+                "id": {"type": "string"}
+              },
+              "additionalProperties": false
+            }
+            """);
+
+    assertTrue(result.diagnostics().isEmpty());
+    assertEquals(
+        "{}", result.model().orElseThrow().rootObject().annotations().defaultJson().orElseThrow());
   }
 
   @Test

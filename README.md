@@ -174,6 +174,7 @@ and checked-in generated sources under
 - Error reporting: [`docs/architecture/error-reporting.md`](docs/architecture/error-reporting.md)
 - Generated source verification: [`docs/verification/generated-source-verification.md`](docs/verification/generated-source-verification.md)
 - JSON Schema Test Suite trace: [`docs/verification/json-schema-test-suite.md`](docs/verification/json-schema-test-suite.md)
+- SchemaStore sidecar corpus evidence: [`docs/verification/schemastore-corpus.md`](docs/verification/schemastore-corpus.md)
 - Native Image verification: [`docs/verification/native-image.md`](docs/verification/native-image.md)
 - Performance evidence: [`docs/verification/performance.md`](docs/verification/performance.md)
 - Release verification: [`docs/verification/release.md`](docs/verification/release.md)

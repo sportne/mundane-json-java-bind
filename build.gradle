@@ -63,6 +63,12 @@ tasks.register('nativeSmoke') {
     dependsOn ':examples:tagged-oneof:nativeSmokeTest'
 }
 
+tasks.register('schemaStoreCorpus') {
+    group = 'verification'
+    description = 'Runs the explicit SchemaStore sidecar corpus evidence lane.'
+    dependsOn ':modules:conformance-tests:schemaStoreCorpus'
+}
+
 tasks.register('cleanReleaseDryRun', Delete) {
     group = 'verification'
     description = 'Deletes the local release dry-run Maven repository.'
