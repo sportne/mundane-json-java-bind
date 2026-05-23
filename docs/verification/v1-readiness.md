@@ -52,8 +52,7 @@ Known limits are deliberate v1 boundaries:
 - no generic, untagged, or runtime-discovered union matching;
 - no runtime reflection, annotations, dynamic class loading, `ServiceLoader`,
   or runtime schema scanning in generated binding behavior;
-- no remote publication, signing, Maven Central upload, or release repository
-  credentials.
+- no signing, Maven Central upload, or remote Maven repository credentials.
 
 ## Verification Evidence
 
@@ -63,7 +62,7 @@ Local evidence:
 |---|---|---|
 | JVM quality gate | `./gradlew qualityGate --console=plain` | Pass |
 | Release dry-run | `./gradlew releaseDryRun --console=plain` | Pass |
-| Release version override | `./gradlew releaseDryRun -Pmjjb.version=0.1.0 --console=plain` | Pass |
+| Release version override | `./gradlew releaseDryRun -Pmjjb.version=1.0.0 --console=plain` | Pass |
 | Native Image smoke | `source "$HOME/.sdkman/bin/sdkman-init.sh" && ./gradlew nativeSmoke --console=plain` | Pass |
 | SchemaStore sidecar corpus | `./gradlew schemaStoreCorpus --console=plain` | Pass |
 
@@ -75,8 +74,9 @@ native-image 21.0.2 2024-01-16
 GraalVM Runtime Environment GraalVM CE 21.0.2+13.1
 ```
 
-The existing CI lane is documented in [`native-image.md`](native-image.md) and
-defined at `../../.github/workflows/native-image.yml`.
+The CI lanes are defined in `../../.github/workflows/ci.yml` and
+`../../.github/workflows/native-image.yml`. GitHub-only release packaging is
+defined in `../../.github/workflows/release.yml`.
 
 ## Completion Criteria
 

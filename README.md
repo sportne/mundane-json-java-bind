@@ -100,7 +100,7 @@ plugins {
 }
 
 dependencies {
-  implementation 'io.github.mundanej:mjjb-runtime-core:0.1.0-SNAPSHOT'
+  implementation 'io.github.mundanej:mjjb-runtime-core:1.0.0'
 }
 
 mjjb {
@@ -117,9 +117,15 @@ compiles the generated source directory. The plugin does not apply Java and
 does not add runtime dependencies for the consuming project. See
 [`docs/architecture/gradle-plugin.md`](docs/architecture/gradle-plugin.md).
 
-## Artifacts
+## GitHub Release Artifacts
 
-The planned v1 Maven coordinates are:
+The current release version is `1.0.0`. This project publishes artifacts only
+as GitHub Release assets, not to Maven Central. Download the
+`mjjb-1.0.0-maven-repository.zip` asset from the `v1.0.0` GitHub release,
+verify its SHA-256 sidecar if desired, unzip it, and point your build at the
+unpacked local Maven repository.
+
+The v1 Maven coordinates are:
 
 | Artifact | Coordinate |
 |---|---|
