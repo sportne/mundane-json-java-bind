@@ -419,6 +419,68 @@ final class BindingModelBuilderTest {
   }
 
   @Test
+  void collectsObjectValidationConstraints() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "id": {"type": "string"},
+                "mode": {"type": "string"}
+              },
+              "required": ["id"],
+              "minProperties": 1,
+              "maxProperties": 3,
+              "propertyNames": {"minLength": 2, "pattern": "^[a-z]+$"},
+              "dependentRequired": {
+                "mode": ["id"]
+              },
+              "additionalProperties": false
+            }
+            """);
+
+    assertTrue(result.diagnostics().isEmpty());
+    ObjectValidationConstraints constraints =
+        result.model().orElseThrow().rootObject().validationConstraints();
+
+    assertEquals(1L, constraints.minProperties().orElseThrow());
+    assertEquals(3L, constraints.maxProperties().orElseThrow());
+    assertEquals(2L, constraints.propertyNames().orElseThrow().minLength().orElseThrow());
+    assertEquals("^[a-z]+$", constraints.propertyNames().orElseThrow().pattern().orElseThrow());
+    assertEquals(
+        List.of(new DependentRequired("mode", List.of("id"))), constraints.dependentRequired());
+  }
+
+  @Test
+  void acceptsBlankDependentRequiredTriggerNames() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "": {"type": "string"},
+                " ": {"type": "string"},
+                "other": {"type": "string"}
+              },
+              "dependentRequired": {
+                "": ["other"],
+                " ": ["other"]
+              },
+              "additionalProperties": false
+            }
+            """);
+
+    assertTrue(result.diagnostics().isEmpty());
+    assertEquals(
+        List.of(
+            new DependentRequired("", List.of("other")),
+            new DependentRequired(" ", List.of("other"))),
+        result.model().orElseThrow().rootObject().validationConstraints().dependentRequired());
+  }
+
+  @Test
   void rejectsMultiplePatternPropertiesEntries() {
     BindingBuildResult result =
         build(

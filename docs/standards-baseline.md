@@ -30,9 +30,9 @@ readers.
 
 | Category | Keywords |
 |---|---|
-| Supported binding keywords | `type`, `properties`, `required`, `additionalProperties`, `patternProperties`, `enum`, `const`, `default`, `items`, `minItems`, `maxItems`, `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `minLength`, `maxLength`, `pattern`, `format`, `oneOf`, `$ref`, `$defs` |
+| Supported binding keywords | `type`, `properties`, `required`, `additionalProperties`, `patternProperties`, `propertyNames`, `enum`, `const`, `default`, `items`, `minItems`, `maxItems`, `minProperties`, `maxProperties`, `dependentRequired`, `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `minLength`, `maxLength`, `pattern`, `format`, `oneOf`, `$ref`, `$defs` |
 | Accepted ignored annotations and dialect markers | `$schema`, `title`, `description`, `$comment`, `examples`, `deprecated`, `readOnly`, `writeOnly` |
-| Recommended post-v1 keywords | `propertyNames`, `multipleOf`, `uniqueItems`, `maxProperties`, `minProperties`, `dependentRequired` |
+| Recommended post-v1 keywords | `multipleOf`, `uniqueItems` |
 | Known rejected or deferred Draft 2020-12 keywords | `$id`, `$anchor`, `$dynamicAnchor`, `$vocabulary`, `$dynamicRef`, `anyOf`, `not`, `if`, `then`, `else`, `dependentSchemas`, `prefixItems`, `contains`, `unevaluatedItems`, `unevaluatedProperties`, `maxContains`, `minContains`, `contentEncoding`, `contentMediaType`, `contentSchema` |
 
 Unknown non-Draft extension keywords are ignored as annotations. Known Draft
@@ -47,6 +47,12 @@ new keyword: object-valued properties use the existing `type`, `properties`,
 Object-valued `additionalProperties` and one-entry `patternProperties` are
 supported when their value schema maps to a deterministic `Map<String, T>` value type; `additionalProperties: true`
 remains outside the profile because it implies generic JSON value binding.
+
+Object validation keywords are generated validators only. `minProperties` and
+`maxProperties` use generated property-presence semantics, `propertyNames`
+supports string assertion keywords over present declared names and generated map
+keys, and `dependentRequired` enforces dependent property presence without
+runtime schema interpretation.
 
 Local reference resolution is supported as a pre-binding normalization step.
 `$ref` values must be same-document JSON Pointer fragments and `$defs` provides
@@ -82,6 +88,7 @@ generated root-object binding shape instead of interpreted dynamically; see
 | String length | `tests/draft2020-12/minLength.json`, `tests/draft2020-12/maxLength.json` | Boundary success and failure cases for generated string validators. | Non-string applicability cases remain outside the generated binding projection. |
 | Numeric bounds | `tests/draft2020-12/minimum.json`, `maximum.json`, `exclusiveMinimum.json`, `exclusiveMaximum.json` | Boundary success and failure cases for generated `number` validators. | Broader numeric equivalence and unsupported numeric keywords stay deferred. |
 | Array length | `tests/draft2020-12/minItems.json`, `maxItems.json` | Boundary success and failure cases for homogeneous integer arrays. | Tuple, containment, and unique-item fixtures are skipped by unsupported keyword policy. |
+| Object validation | `tests/draft2020-12/minProperties.json`, `maxProperties.json`, `propertyNames.json`, `dependentRequired.json` | Boundary and dependency success/failure cases projected through generated object and map bindings. | Generic property-name schemas outside string assertions and schema-valued dependencies remain outside the profile. |
 | Nested object properties | `tests/draft2020-12/properties.json` | Valid and invalid closed nested object property projections. | Generic object applicability cases that do not define generated binding shapes remain skipped. |
 | Literal constraints | `tests/draft2020-12/enum.json`, `const.json` | Scalar match and mismatch cases through generated validators and reader failures. | Object/array literal constraints outside scalar or scalar-item bindings stay unsupported. |
 | Object/applicator/reference behavior | `required.json`, `properties.json`, `allOf.json`, `additionalProperties.json`, `patternProperties.json`, `ref.json` | Local JSON Pointer references, constrained `allOf` object flattening, and regex-key map bindings are covered through generated binding fixtures; representative unsupported applicator and remote-reference cases remain in the skip manifest. | Skips use `MISSING_REQUIRED_BINDING_SHAPE`, `UNTYPED_PROPERTY_SCHEMA`, `UNSUPPORTED_KEYWORD`, `UNSUPPORTED_KEYWORD_VALUE`, or `REMOTE_REFERENCE`. |

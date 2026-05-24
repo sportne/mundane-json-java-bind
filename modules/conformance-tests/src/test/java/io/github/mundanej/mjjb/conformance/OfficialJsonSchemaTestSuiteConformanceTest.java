@@ -49,6 +49,10 @@ final class OfficialJsonSchemaTestSuiteConformanceTest {
           "exclusiveMaximum",
           "minItems",
           "maxItems",
+          "minProperties",
+          "maxProperties",
+          "propertyNames",
+          "dependentRequired",
           "properties",
           "additionalProperties",
           "patternProperties",
@@ -438,6 +442,170 @@ final class OfficialJsonSchemaTestSuiteConformanceTest {
                   "too long is invalid",
                   "{\"type\":\"array\",\"items\":{\"type\":\"integer\"},\"maxItems\":2}",
                   "[1,2,3]",
+                  false),
+              allowedProjected(
+                  "minProperties",
+                  "tests/draft2020-12/minProperties.json",
+                  "minProperties validation",
+                  "longer is valid",
+                  """
+                  {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "$comment": "Projected JSON Schema Test Suite case pinned at __COMMIT__.",
+                    "type": "object",
+                    "properties": {
+                      "id": {"type": "string"}
+                    },
+                    "required": ["id"],
+                    "minProperties": 2,
+                    "additionalProperties": {"type": "string"}
+                  }
+                  """,
+                  "{\"id\":\"root\",\"extra\":\"value\"}",
+                  true),
+              allowedProjected(
+                  "minProperties",
+                  "tests/draft2020-12/minProperties.json",
+                  "minProperties validation",
+                  "too short is invalid",
+                  """
+                  {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "$comment": "Projected JSON Schema Test Suite case pinned at __COMMIT__.",
+                    "type": "object",
+                    "properties": {
+                      "id": {"type": "string"}
+                    },
+                    "required": ["id"],
+                    "minProperties": 2,
+                    "additionalProperties": {"type": "string"}
+                  }
+                  """,
+                  "{\"id\":\"root\"}",
+                  false),
+              allowedProjected(
+                  "maxProperties",
+                  "tests/draft2020-12/maxProperties.json",
+                  "maxProperties validation",
+                  "shorter is valid",
+                  """
+                  {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "$comment": "Projected JSON Schema Test Suite case pinned at __COMMIT__.",
+                    "type": "object",
+                    "properties": {
+                      "id": {"type": "string"}
+                    },
+                    "required": ["id"],
+                    "maxProperties": 2,
+                    "additionalProperties": {"type": "string"}
+                  }
+                  """,
+                  "{\"id\":\"root\",\"extra\":\"value\"}",
+                  true),
+              allowedProjected(
+                  "maxProperties",
+                  "tests/draft2020-12/maxProperties.json",
+                  "maxProperties validation",
+                  "too long is invalid",
+                  """
+                  {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "$comment": "Projected JSON Schema Test Suite case pinned at __COMMIT__.",
+                    "type": "object",
+                    "properties": {
+                      "id": {"type": "string"}
+                    },
+                    "required": ["id"],
+                    "maxProperties": 2,
+                    "additionalProperties": {"type": "string"}
+                  }
+                  """,
+                  "{\"id\":\"root\",\"extra\":\"value\",\"other\":\"value\"}",
+                  false),
+              allowedProjected(
+                  "propertyNames",
+                  "tests/draft2020-12/propertyNames.json",
+                  "propertyNames validation",
+                  "all property names valid",
+                  """
+                  {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "$comment": "Projected JSON Schema Test Suite case pinned at __COMMIT__.",
+                    "type": "object",
+                    "properties": {
+                      "id": {"type": "string"}
+                    },
+                    "required": ["id"],
+                    "propertyNames": {"maxLength": 5},
+                    "additionalProperties": {"type": "string"}
+                  }
+                  """,
+                  "{\"id\":\"root\",\"extra\":\"value\"}",
+                  true),
+              allowedProjected(
+                  "propertyNames",
+                  "tests/draft2020-12/propertyNames.json",
+                  "propertyNames validation",
+                  "some property name invalid",
+                  """
+                  {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "$comment": "Projected JSON Schema Test Suite case pinned at __COMMIT__.",
+                    "type": "object",
+                    "properties": {
+                      "id": {"type": "string"}
+                    },
+                    "required": ["id"],
+                    "propertyNames": {"maxLength": 5},
+                    "additionalProperties": {"type": "string"}
+                  }
+                  """,
+                  "{\"id\":\"root\",\"longer\":\"value\"}",
+                  false),
+              allowedProjected(
+                  "dependentRequired",
+                  "tests/draft2020-12/dependentRequired.json",
+                  "dependentRequired",
+                  "dependencies satisfied",
+                  """
+                  {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "$comment": "Projected JSON Schema Test Suite case pinned at __COMMIT__.",
+                    "type": "object",
+                    "properties": {
+                      "creditCard": {"type": "string"},
+                      "billingAddress": {"type": "string"}
+                    },
+                    "dependentRequired": {
+                      "creditCard": ["billingAddress"]
+                    },
+                    "additionalProperties": false
+                  }
+                  """,
+                  "{\"creditCard\":\"1234\",\"billingAddress\":\"1 Main\"}",
+                  true),
+              allowedProjected(
+                  "dependentRequired",
+                  "tests/draft2020-12/dependentRequired.json",
+                  "dependentRequired",
+                  "dependency not satisfied",
+                  """
+                  {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "$comment": "Projected JSON Schema Test Suite case pinned at __COMMIT__.",
+                    "type": "object",
+                    "properties": {
+                      "creditCard": {"type": "string"},
+                      "billingAddress": {"type": "string"}
+                    },
+                    "dependentRequired": {
+                      "creditCard": ["billingAddress"]
+                    },
+                    "additionalProperties": false
+                  }
+                  """,
+                  "{\"creditCard\":\"1234\"}",
                   false),
               allowed(
                   "enum",

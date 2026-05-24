@@ -75,6 +75,7 @@ The profile supports these binding and validation keywords:
 |---|---|
 | Shape | `type`, `properties`, `required`, `additionalProperties`, `patternProperties`, `items`, `oneOf`, `$ref`, `$defs` |
 | Collections | `minItems`, `maxItems` |
+| Objects | `minProperties`, `maxProperties`, `propertyNames`, `dependentRequired` |
 | String facets | `minLength`, `maxLength`, `pattern`, `format` |
 | Numeric facets | `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum` |
 | Literal constraints | `enum`, `const` |
@@ -83,6 +84,15 @@ The profile supports these binding and validation keywords:
 `format` assertions are limited to `date`, `date-time`, and `uuid`. `pattern`
 uses Java `Pattern` checks with JSON Schema search semantics and must compile
 during generation.
+
+`minProperties` and `maxProperties` count generated property presence:
+required fields count as present, optional fields count only when their
+`Optional` is present, nullable `JsonField` values count unless absent, and
+pattern/additional map entries count by key. `propertyNames` is limited to
+string assertions (`type: "string"`, `minLength`, `maxLength`, `pattern`, and
+supported `format` values) over present declared names and generated map keys.
+`dependentRequired` validates generated property presence and reports missing
+dependent names at their property paths.
 
 `default` is an annotation. It does not change generated constructors, readers,
 writers, or validators. Supported defaults are exposed through generated model
@@ -162,7 +172,7 @@ as `/properties/value/allOf`.
 | `dependentSchemas` | Applicator | Deferred - poor tradeoff | Low observed frequency and requires subschema evaluation after property presence checks. |
 | `prefixItems` | Applicator | Deferred - poor tradeoff | Tuple arrays are uncommon in the corpus and do not fit the homogeneous-list model. |
 | `contains` | Applicator | Deferred - poor tradeoff | Containment validation is uncommon and interacts with `minContains`, `maxContains`, and unevaluated item tracking. |
-| `propertyNames` | Applicator | Recommended next | Useful as generated object/map key validation without broad schema interpretation. |
+| `propertyNames` | Applicator | Supported with profile limits | Supports string assertion keywords over present declared property names and generated pattern/additional map keys. |
 | `unevaluatedItems` | Applicator | Deferred - poor tradeoff | Requires annotation-dependent tracking across applicator evaluation. |
 | `unevaluatedProperties` | Applicator | Deferred - poor tradeoff | Requires annotation-dependent tracking across object applicator evaluation. |
 
@@ -186,9 +196,9 @@ as `/properties/value/allOf`.
 | `uniqueItems` | Validation | Recommended next | Scalar-array uniqueness is a low-to-medium complexity generated validator addition. |
 | `maxContains` | Validation | Deferred - poor tradeoff | Depends on deferred `contains` support. |
 | `minContains` | Validation | Deferred - poor tradeoff | Depends on deferred `contains` support. |
-| `maxProperties` | Validation | Recommended next | Useful as generated object/map size validation. |
-| `minProperties` | Validation | Recommended next | Useful as generated object/map size validation. |
-| `dependentRequired` | Validation | Recommended next | Useful as generated property-presence validation for closed object bindings. |
+| `maxProperties` | Validation | Supported | Generated validators enforce object upper bounds using generated property-presence semantics. |
+| `minProperties` | Validation | Supported | Generated validators enforce object lower bounds using generated property-presence semantics. |
+| `dependentRequired` | Validation | Supported | Generated validators enforce dependent property presence for generated object bindings. |
 
 ### Metadata And Content Keywords
 
@@ -227,7 +237,7 @@ documents from that scan.
 | 3 | Map bindings via object-valued `additionalProperties` | 48.2% | Very high | High | Implemented in `TASK-0032`. |
 | 4 | Constrained object `allOf` flattening | 25.2% | High | High | Implemented in `TASK-0033`. |
 | 5 | `patternProperties` map bindings | 22.8% | High | High | Implemented in `TASK-0034`. |
-| 6 | Object validation keywords: `minProperties`, `maxProperties`, `propertyNames`, `dependentRequired` | 5.7% / low | Medium | Medium | Create `TASK-0035`. |
+| 6 | Object validation keywords: `minProperties`, `maxProperties`, `propertyNames`, `dependentRequired` | 5.7% / low | Medium | Medium | Implemented in `TASK-0035`. |
 | 7 | Low-risk scalar/array validators: `multipleOf`, `uniqueItems` | Not in scan | Medium | Low-medium | Create `TASK-0036`. |
 
 ### Deferred Low-Tradeoff Features

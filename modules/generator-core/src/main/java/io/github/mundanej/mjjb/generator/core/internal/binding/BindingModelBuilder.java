@@ -126,6 +126,7 @@ public final class BindingModelBuilder {
             fields,
             patternProperties,
             additionalProperties,
+            objectValidationConstraints(bindingRoot),
             annotations(bindingRoot));
     return BindingBuildResult.success(new BindingModel(packageName, rootTypeName, rootBinding));
   }
@@ -240,6 +241,7 @@ public final class BindingModelBuilder {
                   List.of(tagProperty.get().name()),
                   patternProperties,
                   additionalProperties,
+                  objectValidationConstraints(bindingBranch),
                   annotations(bindingBranch))));
     }
     List<BindingDiagnostic> sortedDiagnostics = sorted(diagnostics);
@@ -935,6 +937,7 @@ public final class BindingModelBuilder {
                 fields,
                 patternProperties,
                 additionalProperties,
+                objectValidationConstraints(bindingSchema),
                 annotations(bindingSchema))));
   }
 
@@ -1033,6 +1036,45 @@ public final class BindingModelBuilder {
         numberLiteralMember(schema, "maximum"),
         numberLiteralMember(schema, "exclusiveMinimum"),
         numberLiteralMember(schema, "exclusiveMaximum"));
+  }
+
+  private static ObjectValidationConstraints objectValidationConstraints(ObjectValue schema) {
+    return new ObjectValidationConstraints(
+        nonNegativeIntegerMember(schema, "minProperties"),
+        nonNegativeIntegerMember(schema, "maxProperties"),
+        propertyNamesConstraints(schema),
+        dependentRequiredConstraints(schema));
+  }
+
+  private static Optional<FacetConstraints> propertyNamesConstraints(ObjectValue schema) {
+    Optional<Member> propertyNames = member(schema, "propertyNames");
+    if (propertyNames.isEmpty()
+        || !(propertyNames.get().value() instanceof ObjectValue objectValue)) {
+      return Optional.empty();
+    }
+    return Optional.of(facets(objectValue));
+  }
+
+  private static List<DependentRequired> dependentRequiredConstraints(ObjectValue schema) {
+    Optional<Member> dependentRequired = member(schema, "dependentRequired");
+    if (dependentRequired.isEmpty()
+        || !(dependentRequired.get().value() instanceof ObjectValue objectValue)) {
+      return List.of();
+    }
+    ArrayList<DependentRequired> constraints = new ArrayList<>();
+    for (Member dependency : objectValue.members()) {
+      if (!(dependency.value() instanceof ArrayValue requiredArray)) {
+        continue;
+      }
+      ArrayList<String> requiredProperties = new ArrayList<>();
+      for (SchemaSyntaxValue item : requiredArray.items()) {
+        if (item instanceof StringValue stringValue) {
+          requiredProperties.add(stringValue.value());
+        }
+      }
+      constraints.add(new DependentRequired(dependency.name(), requiredProperties));
+    }
+    return List.copyOf(constraints);
   }
 
   private static Optional<String> stringMember(ObjectValue objectValue, String name) {

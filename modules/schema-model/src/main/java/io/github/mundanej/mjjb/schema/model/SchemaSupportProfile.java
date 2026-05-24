@@ -111,7 +111,7 @@ public final class SchemaSupportProfile {
       case ADDITIONAL_PROPERTIES -> validateAdditionalProperties(member.value(), diagnostics);
       case ENUM -> validateEnum(member.value(), diagnostics);
       case ITEMS -> validateItems(member.value(), diagnostics);
-      case MIN_ITEMS, MAX_ITEMS, MIN_LENGTH, MAX_LENGTH ->
+      case MIN_ITEMS, MAX_ITEMS, MIN_LENGTH, MAX_LENGTH, MIN_PROPERTIES, MAX_PROPERTIES ->
           requireNonNegativeInteger(member.value(), keyword.keyword(), diagnostics);
       case MINIMUM, MAXIMUM, EXCLUSIVE_MINIMUM, EXCLUSIVE_MAXIMUM ->
           requireNumber(member.value(), keyword.keyword(), diagnostics);
@@ -121,6 +121,8 @@ public final class SchemaSupportProfile {
       case ALL_OF -> validateAllOf(member.value(), diagnostics);
       case REF -> validateRef(member.value(), diagnostics);
       case DEFS -> validateDefs(member.value(), diagnostics);
+      case PROPERTY_NAMES -> validatePropertyNames(member.value(), diagnostics);
+      case DEPENDENT_REQUIRED -> validateDependentRequired(member.value(), diagnostics);
       case CONST, DEFAULT -> {
         // These keywords accept any JSON value.
       }
@@ -338,6 +340,95 @@ public final class SchemaSupportProfile {
     for (Member member : defs.members()) {
       validateSchemaObjectOnly(
           member.value(), "Every '$defs' member value must be a JSON Schema.", diagnostics);
+    }
+  }
+
+  private static void validatePropertyNames(
+      SchemaSyntaxValue value, List<SchemaSupportDiagnostic> diagnostics) {
+    if (value instanceof BooleanValue) {
+      diagnostics.add(
+          unsupportedValue(
+              "Boolean schemas are valid JSON Schema but are not supported for 'propertyNames'.",
+              value.pointer()));
+      return;
+    }
+    if (!(value instanceof ObjectValue propertyNames)) {
+      diagnostics.add(
+          invalidValue(
+              "The 'propertyNames' keyword value must be a JSON Schema.", value.pointer()));
+      return;
+    }
+    for (Member member : propertyNames.members()) {
+      Optional<JsonSchemaKeyword> keyword = JsonSchemaKeyword.fromKeyword(member.name());
+      if (keyword.isEmpty()) {
+        continue;
+      }
+      if (keyword.get().support() == JsonSchemaKeywordSupport.IGNORED_ANNOTATION
+          || keyword.get() == JsonSchemaKeyword.DEFAULT) {
+        continue;
+      }
+      switch (keyword.get()) {
+        case TYPE -> validatePropertyNamesType(member.value(), diagnostics);
+        case MIN_LENGTH, MAX_LENGTH ->
+            requireNonNegativeInteger(member.value(), keyword.get().keyword(), diagnostics);
+        case PATTERN -> validatePattern(member.value(), diagnostics);
+        case FORMAT -> validateFormat(member.value(), diagnostics);
+        default ->
+            diagnostics.add(
+                unsupportedValue(
+                    "JSP-DATA-2020-12 supports 'propertyNames' only with string assertion keywords.",
+                    member.pointer()));
+      }
+    }
+  }
+
+  private static void validatePropertyNamesType(
+      SchemaSyntaxValue value, List<SchemaSupportDiagnostic> diagnostics) {
+    if (!(value instanceof StringValue stringValue)) {
+      diagnostics.add(
+          invalidValue(
+              "The 'propertyNames/type' keyword value must be the string value 'string'.",
+              value.pointer()));
+      return;
+    }
+    if (!"string".equals(stringValue.value())) {
+      diagnostics.add(
+          unsupportedValue(
+              "JSP-DATA-2020-12 supports 'propertyNames/type' only as 'string'.", value.pointer()));
+    }
+  }
+
+  private static void validateDependentRequired(
+      SchemaSyntaxValue value, List<SchemaSupportDiagnostic> diagnostics) {
+    if (!(value instanceof ObjectValue dependencies)) {
+      diagnostics.add(
+          invalidValue(
+              "The 'dependentRequired' keyword value must be an object.", value.pointer()));
+      return;
+    }
+    for (Member dependency : dependencies.members()) {
+      if (!(dependency.value() instanceof ArrayValue required)) {
+        diagnostics.add(
+            invalidValue(
+                "Every 'dependentRequired' member value must be an array.", dependency.pointer()));
+        continue;
+      }
+      HashSet<String> names = new HashSet<>();
+      for (SchemaSyntaxValue item : required.items()) {
+        if (!(item instanceof StringValue stringItem)) {
+          diagnostics.add(
+              invalidValue(
+                  "Every 'dependentRequired' array item must be a string.", item.pointer()));
+          break;
+        }
+        if (!names.add(stringItem.value())) {
+          diagnostics.add(
+              invalidValue(
+                  "Every 'dependentRequired' array must contain unique property names.",
+                  item.pointer()));
+          break;
+        }
+      }
     }
   }
 

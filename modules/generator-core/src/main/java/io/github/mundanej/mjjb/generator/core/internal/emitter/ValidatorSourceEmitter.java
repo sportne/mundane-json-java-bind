@@ -1,6 +1,7 @@
 package io.github.mundanej.mjjb.generator.core.internal.emitter;
 
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModel;
+import io.github.mundanej.mjjb.generator.core.internal.binding.DependentRequired;
 import io.github.mundanej.mjjb.generator.core.internal.binding.FacetConstraints;
 import io.github.mundanej.mjjb.generator.core.internal.binding.FieldBinding;
 import io.github.mundanej.mjjb.generator.core.internal.binding.JavaScalarType;
@@ -48,6 +49,7 @@ public final class ValidatorSourceEmitter {
     if (model.taggedUnion().isPresent()) {
       lines.addAll(taggedUnionDispatchLines(model));
     } else {
+      lines.addAll(validateObjectConstraintLines(model.rootObject(), "value", "JsonPath.ROOT"));
       for (FieldBinding field : model.rootObject().fields()) {
         lines.addAll(validateFieldLines(field, "value", "JsonPath.ROOT"));
       }
@@ -117,6 +119,12 @@ public final class ValidatorSourceEmitter {
               + "\" array items.\", path));");
       lines.add("  }");
     }
+    if (hasMinPropertiesConstraint(model)) {
+      lines.addAll(validateMinPropertiesHelper());
+    }
+    if (hasMaxPropertiesConstraint(model)) {
+      lines.addAll(validateMaxPropertiesHelper());
+    }
     if (hasMinLengthFacet(model)) {
       lines.addAll(validateMinLengthHelper());
     }
@@ -179,6 +187,7 @@ public final class ValidatorSourceEmitter {
             + "("
             + typeName
             + " value, ValidationErrors errors, ValidationMode mode) {");
+    lines.addAll(validateObjectConstraintLines(branch.object(), "value", "JsonPath.ROOT"));
     for (FieldBinding field : branch.object().fields()) {
       lines.addAll(validateFieldLines(field, "value", "JsonPath.ROOT"));
     }
@@ -212,6 +221,7 @@ public final class ValidatorSourceEmitter {
             + "."
             + object.javaTypeName()
             + " value, ValidationErrors errors, JsonPath basePath, ValidationMode mode) {");
+    lines.addAll(validateObjectConstraintLines(object, "value", "basePath"));
     for (FieldBinding field : object.fields()) {
       lines.addAll(validateFieldLines(field, "value", "basePath"));
     }
@@ -343,6 +353,208 @@ public final class ValidatorSourceEmitter {
     lines.add("      }");
     lines.add("    }");
     return lines;
+  }
+
+  private static List<String> validateObjectConstraintLines(
+      ObjectBinding object, String ownerExpression, String basePathExpression) {
+    if (!object.validationConstraints().hasConstraints()) {
+      return List.of();
+    }
+    ArrayList<String> lines = new ArrayList<>();
+    String propertyCount = propertyCountExpression(object, ownerExpression);
+    object
+        .validationConstraints()
+        .minProperties()
+        .ifPresent(
+            minProperties -> {
+              lines.add(
+                  "    if (!validateMinProperties(errors, "
+                      + propertyCount
+                      + ", "
+                      + minProperties
+                      + "L, "
+                      + basePathExpression
+                      + ")) {");
+              lines.add("      return errors.toResult();");
+              lines.add("    }");
+            });
+    object
+        .validationConstraints()
+        .maxProperties()
+        .ifPresent(
+            maxProperties -> {
+              lines.add(
+                  "    if (!validateMaxProperties(errors, "
+                      + propertyCount
+                      + ", "
+                      + maxProperties
+                      + "L, "
+                      + basePathExpression
+                      + ")) {");
+              lines.add("      return errors.toResult();");
+              lines.add("    }");
+            });
+    object
+        .validationConstraints()
+        .propertyNames()
+        .ifPresent(
+            facets -> {
+              lines.addAll(
+                  validateDeclaredPropertyNameLines(
+                      object, facets, ownerExpression, basePathExpression));
+              object
+                  .patternProperties()
+                  .ifPresent(
+                      map ->
+                          lines.addAll(
+                              validateMapPropertyNameLines(
+                                  map, facets, ownerExpression, basePathExpression)));
+              object
+                  .additionalProperties()
+                  .ifPresent(
+                      map ->
+                          lines.addAll(
+                              validateMapPropertyNameLines(
+                                  map, facets, ownerExpression, basePathExpression)));
+            });
+    for (DependentRequired dependency : object.validationConstraints().dependentRequired()) {
+      String dependencyPresent =
+          propertyPresentExpression(object, ownerExpression, dependency.propertyName());
+      for (String requiredProperty : dependency.requiredProperties()) {
+        lines.add(
+            "    if ("
+                + dependencyPresent
+                + " && !"
+                + propertyPresentExpression(object, ownerExpression, requiredProperty)
+                + ") {");
+        lines.add(
+            "      if (!errors.add(ValidationError.of(\"MJJBV-020\", "
+                + javaStringLiteral(
+                    "Property '"
+                        + dependency.propertyName()
+                        + "' requires property '"
+                        + requiredProperty
+                        + "'.")
+                + ", "
+                + basePathExpression
+                + ".property("
+                + javaStringLiteral(requiredProperty)
+                + ")))) {");
+        lines.add("        return errors.toResult();");
+        lines.add("      }");
+        lines.add("    }");
+      }
+    }
+    return lines;
+  }
+
+  private static List<String> validateDeclaredPropertyNameLines(
+      ObjectBinding object,
+      FacetConstraints facets,
+      String ownerExpression,
+      String basePathExpression) {
+    ArrayList<String> lines = new ArrayList<>();
+    for (String reservedName : object.reservedJsonPropertyNames()) {
+      lines.addAll(
+          validateStringFacetLines(
+              facets,
+              javaStringLiteral(reservedName),
+              "true",
+              basePathExpression + ".property(" + javaStringLiteral(reservedName) + ")"));
+    }
+    for (FieldBinding field : object.fields()) {
+      String presentExpression = fieldPresentExpression(field, ownerExpression);
+      lines.addAll(
+          validateStringFacetLines(
+              facets,
+              javaStringLiteral(field.jsonPropertyName()),
+              presentExpression,
+              basePathExpression
+                  + ".property("
+                  + javaStringLiteral(field.jsonPropertyName())
+                  + ")"));
+    }
+    return lines;
+  }
+
+  private static List<String> validateMapPropertyNameLines(
+      MapBinding map, FacetConstraints facets, String ownerExpression, String basePathExpression) {
+    ArrayList<String> lines = new ArrayList<>();
+    String accessor = ownerExpression + "." + map.javaFieldName() + "()";
+    lines.add("    if (" + accessor + " != null) {");
+    lines.add("      for (String key : " + accessor + ".keySet()) {");
+    lines.addAll(
+        indent(
+            validateStringFacetLines(facets, "key", "true", basePathExpression + ".property(key)"),
+            "    "));
+    lines.add("      }");
+    lines.add("    }");
+    return lines;
+  }
+
+  private static String propertyCountExpression(ObjectBinding object, String ownerExpression) {
+    ArrayList<String> terms = new ArrayList<>();
+    terms.add(Long.toString(object.reservedJsonPropertyNames().size()) + "L");
+    for (FieldBinding field : object.fields()) {
+      terms.add("(" + fieldPresentExpression(field, ownerExpression) + " ? 1L : 0L)");
+    }
+    object.patternProperties().ifPresent(map -> terms.add(mapSizeExpression(map, ownerExpression)));
+    object
+        .additionalProperties()
+        .ifPresent(map -> terms.add(mapSizeExpression(map, ownerExpression)));
+    return "(" + String.join(" + ", terms) + ")";
+  }
+
+  private static String mapSizeExpression(MapBinding map, String ownerExpression) {
+    String accessor = ownerExpression + "." + map.javaFieldName() + "()";
+    return "(" + accessor + " != null ? " + accessor + ".size() : 0L)";
+  }
+
+  private static String propertyPresentExpression(
+      ObjectBinding object, String ownerExpression, String propertyName) {
+    if (object.reservedJsonPropertyNames().contains(propertyName)) {
+      return "true";
+    }
+    ArrayList<String> expressions = new ArrayList<>();
+    object.fields().stream()
+        .filter(field -> field.jsonPropertyName().equals(propertyName))
+        .findFirst()
+        .ifPresent(field -> expressions.add(fieldPresentExpression(field, ownerExpression)));
+    object
+        .patternProperties()
+        .ifPresent(
+            map -> expressions.add(mapContainsExpression(map, ownerExpression, propertyName)));
+    object
+        .additionalProperties()
+        .ifPresent(
+            map -> expressions.add(mapContainsExpression(map, ownerExpression, propertyName)));
+    if (expressions.isEmpty()) {
+      return "false";
+    }
+    return "(" + String.join(" || ", expressions) + ")";
+  }
+
+  private static String fieldPresentExpression(FieldBinding field, String ownerExpression) {
+    String accessor = accessor(field, ownerExpression);
+    if (field.valueType().nullable()) {
+      return "(" + accessor + " != null && !" + accessor + ".isAbsent())";
+    }
+    if (field.required()) {
+      return "true";
+    }
+    return "(" + accessor + " != null && " + accessor + ".isPresent())";
+  }
+
+  private static String mapContainsExpression(
+      MapBinding map, String ownerExpression, String propertyName) {
+    String accessor = ownerExpression + "." + map.javaFieldName() + "()";
+    return "("
+        + accessor
+        + " != null && "
+        + accessor
+        + ".containsKey("
+        + javaStringLiteral(propertyName)
+        + "))";
   }
 
   private static String mapValueType(String rootTypeName, MapBinding map) {
@@ -1073,6 +1285,16 @@ public final class ValidatorSourceEmitter {
             .anyMatch(map -> map.array() && map.valueType().maxItems().isPresent());
   }
 
+  private static boolean hasMinPropertiesConstraint(BindingModel model) {
+    return allObjects(model).stream()
+        .anyMatch(object -> object.validationConstraints().minProperties().isPresent());
+  }
+
+  private static boolean hasMaxPropertiesConstraint(BindingModel model) {
+    return allObjects(model).stream()
+        .anyMatch(object -> object.validationConstraints().maxProperties().isPresent());
+  }
+
   private static String arrayGuard(FieldBinding field, String ownerExpression) {
     String fieldExpression = accessor(field, ownerExpression);
     if (field.valueType().nullable()) {
@@ -1163,27 +1385,57 @@ public final class ValidatorSourceEmitter {
   private static boolean hasMinLengthFacet(BindingModel model) {
     return allFields(model).stream()
             .anyMatch(field -> field.valueType().facets().minLength().isPresent())
-        || allMaps(model).stream()
-            .anyMatch(map -> map.valueType().facets().minLength().isPresent());
+        || allMaps(model).stream().anyMatch(map -> map.valueType().facets().minLength().isPresent())
+        || allObjects(model).stream()
+            .anyMatch(
+                object ->
+                    object
+                        .validationConstraints()
+                        .propertyNames()
+                        .map(facets -> facets.minLength().isPresent())
+                        .orElse(false));
   }
 
   private static boolean hasMaxLengthFacet(BindingModel model) {
     return allFields(model).stream()
             .anyMatch(field -> field.valueType().facets().maxLength().isPresent())
-        || allMaps(model).stream()
-            .anyMatch(map -> map.valueType().facets().maxLength().isPresent());
+        || allMaps(model).stream().anyMatch(map -> map.valueType().facets().maxLength().isPresent())
+        || allObjects(model).stream()
+            .anyMatch(
+                object ->
+                    object
+                        .validationConstraints()
+                        .propertyNames()
+                        .map(facets -> facets.maxLength().isPresent())
+                        .orElse(false));
   }
 
   private static boolean hasPatternFacet(BindingModel model) {
     return allFields(model).stream()
             .anyMatch(field -> field.valueType().facets().pattern().isPresent())
-        || allMaps(model).stream().anyMatch(map -> map.valueType().facets().pattern().isPresent());
+        || allMaps(model).stream().anyMatch(map -> map.valueType().facets().pattern().isPresent())
+        || allObjects(model).stream()
+            .anyMatch(
+                object ->
+                    object
+                        .validationConstraints()
+                        .propertyNames()
+                        .map(facets -> facets.pattern().isPresent())
+                        .orElse(false));
   }
 
   private static boolean hasFormatFacet(BindingModel model) {
     return allFields(model).stream()
             .anyMatch(field -> field.valueType().facets().format().isPresent())
-        || allMaps(model).stream().anyMatch(map -> map.valueType().facets().format().isPresent());
+        || allMaps(model).stream().anyMatch(map -> map.valueType().facets().format().isPresent())
+        || allObjects(model).stream()
+            .anyMatch(
+                object ->
+                    object
+                        .validationConstraints()
+                        .propertyNames()
+                        .map(facets -> facets.format().isPresent())
+                        .orElse(false));
   }
 
   private static boolean hasMinimumFacet(BindingModel model) {
@@ -1311,6 +1563,20 @@ public final class ValidatorSourceEmitter {
     return List.copyOf(objects);
   }
 
+  private static List<ObjectBinding> allObjects(BindingModel model) {
+    ArrayList<ObjectBinding> objects = new ArrayList<>();
+    if (model.taggedUnion().isEmpty()) {
+      objects.add(model.rootObject());
+      collectNestedObjects(model.rootObject(), objects);
+    } else {
+      for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+        objects.add(branch.object());
+        collectNestedObjects(branch.object(), objects);
+      }
+    }
+    return List.copyOf(objects);
+  }
+
   private static void collectNestedObjects(ObjectBinding object, List<ObjectBinding> objects) {
     for (FieldBinding field : object.fields()) {
       field
@@ -1352,6 +1618,38 @@ public final class ValidatorSourceEmitter {
         "        ValidationError.of(",
         "            \"MJJBV-007\",",
         "            \"Expected at least \" + minLength + \" string code points.\",",
+        "            path));",
+        "  }");
+  }
+
+  private static List<String> validateMinPropertiesHelper() {
+    return List.of(
+        "",
+        "  private static boolean validateMinProperties(",
+        "      ValidationErrors errors, long propertyCount, long minProperties, JsonPath path) {",
+        "    if (propertyCount >= minProperties) {",
+        "      return true;",
+        "    }",
+        "    return errors.add(",
+        "        ValidationError.of(",
+        "            \"MJJBV-018\",",
+        "            \"Expected at least \" + minProperties + \" object properties.\",",
+        "            path));",
+        "  }");
+  }
+
+  private static List<String> validateMaxPropertiesHelper() {
+    return List.of(
+        "",
+        "  private static boolean validateMaxProperties(",
+        "      ValidationErrors errors, long propertyCount, long maxProperties, JsonPath path) {",
+        "    if (propertyCount <= maxProperties) {",
+        "      return true;",
+        "    }",
+        "    return errors.add(",
+        "        ValidationError.of(",
+        "            \"MJJBV-019\",",
+        "            \"Expected at most \" + maxProperties + \" object properties.\",",
         "            path));",
         "  }");
   }

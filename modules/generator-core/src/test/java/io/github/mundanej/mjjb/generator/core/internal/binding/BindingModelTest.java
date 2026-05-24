@@ -125,6 +125,19 @@ final class BindingModelTest {
         model.taggedUnion().map(TaggedUnionBinding::tagPropertyName).orElse("fallback"));
   }
 
+  @Test
+  void objectValidationConstraintsDefensivelyCopyDependentRequiredRules() {
+    DependentRequired dependency = new DependentRequired("mode", List.of("details"));
+    ObjectValidationConstraints constraints =
+        new ObjectValidationConstraints(
+            OptionalLong.of(1), OptionalLong.of(3), Optional.empty(), List.of(dependency));
+
+    assertTrue(constraints.hasConstraints());
+    assertEquals(1L, constraints.minProperties().orElseThrow());
+    assertEquals(3L, constraints.maxProperties().orElseThrow());
+    assertEquals(List.of(dependency), constraints.dependentRequired());
+  }
+
   private static Stream<Arguments> blankPackageAndRootValues() {
     return Stream.of(
         Arguments.of("", "GeneratedBindings", "packageName must not be blank"),

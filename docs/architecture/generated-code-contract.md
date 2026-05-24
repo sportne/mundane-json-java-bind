@@ -82,6 +82,11 @@ are rejected before source generation. Any `allOf` schema object that constrains
 `additionalProperties` must declare every merged property in that same schema
 object, preserving Draft 2020-12 branch-local `additionalProperties` semantics.
 
+Object validation keywords do not change model, reader, or writer shape.
+`minProperties`, `maxProperties`, constrained `propertyNames`, and
+`dependentRequired` are emitted only into generated validators, using generated
+field and map presence semantics.
+
 ## Basic Object Model Shape
 
 Generated basic object models are Java records. Record components are emitted in

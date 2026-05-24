@@ -13,6 +13,7 @@ public record ObjectBinding(
     List<String> reservedJsonPropertyNames,
     Optional<MapBinding> patternProperties,
     Optional<MapBinding> additionalProperties,
+    ObjectValidationConstraints validationConstraints,
     SchemaAnnotationsBinding annotations) {
   public ObjectBinding(String javaTypeName, JsonPointer schemaPointer, List<FieldBinding> fields) {
     this(
@@ -22,6 +23,7 @@ public record ObjectBinding(
         List.of(),
         Optional.empty(),
         Optional.empty(),
+        ObjectValidationConstraints.EMPTY,
         SchemaAnnotationsBinding.EMPTY);
   }
 
@@ -37,6 +39,7 @@ public record ObjectBinding(
         List.of(),
         Optional.empty(),
         Optional.empty(),
+        ObjectValidationConstraints.EMPTY,
         annotations);
   }
 
@@ -53,6 +56,7 @@ public record ObjectBinding(
         List.of(),
         Optional.empty(),
         additionalProperties,
+        ObjectValidationConstraints.EMPTY,
         annotations);
   }
 
@@ -62,6 +66,7 @@ public record ObjectBinding(
       List<FieldBinding> fields,
       Optional<MapBinding> patternProperties,
       Optional<MapBinding> additionalProperties,
+      ObjectValidationConstraints validationConstraints,
       SchemaAnnotationsBinding annotations) {
     this(
         javaTypeName,
@@ -70,6 +75,7 @@ public record ObjectBinding(
         List.of(),
         patternProperties,
         additionalProperties,
+        validationConstraints,
         annotations);
   }
 
@@ -81,6 +87,7 @@ public record ObjectBinding(
         List.copyOf(Objects.requireNonNull(reservedJsonPropertyNames, "reservedJsonPropertyNames"));
     Objects.requireNonNull(patternProperties, "patternProperties");
     Objects.requireNonNull(additionalProperties, "additionalProperties");
+    Objects.requireNonNull(validationConstraints, "validationConstraints");
     Objects.requireNonNull(annotations, "annotations");
     if (javaTypeName.isBlank()) {
       throw new IllegalArgumentException("javaTypeName must not be blank");

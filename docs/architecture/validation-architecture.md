@@ -43,6 +43,15 @@ Map validators apply the `additionalProperties` or `patternProperties` value
 schema to every generated map entry. Entry failures are reported at the JSON
 property path for that key, for example `$.customName` or `$["custom.name"]`.
 
+Object validators enforce `minProperties`, `maxProperties`, `propertyNames`,
+and `dependentRequired` without runtime schema interpretation. Property counts
+use generated-model presence semantics: required fields count as present,
+optional fields count only when their `Optional` is present, nullable
+`JsonField` values count unless absent, and generated map entries count by key.
+`propertyNames` validates present declared names and generated map keys at the
+property path for the name. `dependentRequired` failures are reported at the
+missing dependent property path.
+
 Tagged `oneOf` validators validate the generated sealed root interface. The
 generated validator checks root null first, then dispatches by concrete nested
 branch record type and validates that branch's fields in schema property order.
@@ -67,6 +76,9 @@ item paths for array items.
 | `maximum` | `integer`, `number` | `MJJBV-012` | Compares generated model values against exact schema literals with `BigDecimal`. |
 | `exclusiveMinimum` | `integer`, `number` | `MJJBV-013` | Requires model value greater than the schema literal. |
 | `exclusiveMaximum` | `integer`, `number` | `MJJBV-014` | Requires model value less than the schema literal. |
+| `minProperties` | `object` | `MJJBV-018` | Counts generated property presence including map keys. |
+| `maxProperties` | `object` | `MJJBV-019` | Counts generated property presence including map keys. |
+| `dependentRequired` | `object` | `MJJBV-020` | Reports the missing dependent property path. |
 
 ## Literal Constraints
 

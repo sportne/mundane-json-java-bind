@@ -105,6 +105,10 @@ final class SchemaSupportProfileTest {
           },
           "required": ["id"],
           "additionalProperties": false,
+          "minProperties": 1,
+          "maxProperties": 4,
+          "propertyNames": {"type": "string", "minLength": 1, "maxLength": 32, "pattern": "^[a-z][a-zA-Z0-9-]*$"},
+          "dependentRequired": {"id": ["count"]},
           "enum": [{"id": "abc"}],
           "const": {"id": "abc"}
         }
@@ -344,11 +348,20 @@ final class SchemaSupportProfileTest {
     assertInvalid("{\"items\": [{\"type\": \"string\"}]}", "/items");
     assertInvalid("{\"minItems\": -1}", "/minItems");
     assertInvalid("{\"maxItems\": 1.5}", "/maxItems");
+    assertInvalid("{\"minProperties\": -1}", "/minProperties");
+    assertInvalid("{\"maxProperties\": 1.5}", "/maxProperties");
     assertInvalid("{\"minLength\": \"1\"}", "/minLength");
     assertInvalid("{\"maximum\": \"10\"}", "/maximum");
     assertInvalid("{\"pattern\": 1}", "/pattern");
     assertInvalid("{\"pattern\": \"[\"}", "/pattern");
     assertInvalid("{\"format\": true}", "/format");
+    assertInvalid("{\"propertyNames\": 1}", "/propertyNames");
+    assertInvalid("{\"propertyNames\": {\"type\": 1}}", "/propertyNames/type");
+    assertInvalid("{\"propertyNames\": {\"pattern\": \"[\"}}", "/propertyNames/pattern");
+    assertInvalid("{\"dependentRequired\": []}", "/dependentRequired");
+    assertInvalid("{\"dependentRequired\": {\"a\": true}}", "/dependentRequired/a");
+    assertInvalid("{\"dependentRequired\": {\"a\": [1]}}", "/dependentRequired/a/0");
+    assertInvalid("{\"dependentRequired\": {\"a\": [\"b\", \"b\"]}}", "/dependentRequired/a/1");
     assertInvalid("{\"enum\": \"open\"}", "/enum");
     assertInvalid("{\"enum\": []}", "/enum");
     assertInvalid("{\"enum\": [1, 1.0]}", "/enum/1");
@@ -363,6 +376,9 @@ final class SchemaSupportProfileTest {
     assertUnsupportedValue("{\"type\": [\"null\"]}", "/type");
     assertUnsupportedValue("{\"format\": \"email\"}", "/format");
     assertUnsupportedValue("{\"properties\": {\"id\": true}}", "/properties/id");
+    assertUnsupportedValue("{\"propertyNames\": false}", "/propertyNames");
+    assertUnsupportedValue("{\"propertyNames\": {\"type\": \"integer\"}}", "/propertyNames/type");
+    assertUnsupportedValue("{\"propertyNames\": {\"minimum\": 1}}", "/propertyNames/minimum");
     assertUnsupportedValue(
         "{\"patternProperties\": {\"^x-\": {\"type\":\"string\"}, \"^y-\": {\"type\":\"string\"}}}",
         "/patternProperties");

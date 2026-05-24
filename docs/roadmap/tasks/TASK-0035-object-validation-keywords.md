@@ -1,7 +1,7 @@
 # TASK-0035: Object Validation Keywords
 
 Task ID: `TASK-0035`
-Status: `draft`
+Status: `complete`
 Gate: Post-v1 profile expansion
 Depends on: `TASK-0034`
 Specification references: JSON Schema Draft 2020-12 Validation keywords `minProperties`, `maxProperties`, `dependentRequired`, and Applicator keyword `propertyNames`
@@ -41,6 +41,9 @@ Documentation to update:
 Commands to run:
 - `./gradlew :modules:schema-model:check :modules:generator-core:check :modules:conformance-tests:check --console=plain`
 - `./gradlew qualityGate --console=plain`
+- `./gradlew schemaStoreCorpus --console=plain`
+- `source "$HOME/.sdkman/bin/sdkman-init.sh" && ./gradlew nativeSmoke --console=plain`
+- `./gradlew releaseDryRun --console=plain`
 
 Acceptance criteria:
 - Object validation keywords generate deterministic validation errors with stable codes, correct instance paths, and no runtime schema interpretation.

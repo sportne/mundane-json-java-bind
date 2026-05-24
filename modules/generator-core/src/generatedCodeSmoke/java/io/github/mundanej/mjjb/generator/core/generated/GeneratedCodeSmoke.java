@@ -44,6 +44,7 @@ public final class GeneratedCodeSmoke {
         new GeneratedSourceFixture("allof-flattened-object"),
         new GeneratedSourceFixture("additional-properties-map"),
         new GeneratedSourceFixture("pattern-properties-map"),
+        new GeneratedSourceFixture("object-validation-keywords"),
         new GeneratedSourceFixture("additional-properties-nullable-array-map"),
         new GeneratedSourceFixture("additional-properties-nested-object-map"),
         new GeneratedSourceFixture("tagged-oneof"),

@@ -1,0 +1,29 @@
+package io.github.mundanej.mjjb.generated;
+
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.regex.Pattern;
+
+public record GeneratedBindings(
+    String id,
+    Optional<String> mode,
+    Optional<String> details,
+    Map<String, String> patternProperties) {
+  public GeneratedBindings {
+    id = Objects.requireNonNull(id, "id");
+    mode = Objects.requireNonNull(mode, "mode");
+    details = Objects.requireNonNull(details, "details");
+    patternProperties = Map.copyOf(Objects.requireNonNull(patternProperties, "patternProperties"));
+    if (!java.util.Collections.disjoint(patternProperties.keySet(), Set.of(
+        "id",
+        "mode",
+        "details"))) {
+      throw new IllegalArgumentException("patternProperties must not contain declared property names");
+    }
+    if (!patternProperties.keySet().stream().allMatch(key -> Pattern.compile("^x-").matcher(key).find())) {
+      throw new IllegalArgumentException("patternProperties keys must match the configured pattern");
+    }
+  }
+}
