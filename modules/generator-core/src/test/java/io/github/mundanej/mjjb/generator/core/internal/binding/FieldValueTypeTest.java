@@ -169,6 +169,7 @@ final class FieldValueTypeTest {
             () ->
                 new FieldValueType(
                     JavaScalarType.STRING,
+                    Optional.empty(),
                     false,
                     false,
                     OptionalLong.of(1),
@@ -226,6 +227,7 @@ final class FieldValueTypeTest {
         () ->
             new FieldValueType(
                 JavaScalarType.STRING,
+                Optional.empty(),
                 true,
                 false,
                 null,
@@ -237,6 +239,7 @@ final class FieldValueTypeTest {
         () ->
             new FieldValueType(
                 JavaScalarType.STRING,
+                Optional.empty(),
                 true,
                 false,
                 OptionalLong.empty(),
@@ -248,6 +251,7 @@ final class FieldValueTypeTest {
         () ->
             new FieldValueType(
                 JavaScalarType.STRING,
+                Optional.empty(),
                 true,
                 false,
                 OptionalLong.empty(),
@@ -259,6 +263,7 @@ final class FieldValueTypeTest {
         () ->
             new FieldValueType(
                 JavaScalarType.STRING,
+                Optional.empty(),
                 true,
                 false,
                 OptionalLong.empty(),

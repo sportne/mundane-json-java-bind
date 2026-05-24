@@ -23,17 +23,17 @@ public final class PaymentJsonValidator {
       return errors.toResult();
     }
     if (value instanceof Payment.Card branch) {
-      validateCard(branch, errors);
+      validateCard(branch, errors, mode);
       return errors.toResult();
     }
     if (value instanceof Payment.BankTransfer branch) {
-      validateBankTransfer(branch, errors);
+      validateBankTransfer(branch, errors, mode);
       return errors.toResult();
     }
     return errors.toResult();
   }
 
-  private static ValidationResult validateCard(Payment.Card value, ValidationErrors errors) {
+  private static ValidationResult validateCard(Payment.Card value, ValidationErrors errors, ValidationMode mode) {
     if (value.last4() == null) {
       if (!errors.add(ValidationError.of("MJJBV-002", "Required property 'last4' must not be null.", JsonPath.ROOT.property("last4")))) {
         return errors.toResult();
@@ -77,7 +77,7 @@ public final class PaymentJsonValidator {
     return errors.toResult();
   }
 
-  private static ValidationResult validateBankTransfer(Payment.BankTransfer value, ValidationErrors errors) {
+  private static ValidationResult validateBankTransfer(Payment.BankTransfer value, ValidationErrors errors, ValidationMode mode) {
     if (value.iban() == null) {
       if (!errors.add(ValidationError.of("MJJBV-002", "Required property 'iban' must not be null.", JsonPath.ROOT.property("iban")))) {
         return errors.toResult();

@@ -98,53 +98,10 @@ public final class BindingModelBuilder {
     ObjectValue properties = propertiesObject(rootObject);
     RequiredNames requiredNames = requiredNames(rootObject);
     diagnostics.addAll(requiredNames.diagnostics());
-    ArrayList<FieldBinding> fields = new ArrayList<>();
-    HashSet<String> declaredProperties = new HashSet<>();
-    HashMap<String, JsonPointer> javaNames = new HashMap<>();
-
-    if (properties != null) {
-      for (Member property : properties.members()) {
-        declaredProperties.add(property.name());
-        if (!(property.value() instanceof ObjectValue propertySchema)) {
-          diagnostics.add(
-              unsupportedPropertyType(
-                  "Property '" + property.name() + "' must be described by a schema object.",
-                  property.pointer()));
-          continue;
-        }
-        Optional<Member> typeMember = member(propertySchema, "type");
-        if (typeMember.isEmpty()) {
-          diagnostics.add(
-              missingPropertyType(
-                  "Property '" + property.name() + "' must declare a scalar 'type'.",
-                  property.pointer()));
-          continue;
-        }
-        Optional<FieldValueType> valueType =
-            valueType(property.name(), propertySchema, typeMember.get(), diagnostics);
-        if (valueType.isEmpty()) {
-          continue;
-        }
-        String javaFieldName = uniqueJavaFieldName(property.name(), javaNames, property.pointer());
-        fields.add(
-            new FieldBinding(
-                property.name(),
-                javaFieldName,
-                valueType.get(),
-                requiredNames.names().contains(property.name()),
-                property.pointer(),
-                annotations(propertySchema)));
-      }
-    }
-
-    for (Map.Entry<String, JsonPointer> requiredName : requiredNames.pointers().entrySet()) {
-      if (!declaredProperties.contains(requiredName.getKey())) {
-        diagnostics.add(
-            unknownRequired(
-                "Required property '" + requiredName.getKey() + "' is not declared in properties.",
-                requiredName.getValue()));
-      }
-    }
+    HashSet<String> objectTypeNames = new HashSet<>();
+    objectTypeNames.add(rootTypeName);
+    List<FieldBinding> fields =
+        objectFields(properties, requiredNames, null, rootTypeName, objectTypeNames, diagnostics);
 
     List<BindingDiagnostic> sortedDiagnostics = sorted(diagnostics);
     if (!sortedDiagnostics.isEmpty()) {
@@ -175,6 +132,8 @@ public final class BindingModelBuilder {
     ArrayList<TaggedUnionBranch> branches = new ArrayList<>();
     HashSet<String> tagValues = new HashSet<>();
     HashSet<String> branchTypeNames = new HashSet<>();
+    HashSet<String> objectTypeNames = new HashSet<>();
+    objectTypeNames.add(rootTypeName);
     String tagPropertyName = null;
     for (int index = 0; index < oneOf.items().size(); index++) {
       SchemaSyntaxValue item = oneOf.items().get(index);
@@ -219,19 +178,25 @@ public final class BindingModelBuilder {
         continue;
       }
       String branchTypeName = toJavaTypeName(tagProperty.get().value(), index);
-      if (!branchTypeNames.add(branchTypeName)) {
+      if (!branchTypeNames.add(branchTypeName) || !objectTypeNames.add(branchTypeName)) {
         diagnostics.add(
             nameCollision(
                 "Tagged oneOf branch tag value '"
                     + tagProperty.get().value()
                     + "' maps to Java type name '"
                     + branchTypeName
-                    + "', which is already used by another branch.",
+                    + "', which is already used by another branch or nested object.",
                 tagProperty.get().pointer()));
         continue;
       }
       List<FieldBinding> fields =
-          branchFields(properties, requiredNames, tagProperty.get(), diagnostics);
+          objectFields(
+              properties,
+              requiredNames,
+              tagProperty.get().name(),
+              branchTypeName,
+              objectTypeNames,
+              diagnostics);
       branches.add(
           new TaggedUnionBranch(
               tagProperty.get().value(),
@@ -250,48 +215,58 @@ public final class BindingModelBuilder {
         new BindingModel(packageName, rootTypeName, rootBinding, Optional.of(union)));
   }
 
-  private static List<FieldBinding> branchFields(
+  private static List<FieldBinding> objectFields(
       ObjectValue properties,
       RequiredNames requiredNames,
-      TagProperty tagProperty,
+      String skippedPropertyName,
+      String parentTypeName,
+      Set<String> objectTypeNames,
       List<BindingDiagnostic> diagnostics) {
     ArrayList<FieldBinding> fields = new ArrayList<>();
     HashSet<String> declaredProperties = new HashSet<>();
     HashMap<String, JsonPointer> javaNames = new HashMap<>();
-    for (Member property : properties.members()) {
-      declaredProperties.add(property.name());
-      if (tagProperty.name().equals(property.name())) {
-        continue;
+    if (properties != null) {
+      for (Member property : properties.members()) {
+        declaredProperties.add(property.name());
+        if (property.name().equals(skippedPropertyName)) {
+          continue;
+        }
+        if (!(property.value() instanceof ObjectValue propertySchema)) {
+          diagnostics.add(
+              unsupportedPropertyType(
+                  "Property '" + property.name() + "' must be described by a schema object.",
+                  property.pointer()));
+          continue;
+        }
+        Optional<Member> typeMember = member(propertySchema, "type");
+        if (typeMember.isEmpty()) {
+          diagnostics.add(
+              missingPropertyType(
+                  "Property '" + property.name() + "' must declare a scalar 'type'.",
+                  property.pointer()));
+          continue;
+        }
+        Optional<FieldValueType> valueType =
+            valueType(
+                property.name(),
+                propertySchema,
+                typeMember.get(),
+                parentTypeName,
+                objectTypeNames,
+                diagnostics);
+        if (valueType.isEmpty()) {
+          continue;
+        }
+        String javaFieldName = uniqueJavaFieldName(property.name(), javaNames, property.pointer());
+        fields.add(
+            new FieldBinding(
+                property.name(),
+                javaFieldName,
+                valueType.get(),
+                requiredNames.names().contains(property.name()),
+                property.pointer(),
+                annotations(propertySchema)));
       }
-      if (!(property.value() instanceof ObjectValue propertySchema)) {
-        diagnostics.add(
-            unsupportedPropertyType(
-                "Property '" + property.name() + "' must be described by a schema object.",
-                property.pointer()));
-        continue;
-      }
-      Optional<Member> typeMember = member(propertySchema, "type");
-      if (typeMember.isEmpty()) {
-        diagnostics.add(
-            missingPropertyType(
-                "Property '" + property.name() + "' must declare a scalar 'type'.",
-                property.pointer()));
-        continue;
-      }
-      Optional<FieldValueType> valueType =
-          valueType(property.name(), propertySchema, typeMember.get(), diagnostics);
-      if (valueType.isEmpty()) {
-        continue;
-      }
-      String javaFieldName = uniqueJavaFieldName(property.name(), javaNames, property.pointer());
-      fields.add(
-          new FieldBinding(
-              property.name(),
-              javaFieldName,
-              valueType.get(),
-              requiredNames.names().contains(property.name()),
-              property.pointer(),
-              annotations(propertySchema)));
     }
     for (Map.Entry<String, JsonPointer> requiredName : requiredNames.pointers().entrySet()) {
       if (!declaredProperties.contains(requiredName.getKey())) {
@@ -537,6 +512,8 @@ public final class BindingModelBuilder {
       String propertyName,
       ObjectValue propertySchema,
       Member typeMember,
+      String parentTypeName,
+      Set<String> objectTypeNames,
       List<BindingDiagnostic> diagnostics) {
     Optional<JavaScalarType> scalarType = scalarType(typeMember.value());
     if (scalarType.isPresent()) {
@@ -561,6 +538,9 @@ public final class BindingModelBuilder {
     if (nullableTypeName(typeMember.value()).filter("array"::equals).isPresent()) {
       return arrayType(propertyName, propertySchema, true, diagnostics);
     }
+    if (singleTypeName(typeMember.value()).filter("object"::equals).isPresent()) {
+      return objectType(propertyName, propertySchema, parentTypeName, objectTypeNames, diagnostics);
+    }
     diagnostics.add(
         unsupportedPropertyType(
             "Property '"
@@ -568,6 +548,27 @@ public final class BindingModelBuilder {
                 + "' must use a supported scalar type or homogeneous scalar array.",
             typeMember.pointer()));
     return Optional.empty();
+  }
+
+  private static Optional<FieldValueType> objectType(
+      String propertyName,
+      ObjectValue propertySchema,
+      String parentTypeName,
+      Set<String> objectTypeNames,
+      List<BindingDiagnostic> diagnostics) {
+    validateRootType(propertySchema, diagnostics);
+    validateAdditionalProperties(propertySchema, diagnostics);
+    validateRootLiteralConstraints(propertySchema, diagnostics);
+    ObjectValue properties = propertiesObject(propertySchema);
+    RequiredNames requiredNames = requiredNames(propertySchema);
+    diagnostics.addAll(requiredNames.diagnostics());
+    String javaTypeName = uniqueJavaTypeName(parentTypeName, propertyName, objectTypeNames);
+    List<FieldBinding> fields =
+        objectFields(properties, requiredNames, null, javaTypeName, objectTypeNames, diagnostics);
+    return Optional.of(
+        FieldValueType.object(
+            new ObjectBinding(
+                javaTypeName, propertySchema.pointer(), fields, annotations(propertySchema))));
   }
 
   private static Optional<FieldValueType> arrayType(
@@ -914,6 +915,19 @@ public final class BindingModelBuilder {
       suffix++;
     }
     javaNames.put(candidate, pointer);
+    return candidate;
+  }
+
+  private static String uniqueJavaTypeName(
+      String parentTypeName, String propertyName, Set<String> typeNames) {
+    String baseName = parentTypeName + toJavaTypeName(propertyName, 0);
+    String candidate = baseName;
+    int suffix = 2;
+    while (typeNames.contains(candidate)) {
+      candidate = baseName + suffix;
+      suffix++;
+    }
+    typeNames.add(candidate);
     return candidate;
   }
 

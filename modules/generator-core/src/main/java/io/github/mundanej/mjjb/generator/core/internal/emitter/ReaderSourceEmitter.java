@@ -38,13 +38,18 @@ public final class ReaderSourceEmitter {
     if (model.taggedUnion().isPresent()) {
       lines.addAll(taggedUnionReadLines(model));
     } else {
-      lines.addAll(objectReadLines(model.rootObject().fields(), model.rootTypeName()));
+      lines.addAll(
+          objectReadLines(model.rootObject().fields(), model.rootTypeName(), model.rootTypeName()));
     }
     lines.add("  }");
     if (model.taggedUnion().isPresent()) {
       for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
         lines.addAll(branchReaderLines(model, branch));
       }
+    }
+    for (io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding object :
+        nestedObjects(model)) {
+      lines.addAll(objectReaderLines(model.rootTypeName(), object));
     }
     lines.addAll(helperLines(model));
     lines.add("}");
@@ -79,15 +84,25 @@ public final class ReaderSourceEmitter {
     return List.copyOf(imports);
   }
 
-  private static List<String> objectReadLines(List<FieldBinding> fields, String constructorType) {
+  private static List<String> objectReadLines(
+      List<FieldBinding> fields, String constructorType, String rootTypeName) {
+    return objectReadLines(fields, constructorType, rootTypeName, "JsonPath.ROOT", true);
+  }
+
+  private static List<String> objectReadLines(
+      List<FieldBinding> fields,
+      String constructorType,
+      String rootTypeName,
+      String basePath,
+      boolean rootObject) {
     ArrayList<String> lines = new ArrayList<>();
-    lines.addAll(fieldInitializers(fields));
+    lines.addAll(fieldInitializers(fields, rootTypeName));
     String propertyNameLocal = propertyNameLocal(fields);
     lines.add("    while (reader.hasNext()) {");
     lines.add("      String " + propertyNameLocal + " = reader.nextName();");
     lines.add("      switch (" + propertyNameLocal + ") {");
     for (FieldBinding field : fields) {
-      lines.addAll(fieldCase(field));
+      lines.addAll(fieldCase(field, basePath));
     }
     lines.add("        default ->");
     lines.add(
@@ -95,19 +110,20 @@ public final class ReaderSourceEmitter {
             + "\"MJJBR-004\", \"Unknown JSON property '\" + "
             + propertyNameLocal
             + " + \"'.\", "
-            + "propertyPath("
-            + propertyNameLocal
-            + "), reader.location());");
+            + propertyPathExpression(basePath, propertyNameLocal)
+            + ", reader.location());");
     lines.add("      }");
     lines.add("    }");
     lines.add("    reader.endObject();");
-    lines.addAll(requiredChecks(fields));
-    lines.add("    if (reader.peek() != JsonToken.END_DOCUMENT) {");
-    lines.add(
-        "      throw error("
-            + "\"MJJBR-002\", \"Unexpected JSON content after root value.\", "
-            + "JsonPath.ROOT, reader.location());");
-    lines.add("    }");
+    lines.addAll(requiredChecks(fields, basePath));
+    if (rootObject) {
+      lines.add("    if (reader.peek() != JsonToken.END_DOCUMENT) {");
+      lines.add(
+          "      throw error("
+              + "\"MJJBR-002\", \"Unexpected JSON content after root value.\", "
+              + "JsonPath.ROOT, reader.location());");
+      lines.add("    }");
+    }
     lines.add("    return new " + constructorType + "(" + constructorArguments(fields) + ");");
     return lines;
   }
@@ -173,7 +189,7 @@ public final class ReaderSourceEmitter {
             + " read"
             + branch.object().javaTypeName()
             + "(JsonReader reader) throws JsonReadException {");
-    lines.addAll(fieldInitializers(fields));
+    lines.addAll(fieldInitializers(fields, model.rootTypeName()));
     String propertyNameLocal = propertyNameLocal(fields);
     lines.add("    while (reader.hasNext()) {");
     lines.add("      String " + propertyNameLocal + " = reader.nextName();");
@@ -185,7 +201,7 @@ public final class ReaderSourceEmitter {
             + ", reader.location());");
     lines.add("        }");
     for (FieldBinding field : fields) {
-      lines.addAll(fieldCase(field));
+      lines.addAll(fieldCase(field, "JsonPath.ROOT"));
     }
     lines.add("        default ->");
     lines.add(
@@ -193,29 +209,56 @@ public final class ReaderSourceEmitter {
             + "\"MJJBR-004\", \"Unknown JSON property '\" + "
             + propertyNameLocal
             + " + \"'.\", "
-            + "propertyPath("
-            + propertyNameLocal
-            + "), reader.location());");
+            + propertyPathExpression("JsonPath.ROOT", propertyNameLocal)
+            + ", reader.location());");
     lines.add("      }");
     lines.add("    }");
     lines.add("    reader.endObject();");
-    lines.addAll(requiredChecks(fields));
+    lines.addAll(requiredChecks(fields, "JsonPath.ROOT"));
     lines.add("    return new " + branchTypeName + "(" + constructorArguments(fields) + ");");
     lines.add("  }");
     return lines;
   }
 
-  private static List<String> fieldInitializers(List<FieldBinding> fields) {
+  private static List<String> objectReaderLines(
+      String rootTypeName,
+      io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding object) {
+    ArrayList<String> lines = new ArrayList<>();
+    String qualifiedType = rootTypeName + "." + object.javaTypeName();
+    lines.add("");
+    lines.add(
+        "  private static "
+            + qualifiedType
+            + " read"
+            + object.javaTypeName()
+            + "(JsonReader reader, JsonPath path) throws JsonReadException {");
+    lines.add(
+        "    requireToken(reader, JsonToken.BEGIN_OBJECT, \"MJJBR-001\", \"Expected JSON object.\", path);");
+    lines.add("    try {");
+    lines.add("      reader.beginObject();");
+    lines.add("    } catch (JsonReadException exception) {");
+    lines.add("      throw atPath(exception, path);");
+    lines.add("    }");
+    lines.addAll(objectReadLines(object.fields(), qualifiedType, rootTypeName, "path", false));
+    lines.add("  }");
+    return lines;
+  }
+
+  private static List<String> fieldInitializers(List<FieldBinding> fields, String rootTypeName) {
     ArrayList<String> lines = new ArrayList<>();
     for (FieldBinding field : fields) {
       if (field.valueType().nullable()) {
         lines.add(
-            "    " + localJavaType(field) + " " + field.javaFieldName() + " = JsonField.absent();");
+            "    "
+                + localJavaType(field, rootTypeName)
+                + " "
+                + field.javaFieldName()
+                + " = JsonField.absent();");
         lines.add("    boolean " + seenName(field) + " = false;");
       } else if (field.required()) {
         lines.add(
             "    "
-                + localJavaType(field)
+                + localJavaType(field, rootTypeName)
                 + " "
                 + field.javaFieldName()
                 + " = "
@@ -224,35 +267,49 @@ public final class ReaderSourceEmitter {
         lines.add("    boolean " + seenName(field) + " = false;");
       } else {
         lines.add(
-            "    " + localJavaType(field) + " " + field.javaFieldName() + " = Optional.empty();");
+            "    "
+                + localJavaType(field, rootTypeName)
+                + " "
+                + field.javaFieldName()
+                + " = Optional.empty();");
         lines.add("    boolean " + seenName(field) + " = false;");
       }
     }
     return lines;
   }
 
-  private static List<String> fieldCase(FieldBinding field) {
+  private static List<String> fieldCase(FieldBinding field, String basePath) {
     ArrayList<String> lines = new ArrayList<>();
     lines.add("        case " + javaStringLiteral(field.jsonPropertyName()) + " -> {");
     lines.add("          if (" + seenName(field) + ") {");
-    lines.add(
-        "            throw duplicateProperty("
-            + javaStringLiteral(field.jsonPropertyName())
-            + ", reader.location());");
+    if ("JsonPath.ROOT".equals(basePath)) {
+      lines.add(
+          "            throw duplicateProperty("
+              + javaStringLiteral(field.jsonPropertyName())
+              + ", reader.location());");
+    } else {
+      lines.add(
+          "            throw error("
+              + "\"MJJBR-003\", \"Duplicate JSON property '"
+              + field.jsonPropertyName()
+              + "'.\", "
+              + propertyPathExpression(field, basePath)
+              + ", reader.location());");
+    }
     lines.add("          }");
     if (field.required() || field.valueType().nullable()) {
       lines.add(
           "          "
               + field.javaFieldName()
               + " = "
-              + readExpression(field, propertyPathExpression(field))
+              + readExpression(field, propertyPathExpression(field, basePath))
               + ";");
     } else {
       lines.add(
           "          "
               + field.javaFieldName()
               + " = Optional.of("
-              + readExpression(field, propertyPathExpression(field))
+              + readExpression(field, propertyPathExpression(field, basePath))
               + ");");
     }
     lines.add("          " + seenName(field) + " = true;");
@@ -260,7 +317,7 @@ public final class ReaderSourceEmitter {
     return lines;
   }
 
-  private static List<String> requiredChecks(List<FieldBinding> fields) {
+  private static List<String> requiredChecks(List<FieldBinding> fields, String basePath) {
     ArrayList<String> lines = new ArrayList<>();
     for (FieldBinding field : fields) {
       if (!field.required()) {
@@ -271,7 +328,7 @@ public final class ReaderSourceEmitter {
           "      throw missingRequired("
               + javaStringLiteral(field.jsonPropertyName())
               + ", "
-              + propertyPathExpression(field)
+              + propertyPathExpression(field, basePath)
               + ", reader.location());");
       lines.add("    }");
     }
@@ -603,16 +660,14 @@ public final class ReaderSourceEmitter {
     return "__mjjbPropertyName";
   }
 
-  private static List<FieldBinding> allFields(BindingModel model) {
-    if (model.taggedUnion().isEmpty()) {
-      return model.rootObject().fields();
-    }
-    return model.taggedUnion().orElseThrow().branches().stream()
-        .flatMap(branch -> branch.object().fields().stream())
-        .toList();
-  }
-
   private static String readExpression(FieldBinding field, String pathExpression) {
+    if (field.object()) {
+      return "read"
+          + field.valueType().objectBinding().orElseThrow().javaTypeName()
+          + "(reader, "
+          + pathExpression
+          + ")";
+    }
     if (field.valueType().nullable() && field.array()) {
       return nullableArrayReadMethodName(field.scalarType()) + "(reader, " + pathExpression + ")";
     }
@@ -634,11 +689,26 @@ public final class ReaderSourceEmitter {
     };
   }
 
-  private static String propertyPathExpression(FieldBinding field) {
-    return "propertyPath(" + javaStringLiteral(field.jsonPropertyName()) + ")";
+  private static String propertyPathExpression(FieldBinding field, String basePath) {
+    return propertyPathExpression(basePath, javaStringLiteral(field.jsonPropertyName()));
   }
 
-  private static String localJavaType(FieldBinding field) {
+  private static String propertyPathExpression(String basePath, String nameExpression) {
+    if ("JsonPath.ROOT".equals(basePath)) {
+      return "propertyPath(" + nameExpression + ")";
+    }
+    return basePath + ".property(" + nameExpression + ")";
+  }
+
+  private static String localJavaType(FieldBinding field, String rootTypeName) {
+    if (field.object()) {
+      String objectType =
+          rootTypeName + "." + field.valueType().objectBinding().orElseThrow().javaTypeName();
+      if (field.required()) {
+        return objectType;
+      }
+      return "Optional<" + objectType + ">";
+    }
     if (field.required()) {
       return field.valueType().requiredJavaType();
     }
@@ -648,6 +718,9 @@ public final class ReaderSourceEmitter {
   private static String requiredDefault(FieldBinding field) {
     if (field.valueType().nullable()) {
       return "JsonField.absent()";
+    }
+    if (field.object()) {
+      return "null";
     }
     if (field.array()) {
       return "null";
@@ -665,7 +738,8 @@ public final class ReaderSourceEmitter {
   }
 
   private static boolean hasScalarType(BindingModel model, JavaScalarType scalarType) {
-    return allFields(model).stream().anyMatch(field -> field.scalarType() == scalarType);
+    return allFields(model).stream()
+        .anyMatch(field -> !field.object() && field.scalarType() == scalarType);
   }
 
   private static boolean hasNullableField(BindingModel model) {
@@ -678,7 +752,7 @@ public final class ReaderSourceEmitter {
 
   private static boolean hasArrayType(BindingModel model, JavaScalarType scalarType) {
     return allFields(model).stream()
-        .anyMatch(field -> field.array() && field.scalarType() == scalarType);
+        .anyMatch(field -> !field.object() && field.array() && field.scalarType() == scalarType);
   }
 
   private static boolean hasNullableScalarType(BindingModel model, JavaScalarType scalarType) {
@@ -693,6 +767,56 @@ public final class ReaderSourceEmitter {
         .anyMatch(
             field ->
                 field.valueType().nullable() && field.array() && field.scalarType() == scalarType);
+  }
+
+  private static List<FieldBinding> allFields(BindingModel model) {
+    ArrayList<FieldBinding> fields = new ArrayList<>();
+    if (model.taggedUnion().isEmpty()) {
+      collectFields(model.rootObject(), fields);
+    } else {
+      for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+        collectFields(branch.object(), fields);
+      }
+    }
+    return List.copyOf(fields);
+  }
+
+  private static void collectFields(
+      io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding object,
+      List<FieldBinding> fields) {
+    fields.addAll(object.fields());
+    for (FieldBinding field : object.fields()) {
+      field.valueType().objectBinding().ifPresent(nested -> collectFields(nested, fields));
+    }
+  }
+
+  private static List<io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding>
+      nestedObjects(BindingModel model) {
+    ArrayList<io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding> objects =
+        new ArrayList<>();
+    if (model.taggedUnion().isEmpty()) {
+      collectNestedObjects(model.rootObject(), objects);
+    } else {
+      for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+        collectNestedObjects(branch.object(), objects);
+      }
+    }
+    return List.copyOf(objects);
+  }
+
+  private static void collectNestedObjects(
+      io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding object,
+      List<io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding> objects) {
+    for (FieldBinding field : object.fields()) {
+      field
+          .valueType()
+          .objectBinding()
+          .ifPresent(
+              nested -> {
+                objects.add(nested);
+                collectNestedObjects(nested, objects);
+              });
+    }
   }
 
   private static String arrayReadMethodName(JavaScalarType scalarType) {

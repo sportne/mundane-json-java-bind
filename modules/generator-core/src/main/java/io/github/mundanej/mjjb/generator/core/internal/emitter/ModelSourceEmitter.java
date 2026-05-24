@@ -3,6 +3,7 @@ package io.github.mundanej.mjjb.generator.core.internal.emitter;
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModel;
 import io.github.mundanej.mjjb.generator.core.internal.binding.FieldBinding;
 import io.github.mundanej.mjjb.generator.core.internal.binding.LiteralValue;
+import io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding;
 import io.github.mundanej.mjjb.generator.core.internal.binding.TaggedUnionBranch;
 import java.util.ArrayList;
 import java.util.List;
@@ -72,6 +73,10 @@ public final class ModelSourceEmitter {
       lines.add("");
       lines.addAll(branchRecordLines(model, branch));
     }
+    for (ObjectBinding object : nestedObjects(model)) {
+      lines.add("");
+      lines.addAll(indent(objectRecordLines(object), "  "));
+    }
     lines.add("}");
     return lines;
   }
@@ -116,12 +121,22 @@ public final class ModelSourceEmitter {
   }
 
   private static List<FieldBinding> allFields(BindingModel model) {
+    ArrayList<FieldBinding> fields = new ArrayList<>();
     if (model.taggedUnion().isEmpty()) {
-      return model.rootObject().fields();
+      collectFields(model.rootObject(), fields);
+    } else {
+      for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+        collectFields(branch.object(), fields);
+      }
     }
-    return model.taggedUnion().orElseThrow().branches().stream()
-        .flatMap(branch -> branch.object().fields().stream())
-        .toList();
+    return List.copyOf(fields);
+  }
+
+  private static void collectFields(ObjectBinding object, List<FieldBinding> fields) {
+    fields.addAll(object.fields());
+    for (FieldBinding field : object.fields()) {
+      field.valueType().objectBinding().ifPresent(nested -> collectFields(nested, fields));
+    }
   }
 
   private static List<String> indent(List<String> lines, String indent) {
@@ -145,6 +160,10 @@ public final class ModelSourceEmitter {
     for (FieldBinding field : defaultFields) {
       lines.addAll(defaultAccessorLines(field));
     }
+    for (ObjectBinding object : nestedObjects(model)) {
+      lines.add("");
+      lines.addAll(indent(objectRecordLines(object), "  "));
+    }
     List<FieldBinding> checkedFields =
         fields.stream().filter(ModelSourceEmitter::requiresNullCheck).toList();
     if (checkedFields.isEmpty()) {
@@ -165,6 +184,35 @@ public final class ModelSourceEmitter {
     return lines;
   }
 
+  private static List<String> objectRecordLines(ObjectBinding object) {
+    List<FieldBinding> fields = object.fields();
+    if (fields.isEmpty()) {
+      return List.of("public record " + object.javaTypeName() + "() {}");
+    }
+    ArrayList<String> lines = new ArrayList<>();
+    lines.add("public record " + object.javaTypeName() + "(");
+    for (int index = 0; index < fields.size(); index++) {
+      FieldBinding field = fields.get(index);
+      String suffix = index == fields.size() - 1 ? ") {" : ",";
+      lines.add("    " + javaType(field) + " " + field.javaFieldName() + suffix);
+    }
+    List<FieldBinding> checkedFields =
+        fields.stream().filter(ModelSourceEmitter::requiresNullCheck).toList();
+    if (checkedFields.isEmpty()) {
+      lines.add("}");
+      return lines;
+    }
+    lines.add("  public " + object.javaTypeName() + " {");
+    for (FieldBinding field : checkedFields) {
+      for (String assignmentLine : constructorAssignmentLines(field)) {
+        lines.add("    " + assignmentLine);
+      }
+    }
+    lines.add("  }");
+    lines.add("}");
+    return lines;
+  }
+
   private static String javaType(FieldBinding field) {
     if (field.required()) {
       return field.valueType().requiredJavaType();
@@ -173,7 +221,8 @@ public final class ModelSourceEmitter {
   }
 
   private static boolean requiresNullCheck(FieldBinding field) {
-    return field.valueType().nullable()
+    return field.object()
+        || field.valueType().nullable()
         || !field.required()
         || field.array()
         || "String".equals(field.scalarType().requiredJavaType());
@@ -191,6 +240,12 @@ public final class ModelSourceEmitter {
     if (field.valueType().nullable()) {
       return List.of(name + " = Objects.requireNonNull(" + name + ", \"" + name + "\");");
     }
+    if (field.object() && field.required()) {
+      return List.of(name + " = Objects.requireNonNull(" + name + ", \"" + name + "\");");
+    }
+    if (field.object()) {
+      return List.of(name + " = Objects.requireNonNull(" + name + ", \"" + name + "\");");
+    }
     if (field.array() && field.required()) {
       return List.of(
           name + " = List.copyOf(Objects.requireNonNull(" + name + ", \"" + name + "\"));");
@@ -200,6 +255,31 @@ public final class ModelSourceEmitter {
           name + " = Objects.requireNonNull(" + name + ", \"" + name + "\").map(List::copyOf);");
     }
     return List.of(name + " = Objects.requireNonNull(" + name + ", \"" + name + "\");");
+  }
+
+  private static List<ObjectBinding> nestedObjects(BindingModel model) {
+    ArrayList<ObjectBinding> objects = new ArrayList<>();
+    if (model.taggedUnion().isEmpty()) {
+      collectNestedObjects(model.rootObject(), objects);
+    } else {
+      for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+        collectNestedObjects(branch.object(), objects);
+      }
+    }
+    return List.copyOf(objects);
+  }
+
+  private static void collectNestedObjects(ObjectBinding object, List<ObjectBinding> objects) {
+    for (FieldBinding field : object.fields()) {
+      field
+          .valueType()
+          .objectBinding()
+          .ifPresent(
+              nested -> {
+                objects.add(nested);
+                collectNestedObjects(nested, objects);
+              });
+    }
   }
 
   private static List<String> defaultAccessorLines(FieldBinding field) {

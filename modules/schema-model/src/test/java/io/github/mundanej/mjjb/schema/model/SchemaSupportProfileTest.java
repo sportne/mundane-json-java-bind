@@ -126,6 +126,34 @@ final class SchemaSupportProfileTest {
   }
 
   @Test
+  void acceptsNestedClosedObjectKeywordShapes() {
+    assertValid(
+        """
+        {
+          "type": "object",
+          "properties": {
+            "profile": {
+              "type": "object",
+              "properties": {
+                "name": {"type": "string"},
+                "address": {
+                  "type": "object",
+                  "properties": {"city": {"type": "string"}},
+                  "required": ["city"],
+                  "additionalProperties": false
+                }
+              },
+              "required": ["name"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["profile"],
+          "additionalProperties": false
+        }
+        """);
+  }
+
+  @Test
   void acceptsNullableTypeArrays() {
     assertValid(
         """

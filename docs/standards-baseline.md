@@ -41,6 +41,10 @@ Unknown non-Draft extension keywords are ignored as annotations. Known Draft
 planning guidance only; those keywords still reject under `JSP-DATA-2020-12`
 until their implementation tasks are complete.
 
+Nested object property bindings are supported as a profile shape rather than a
+new keyword: object-valued properties use the existing `type`, `properties`,
+`required`, and `additionalProperties` keywords with closed-object semantics.
+
 ## Facet Notes
 
 `JSP-DATA-2020-12` supports generated validation for `minLength`, `maxLength`,
@@ -69,6 +73,7 @@ generated root-object binding shape instead of interpreted dynamically; see
 | String length | `tests/draft2020-12/minLength.json`, `tests/draft2020-12/maxLength.json` | Boundary success and failure cases for generated string validators. | Non-string applicability cases remain outside the generated binding projection. |
 | Numeric bounds | `tests/draft2020-12/minimum.json`, `maximum.json`, `exclusiveMinimum.json`, `exclusiveMaximum.json` | Boundary success and failure cases for generated `number` validators. | Broader numeric equivalence and unsupported numeric keywords stay deferred. |
 | Array length | `tests/draft2020-12/minItems.json`, `maxItems.json` | Boundary success and failure cases for homogeneous integer arrays. | Tuple, containment, and unique-item fixtures are skipped by unsupported keyword policy. |
+| Nested object properties | `tests/draft2020-12/properties.json` | Valid and invalid closed nested object property projections. | Generic object applicability cases that do not define generated binding shapes remain skipped. |
 | Literal constraints | `tests/draft2020-12/enum.json`, `const.json` | Scalar match and mismatch cases through generated validators and reader failures. | Object/array literal constraints outside scalar or scalar-item bindings stay unsupported. |
 | Object/applicator/reference behavior | `required.json`, `properties.json`, `allOf.json`, `additionalProperties.json`, `ref.json` | Representative unsupported cases are documented in the skip manifest. | Skips use `MISSING_REQUIRED_BINDING_SHAPE`, `UNTYPED_PROPERTY_SCHEMA`, `UNSUPPORTED_KEYWORD`, `UNSUPPORTED_KEYWORD_VALUE`, or `REMOTE_REFERENCE`. |
 | Format assertions | `tests/draft2020-12/format.json` | Supported local formats are covered by generator tests. | Optional upstream formats outside `date`, `date-time`, and `uuid` are skipped as `OPTIONAL_FORMAT_SCOPE`. |

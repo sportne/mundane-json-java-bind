@@ -1,7 +1,7 @@
 # TASK-0030: Nested Object Property Bindings
 
 Task ID: `TASK-0030`
-Status: `draft`
+Status: `complete`
 Gate: Post-v1 profile expansion
 Depends on: `TASK-0029`
 Specification references: JSON Schema Draft 2020-12 object `type`, `properties`, `required`, and `additionalProperties`

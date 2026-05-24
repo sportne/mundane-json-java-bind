@@ -49,6 +49,7 @@ final class OfficialJsonSchemaTestSuiteConformanceTest {
           "exclusiveMaximum",
           "minItems",
           "maxItems",
+          "properties",
           "enum",
           "const");
   private static final List<AllowedCase> ALLOWED_CASES =
@@ -85,6 +86,56 @@ final class OfficialJsonSchemaTestSuiteConformanceTest {
                   "an integer is not a boolean",
                   "{\"type\":\"boolean\"}",
                   "1",
+                  false),
+              allowed(
+                  "properties",
+                  "tests/draft2020-12/properties.json",
+                  "properties validation",
+                  "object property validates nested property",
+                  """
+                  {
+                    "type": "object",
+                    "properties": {
+                      "name": {"type": "string", "minLength": 2},
+                      "address": {
+                        "type": "object",
+                        "properties": {
+                          "city": {"type": "string", "minLength": 2}
+                        },
+                        "required": ["city"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["name", "address"],
+                    "additionalProperties": false
+                  }
+                  """,
+                  "{\"name\":\"Ada\",\"address\":{\"city\":\"Paris\"}}",
+                  true),
+              allowed(
+                  "properties",
+                  "tests/draft2020-12/properties.json",
+                  "properties validation",
+                  "nested property validation failure is invalid",
+                  """
+                  {
+                    "type": "object",
+                    "properties": {
+                      "name": {"type": "string", "minLength": 2},
+                      "address": {
+                        "type": "object",
+                        "properties": {
+                          "city": {"type": "string", "minLength": 2}
+                        },
+                        "required": ["city"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["name", "address"],
+                    "additionalProperties": false
+                  }
+                  """,
+                  "{\"name\":\"Ada\",\"address\":{\"city\":\"A\"}}",
                   false),
               allowed(
                   "minLength",

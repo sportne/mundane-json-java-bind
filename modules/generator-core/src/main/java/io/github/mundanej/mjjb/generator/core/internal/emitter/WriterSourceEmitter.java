@@ -46,6 +46,10 @@ public final class WriterSourceEmitter {
         lines.addAll(branchWriterLines(model, branch));
       }
     }
+    for (io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding object :
+        nestedObjects(model)) {
+      lines.addAll(objectWriterLines(model.rootTypeName(), object));
+    }
     if (hasNumberField(model)) {
       lines.add("");
       lines.add(
@@ -79,6 +83,9 @@ public final class WriterSourceEmitter {
   private static List<String> numberPreflightLines(List<FieldBinding> fields) {
     ArrayList<String> lines = new ArrayList<>();
     for (FieldBinding field : fields) {
+      if (field.object()) {
+        continue;
+      }
       if (field.scalarType() != JavaScalarType.NUMBER) {
         continue;
       }
@@ -173,6 +180,9 @@ public final class WriterSourceEmitter {
   }
 
   private static List<String> writeFieldLines(FieldBinding field) {
+    if (field.object()) {
+      return objectFieldLines(field);
+    }
     if (field.valueType().nullable()) {
       return nullableFieldLines(field);
     }
@@ -180,6 +190,45 @@ public final class WriterSourceEmitter {
       return requiredFieldLines(field);
     }
     return optionalFieldLines(field);
+  }
+
+  private static List<String> objectFieldLines(FieldBinding field) {
+    ArrayList<String> lines = new ArrayList<>();
+    String methodName = objectWriteMethodName(field.valueType().objectBinding().orElseThrow());
+    if (field.required()) {
+      lines.add("    writer.name(" + javaStringLiteral(field.jsonPropertyName()) + ");");
+      lines.add("    " + methodName + "(writer, value." + field.javaFieldName() + "());");
+      return lines;
+    }
+    lines.add("    if (value." + field.javaFieldName() + "().isPresent()) {");
+    lines.add("      writer.name(" + javaStringLiteral(field.jsonPropertyName()) + ");");
+    lines.add(
+        "      " + methodName + "(writer, value." + field.javaFieldName() + "().orElseThrow());");
+    lines.add("    }");
+    return lines;
+  }
+
+  private static List<String> objectWriterLines(
+      String rootTypeName,
+      io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding object) {
+    ArrayList<String> lines = new ArrayList<>();
+    lines.add("");
+    lines.add(
+        "  private static void "
+            + objectWriteMethodName(object)
+            + "(JsonWriter writer, "
+            + rootTypeName
+            + "."
+            + object.javaTypeName()
+            + " value) throws JsonWriteException {");
+    lines.addAll(numberPreflightLines(object.fields()));
+    lines.add("    writer.beginObject();");
+    for (FieldBinding field : object.fields()) {
+      lines.addAll(writeFieldLines(field));
+    }
+    lines.add("    writer.endObject();");
+    lines.add("  }");
+    return lines;
   }
 
   private static List<String> requiredFieldLines(FieldBinding field) {
@@ -260,12 +309,58 @@ public final class WriterSourceEmitter {
   }
 
   private static List<FieldBinding> allFields(BindingModel model) {
+    ArrayList<FieldBinding> fields = new ArrayList<>();
     if (model.taggedUnion().isEmpty()) {
-      return model.rootObject().fields();
+      collectFields(model.rootObject(), fields);
+    } else {
+      for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+        collectFields(branch.object(), fields);
+      }
     }
-    return model.taggedUnion().orElseThrow().branches().stream()
-        .flatMap(branch -> branch.object().fields().stream())
-        .toList();
+    return List.copyOf(fields);
+  }
+
+  private static void collectFields(
+      io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding object,
+      List<FieldBinding> fields) {
+    fields.addAll(object.fields());
+    for (FieldBinding field : object.fields()) {
+      field.valueType().objectBinding().ifPresent(nested -> collectFields(nested, fields));
+    }
+  }
+
+  private static List<io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding>
+      nestedObjects(BindingModel model) {
+    ArrayList<io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding> objects =
+        new ArrayList<>();
+    if (model.taggedUnion().isEmpty()) {
+      collectNestedObjects(model.rootObject(), objects);
+    } else {
+      for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+        collectNestedObjects(branch.object(), objects);
+      }
+    }
+    return List.copyOf(objects);
+  }
+
+  private static void collectNestedObjects(
+      io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding object,
+      List<io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding> objects) {
+    for (FieldBinding field : object.fields()) {
+      field
+          .valueType()
+          .objectBinding()
+          .ifPresent(
+              nested -> {
+                objects.add(nested);
+                collectNestedObjects(nested, objects);
+              });
+    }
+  }
+
+  private static String objectWriteMethodName(
+      io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding object) {
+    return "write" + object.javaTypeName();
   }
 
   private static String javaStringLiteral(String value) {

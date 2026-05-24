@@ -44,4 +44,8 @@ public record FieldBinding(
   public boolean array() {
     return valueType.array();
   }
+
+  public boolean object() {
+    return valueType.objectBinding().isPresent();
+  }
 }

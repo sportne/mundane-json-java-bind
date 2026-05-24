@@ -6,6 +6,7 @@ import io.github.mundanej.mjjb.generator.core.internal.binding.FieldBinding;
 import io.github.mundanej.mjjb.generator.core.internal.binding.JavaScalarType;
 import io.github.mundanej.mjjb.generator.core.internal.binding.LiteralConstraints;
 import io.github.mundanej.mjjb.generator.core.internal.binding.LiteralValue;
+import io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding;
 import io.github.mundanej.mjjb.generator.core.internal.binding.TaggedUnionBranch;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,7 +48,7 @@ public final class ValidatorSourceEmitter {
       lines.addAll(taggedUnionDispatchLines(model));
     } else {
       for (FieldBinding field : model.rootObject().fields()) {
-        lines.addAll(validateFieldLines(field));
+        lines.addAll(validateFieldLines(field, "value", "JsonPath.ROOT"));
       }
     }
     lines.add("    return errors.toResult();");
@@ -56,6 +57,9 @@ public final class ValidatorSourceEmitter {
       for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
         lines.addAll(branchValidatorLines(model, branch));
       }
+    }
+    for (ObjectBinding object : nestedObjects(model)) {
+      lines.addAll(objectValidatorLines(model.rootTypeName(), object));
     }
     if (hasNumberField(model)) {
       lines.add("");
@@ -143,7 +147,7 @@ public final class ValidatorSourceEmitter {
     for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
       String typeName = model.rootTypeName() + "." + branch.object().javaTypeName();
       lines.add("    if (value instanceof " + typeName + " branch) {");
-      lines.add("      validate" + branch.object().javaTypeName() + "(branch, errors);");
+      lines.add("      validate" + branch.object().javaTypeName() + "(branch, errors, mode);");
       lines.add("      return errors.toResult();");
       lines.add("    }");
     }
@@ -159,9 +163,28 @@ public final class ValidatorSourceEmitter {
             + branch.object().javaTypeName()
             + "("
             + typeName
-            + " value, ValidationErrors errors) {");
+            + " value, ValidationErrors errors, ValidationMode mode) {");
     for (FieldBinding field : branch.object().fields()) {
-      lines.addAll(validateFieldLines(field));
+      lines.addAll(validateFieldLines(field, "value", "JsonPath.ROOT"));
+    }
+    lines.add("    return errors.toResult();");
+    lines.add("  }");
+    return lines;
+  }
+
+  private static List<String> objectValidatorLines(String rootTypeName, ObjectBinding object) {
+    ArrayList<String> lines = new ArrayList<>();
+    lines.add("");
+    lines.add(
+        "  private static ValidationResult validate"
+            + object.javaTypeName()
+            + "("
+            + rootTypeName
+            + "."
+            + object.javaTypeName()
+            + " value, ValidationErrors errors, JsonPath basePath, ValidationMode mode) {");
+    for (FieldBinding field : object.fields()) {
+      lines.addAll(validateFieldLines(field, "value", "basePath"));
     }
     lines.add("    return errors.toResult();");
     lines.add("  }");
@@ -191,67 +214,68 @@ public final class ValidatorSourceEmitter {
     return List.copyOf(imports);
   }
 
-  private static List<String> validateFieldLines(FieldBinding field) {
+  private static List<String> validateFieldLines(
+      FieldBinding field, String ownerExpression, String basePathExpression) {
+    if (field.object()) {
+      return validateObjectFieldLines(field, ownerExpression, basePathExpression);
+    }
     if (field.valueType().nullable()) {
-      return validateNullableFieldLines(field);
+      return validateNullableFieldLines(field, ownerExpression, basePathExpression);
     }
     ArrayList<String> lines = new ArrayList<>();
+    String accessor = accessor(field, ownerExpression);
+    String pathExpression = propertyPathExpression(field, basePathExpression);
     if (field.required()
         && (field.array() || "String".equals(field.scalarType().requiredJavaType()))) {
-      lines.add("    if (value." + field.javaFieldName() + "() == null) {");
+      lines.add("    if (" + accessor + " == null) {");
       lines.add(
           "      if (!errors.add("
               + "ValidationError.of(\"MJJBV-002\", \"Required property '"
               + field.jsonPropertyName()
               + "' must not be null.\", "
-              + propertyPathExpression(field)
+              + pathExpression
               + "))) {");
       lines.add("        return errors.toResult();");
       lines.add("      }");
       lines.add("    }");
     }
     if (!field.required()) {
-      lines.add("    if (value." + field.javaFieldName() + "() == null) {");
+      lines.add("    if (" + accessor + " == null) {");
       lines.add(
           "      if (!errors.add("
               + "ValidationError.of(\"MJJBV-003\", \"Optional property container '"
               + field.jsonPropertyName()
               + "' must not be null.\", "
-              + propertyPathExpression(field)
+              + pathExpression
               + "))) {");
       lines.add("        return errors.toResult();");
       lines.add("      }");
       lines.add("    }");
     }
     if (field.array()) {
-      lines.addAll(validateArrayLines(field));
+      lines.addAll(validateArrayLines(field, ownerExpression, basePathExpression));
       return lines;
     }
     if (field.scalarType() == JavaScalarType.STRING) {
-      lines.addAll(validateStringFacetLines(field, scalarValueExpression(field)));
+      lines.addAll(
+          validateStringFacetLines(
+              field,
+              scalarValueExpression(field, ownerExpression),
+              scalarGuard(field, ownerExpression),
+              pathExpression));
     }
     if (field.scalarType() == JavaScalarType.NUMBER) {
       if (field.required()) {
-        lines.add(
-            "    if (!validateFinite(errors, value."
-                + field.javaFieldName()
-                + "(), "
-                + propertyPathExpression(field)
-                + ")) {");
+        lines.add("    if (!validateFinite(errors, " + accessor + ", " + pathExpression + ")) {");
         lines.add("      return errors.toResult();");
         lines.add("    }");
       } else {
+        lines.add("    if (" + accessor + " != null && " + accessor + ".isPresent()) {");
         lines.add(
-            "    if (value."
-                + field.javaFieldName()
-                + "() != null && value."
-                + field.javaFieldName()
-                + "().isPresent()) {");
-        lines.add(
-            "      if (!validateFinite(errors, value."
-                + field.javaFieldName()
-                + "().orElseThrow(), "
-                + propertyPathExpression(field)
+            "      if (!validateFinite(errors, "
+                + accessor
+                + ".orElseThrow(), "
+                + pathExpression
                 + ")) {");
         lines.add("        return errors.toResult();");
         lines.add("      }");
@@ -260,15 +284,79 @@ public final class ValidatorSourceEmitter {
     }
     if (field.scalarType() == JavaScalarType.INTEGER
         || field.scalarType() == JavaScalarType.NUMBER) {
-      lines.addAll(validateNumericFacetLines(field, scalarValueExpression(field)));
+      lines.addAll(
+          validateNumericFacetLines(
+              field,
+              scalarValueExpression(field, ownerExpression),
+              numericGuard(field, scalarValueExpression(field, ownerExpression), ownerExpression),
+              pathExpression));
     }
-    lines.addAll(validateLiteralLines(field, scalarValueExpression(field)));
+    lines.addAll(
+        validateLiteralLines(
+            field,
+            scalarValueExpression(field, ownerExpression),
+            literalGuard(field, scalarValueExpression(field, ownerExpression), ownerExpression),
+            pathExpression));
     return lines;
   }
 
-  private static List<String> validateNullableFieldLines(FieldBinding field) {
+  private static List<String> validateObjectFieldLines(
+      FieldBinding field, String ownerExpression, String basePathExpression) {
     ArrayList<String> lines = new ArrayList<>();
-    String fieldExpression = "value." + field.javaFieldName() + "()";
+    String accessor = accessor(field, ownerExpression);
+    String pathExpression = propertyPathExpression(field, basePathExpression);
+    String methodName = "validate" + field.valueType().objectBinding().orElseThrow().javaTypeName();
+    if (field.required()) {
+      lines.add("    if (" + accessor + " == null) {");
+      lines.add(
+          "      if (!errors.add(ValidationError.of(\"MJJBV-002\", \"Required property '"
+              + field.jsonPropertyName()
+              + "' must not be null.\", "
+              + pathExpression
+              + "))) {");
+      lines.add("        return errors.toResult();");
+      lines.add("      }");
+      lines.add("    }");
+      lines.add("    if (" + accessor + " != null) {");
+      lines.add(
+          "      " + methodName + "(" + accessor + ", errors, " + pathExpression + ", mode);");
+      lines.add("      if (mode == ValidationMode.FAIL_FAST && !errors.errors().isEmpty()) {");
+      lines.add("        return errors.toResult();");
+      lines.add("      }");
+      lines.add("    }");
+      return lines;
+    }
+    lines.add("    if (" + accessor + " == null) {");
+    lines.add(
+        "      if (!errors.add(ValidationError.of(\"MJJBV-003\", \"Optional property container '"
+            + field.jsonPropertyName()
+            + "' must not be null.\", "
+            + pathExpression
+            + "))) {");
+    lines.add("        return errors.toResult();");
+    lines.add("      }");
+    lines.add("    }");
+    lines.add("    if (" + accessor + " != null && " + accessor + ".isPresent()) {");
+    lines.add(
+        "      "
+            + methodName
+            + "("
+            + accessor
+            + ".orElseThrow(), errors, "
+            + pathExpression
+            + ", mode);");
+    lines.add("      if (mode == ValidationMode.FAIL_FAST && !errors.errors().isEmpty()) {");
+    lines.add("        return errors.toResult();");
+    lines.add("      }");
+    lines.add("    }");
+    return lines;
+  }
+
+  private static List<String> validateNullableFieldLines(
+      FieldBinding field, String ownerExpression, String basePathExpression) {
+    ArrayList<String> lines = new ArrayList<>();
+    String fieldExpression = accessor(field, ownerExpression);
+    String pathExpression = propertyPathExpression(field, basePathExpression);
     lines.add("    if (" + fieldExpression + " == null) {");
     String code = field.required() ? "MJJBV-002" : "MJJBV-003";
     String messagePrefix = field.required() ? "Required" : "Optional";
@@ -281,7 +369,7 @@ public final class ValidatorSourceEmitter {
             + " nullable property '"
             + field.jsonPropertyName()
             + "' field state must not be null.\", "
-            + propertyPathExpression(field)
+            + pathExpression
             + "))) {");
     lines.add("        return errors.toResult();");
     lines.add("      }");
@@ -293,26 +381,31 @@ public final class ValidatorSourceEmitter {
               + "ValidationError.of(\"MJJBV-017\", \"Required nullable property '"
               + field.jsonPropertyName()
               + "' must be present.\", "
-              + propertyPathExpression(field)
+              + pathExpression
               + "))) {");
       lines.add("        return errors.toResult();");
       lines.add("      }");
       lines.add("    }");
     }
     if (field.array()) {
-      lines.addAll(validateArrayLines(field));
+      lines.addAll(validateArrayLines(field, ownerExpression, basePathExpression));
       return lines;
     }
     if (field.scalarType() == JavaScalarType.STRING) {
-      lines.addAll(validateStringFacetLines(field, scalarValueExpression(field)));
+      lines.addAll(
+          validateStringFacetLines(
+              field,
+              scalarValueExpression(field, ownerExpression),
+              scalarGuard(field, ownerExpression),
+              pathExpression));
     }
     if (field.scalarType() == JavaScalarType.NUMBER) {
-      lines.add("    if (" + scalarGuard(field) + ") {");
+      lines.add("    if (" + scalarGuard(field, ownerExpression) + ") {");
       lines.add(
           "      if (!validateFinite(errors, "
-              + scalarValueExpression(field)
+              + scalarValueExpression(field, ownerExpression)
               + ", "
-              + propertyPathExpression(field)
+              + pathExpression
               + ")) {");
       lines.add("        return errors.toResult();");
       lines.add("      }");
@@ -320,13 +413,19 @@ public final class ValidatorSourceEmitter {
     }
     if (field.scalarType() == JavaScalarType.INTEGER
         || field.scalarType() == JavaScalarType.NUMBER) {
-      lines.addAll(validateNumericFacetLines(field, scalarValueExpression(field)));
+      lines.addAll(
+          validateNumericFacetLines(
+              field,
+              scalarValueExpression(field, ownerExpression),
+              numericGuard(field, scalarValueExpression(field, ownerExpression), ownerExpression),
+              pathExpression));
     }
-    lines.addAll(validateNullableLiteralLines(field));
+    lines.addAll(validateNullableLiteralLines(field, ownerExpression, pathExpression));
     return lines;
   }
 
-  private static List<String> validateArrayLines(FieldBinding field) {
+  private static List<String> validateArrayLines(
+      FieldBinding field, String ownerExpression, String basePathExpression) {
     ArrayList<String> lines = new ArrayList<>();
     if (field.valueType().minItems().isEmpty()
         && field.valueType().maxItems().isEmpty()
@@ -337,8 +436,10 @@ public final class ValidatorSourceEmitter {
         && !field.valueType().literals().hasConst()) {
       return lines;
     }
-    String valueExpression = arrayValueExpression(field);
-    String guard = arrayGuard(field);
+    String valueExpression = arrayValueExpression(field, ownerExpression);
+    String guard = arrayGuard(field, ownerExpression);
+    String pathExpression = propertyPathExpression(field, basePathExpression);
+    String itemPathExpression = pathExpression + ".index(index)";
     lines.add("    if (" + guard + ") {");
     if (field.valueType().minItems().isPresent()) {
       lines.add(
@@ -347,7 +448,7 @@ public final class ValidatorSourceEmitter {
               + ".size(), "
               + field.valueType().minItems().getAsLong()
               + "L, "
-              + propertyPathExpression(field)
+              + pathExpression
               + ")) {");
       lines.add("        return errors.toResult();");
       lines.add("      }");
@@ -359,7 +460,7 @@ public final class ValidatorSourceEmitter {
               + ".size(), "
               + field.valueType().maxItems().getAsLong()
               + "L, "
-              + propertyPathExpression(field)
+              + pathExpression
               + ")) {");
       lines.add("        return errors.toResult();");
       lines.add("      }");
@@ -367,21 +468,16 @@ public final class ValidatorSourceEmitter {
     if (field.scalarType() == JavaScalarType.NUMBER) {
       lines.add("      int index = 0;");
       lines.add("      for (Double item : " + valueExpression + ") {");
-      lines.add(
-          "        if (!validateFinite(errors, item, "
-              + propertyPathExpression(field)
-              + ".index(index))) {");
+      lines.add("        if (!validateFinite(errors, item, " + itemPathExpression + ")) {");
       lines.add("          return errors.toResult();");
       lines.add("        }");
       lines.addAll(
           indent(
-              validateNumericFacetLines(
-                  field, "item", "Double.isFinite(item)", itemPathExpression(field)),
+              validateNumericFacetLines(field, "item", "Double.isFinite(item)", itemPathExpression),
               "      "));
       lines.addAll(
           indent(
-              validateLiteralLines(
-                  field, "item", "Double.isFinite(item)", itemPathExpression(field)),
+              validateLiteralLines(field, "item", "Double.isFinite(item)", itemPathExpression),
               "      "));
       lines.add("        index++;");
       lines.add("      }");
@@ -392,11 +488,9 @@ public final class ValidatorSourceEmitter {
       lines.add("      int index = 0;");
       lines.add("      for (Long item : " + valueExpression + ") {");
       lines.addAll(
-          indent(
-              validateNumericFacetLines(field, "item", "true", itemPathExpression(field)),
-              "      "));
+          indent(validateNumericFacetLines(field, "item", "true", itemPathExpression), "      "));
       lines.addAll(
-          indent(validateLiteralLines(field, "item", "true", itemPathExpression(field)), "      "));
+          indent(validateLiteralLines(field, "item", "true", itemPathExpression), "      "));
       lines.add("        index++;");
       lines.add("      }");
     } else if (field.scalarType() == JavaScalarType.STRING
@@ -406,11 +500,9 @@ public final class ValidatorSourceEmitter {
       lines.add("      int index = 0;");
       lines.add("      for (String item : " + valueExpression + ") {");
       lines.addAll(
-          indent(
-              validateStringFacetLines(field, "item", "true", itemPathExpression(field)),
-              "      "));
+          indent(validateStringFacetLines(field, "item", "true", itemPathExpression), "      "));
       lines.addAll(
-          indent(validateLiteralLines(field, "item", "true", itemPathExpression(field)), "      "));
+          indent(validateLiteralLines(field, "item", "true", itemPathExpression), "      "));
       lines.add("        index++;");
       lines.add("      }");
     } else if (field.scalarType() == JavaScalarType.BOOLEAN
@@ -418,7 +510,7 @@ public final class ValidatorSourceEmitter {
       lines.add("      int index = 0;");
       lines.add("      for (Boolean item : " + valueExpression + ") {");
       lines.addAll(
-          indent(validateLiteralLines(field, "item", "true", itemPathExpression(field)), "      "));
+          indent(validateLiteralLines(field, "item", "true", itemPathExpression), "      "));
       lines.add("        index++;");
       lines.add("      }");
     }
@@ -428,11 +520,6 @@ public final class ValidatorSourceEmitter {
 
   private static boolean hasNumberField(BindingModel model) {
     return allFields(model).stream().anyMatch(field -> field.scalarType() == JavaScalarType.NUMBER);
-  }
-
-  private static List<String> validateStringFacetLines(FieldBinding field, String valueExpression) {
-    return validateStringFacetLines(
-        field, valueExpression, scalarGuard(field), propertyPathExpression(field));
   }
 
   private static List<String> validateStringFacetLines(
@@ -496,15 +583,6 @@ public final class ValidatorSourceEmitter {
   }
 
   private static List<String> validateNumericFacetLines(
-      FieldBinding field, String valueExpression) {
-    return validateNumericFacetLines(
-        field,
-        valueExpression,
-        numericGuard(field, valueExpression),
-        propertyPathExpression(field));
-  }
-
-  private static List<String> validateNumericFacetLines(
       FieldBinding field, String valueExpression, String guard, String pathExpression) {
     ArrayList<String> lines = new ArrayList<>();
     FacetConstraints facets = field.valueType().facets();
@@ -565,14 +643,6 @@ public final class ValidatorSourceEmitter {
     return lines;
   }
 
-  private static List<String> validateLiteralLines(FieldBinding field, String valueExpression) {
-    return validateLiteralLines(
-        field,
-        valueExpression,
-        literalGuard(field, valueExpression),
-        propertyPathExpression(field));
-  }
-
   private static List<String> validateLiteralLines(
       FieldBinding field, String valueExpression, String guard, String pathExpression) {
     LiteralConstraints literals = field.valueType().literals();
@@ -606,13 +676,14 @@ public final class ValidatorSourceEmitter {
     return lines;
   }
 
-  private static List<String> validateNullableLiteralLines(FieldBinding field) {
+  private static List<String> validateNullableLiteralLines(
+      FieldBinding field, String ownerExpression, String pathExpression) {
     LiteralConstraints literals = field.valueType().literals();
     if (!literals.hasEnum() && !literals.hasConst()) {
       return List.of();
     }
     ArrayList<String> lines = new ArrayList<>();
-    String fieldExpression = "value." + field.javaFieldName() + "()";
+    String fieldExpression = accessor(field, ownerExpression);
     lines.add("    if (" + fieldExpression + " != null && !" + fieldExpression + ".isAbsent()) {");
     if (literals.hasEnum()) {
       lines.add(
@@ -620,7 +691,7 @@ public final class ValidatorSourceEmitter {
               + nullableEnumMatchExpression(
                   field.scalarType(), fieldExpression, literals.enumValues())
               + ", "
-              + propertyPathExpression(field)
+              + pathExpression
               + ")) {");
       lines.add("        return errors.toResult();");
       lines.add("      }");
@@ -631,7 +702,7 @@ public final class ValidatorSourceEmitter {
               + nullableLiteralMatchExpression(
                   field.scalarType(), fieldExpression, literals.constValue().orElseThrow())
               + ", "
-              + propertyPathExpression(field)
+              + pathExpression
               + ")) {");
       lines.add("        return errors.toResult();");
       lines.add("      }");
@@ -650,81 +721,71 @@ public final class ValidatorSourceEmitter {
         .anyMatch(field -> field.array() && field.valueType().maxItems().isPresent());
   }
 
-  private static String arrayGuard(FieldBinding field) {
+  private static String arrayGuard(FieldBinding field, String ownerExpression) {
+    String fieldExpression = accessor(field, ownerExpression);
     if (field.valueType().nullable()) {
-      return "value."
-          + field.javaFieldName()
-          + "() != null && value."
-          + field.javaFieldName()
-          + "().hasValue()";
+      return fieldExpression + " != null && " + fieldExpression + ".hasValue()";
     }
     if (field.required()) {
-      return "value." + field.javaFieldName() + "() != null";
+      return fieldExpression + " != null";
     }
-    return "value."
-        + field.javaFieldName()
-        + "() != null && value."
-        + field.javaFieldName()
-        + "().isPresent()";
+    return fieldExpression + " != null && " + fieldExpression + ".isPresent()";
   }
 
-  private static String arrayValueExpression(FieldBinding field) {
+  private static String arrayValueExpression(FieldBinding field, String ownerExpression) {
+    String fieldExpression = accessor(field, ownerExpression);
     if (field.valueType().nullable()) {
-      return "value." + field.javaFieldName() + "().requireValue()";
+      return fieldExpression + ".requireValue()";
     }
     if (field.required()) {
-      return "value." + field.javaFieldName() + "()";
+      return fieldExpression;
     }
-    return "value." + field.javaFieldName() + "().orElseThrow()";
+    return fieldExpression + ".orElseThrow()";
   }
 
-  private static String scalarValueExpression(FieldBinding field) {
+  private static String scalarValueExpression(FieldBinding field, String ownerExpression) {
+    String fieldExpression = accessor(field, ownerExpression);
     if (field.valueType().nullable()) {
-      return "value." + field.javaFieldName() + "().requireValue()";
+      return fieldExpression + ".requireValue()";
     }
     if (field.required()) {
-      return "value." + field.javaFieldName() + "()";
+      return fieldExpression;
     }
-    return "value." + field.javaFieldName() + "().orElseThrow()";
+    return fieldExpression + ".orElseThrow()";
   }
 
-  private static String scalarGuard(FieldBinding field) {
+  private static String scalarGuard(FieldBinding field, String ownerExpression) {
+    String fieldExpression = accessor(field, ownerExpression);
     if (field.valueType().nullable()) {
-      return "value."
-          + field.javaFieldName()
-          + "() != null && value."
-          + field.javaFieldName()
-          + "().hasValue()";
+      return fieldExpression + " != null && " + fieldExpression + ".hasValue()";
     }
     if (field.required() && field.scalarType() == JavaScalarType.STRING) {
-      return "value." + field.javaFieldName() + "() != null";
+      return fieldExpression + " != null";
     }
     if (field.required()) {
       return "true";
     }
-    return "value."
-        + field.javaFieldName()
-        + "() != null && value."
-        + field.javaFieldName()
-        + "().isPresent()";
+    return fieldExpression + " != null && " + fieldExpression + ".isPresent()";
   }
 
-  private static String numericGuard(FieldBinding field, String valueExpression) {
+  private static String numericGuard(
+      FieldBinding field, String valueExpression, String ownerExpression) {
     if (field.scalarType() == JavaScalarType.NUMBER) {
       String finiteGuard = "Double.isFinite(" + valueExpression + ")";
       if (field.required()) {
         return finiteGuard;
       }
-      return scalarGuard(field) + " && " + finiteGuard;
+      return scalarGuard(field, ownerExpression) + " && " + finiteGuard;
     }
-    return scalarGuard(field);
+    return scalarGuard(field, ownerExpression);
   }
 
-  private static String literalGuard(FieldBinding field, String valueExpression) {
+  private static String literalGuard(
+      FieldBinding field, String valueExpression, String ownerExpression) {
     if (field.scalarType() == JavaScalarType.NUMBER) {
-      return numericGuard(field, valueExpression);
+      return numericGuard(field, valueExpression, ownerExpression);
     }
-    return scalarGuard(field);
+    return scalarGuard(field, ownerExpression);
   }
 
   private static String numericValueExpression(JavaScalarType scalarType, String valueExpression) {
@@ -735,12 +796,12 @@ public final class ValidatorSourceEmitter {
     };
   }
 
-  private static String propertyPathExpression(FieldBinding field) {
-    return "JsonPath.ROOT.property(" + javaStringLiteral(field.jsonPropertyName()) + ")";
+  private static String propertyPathExpression(FieldBinding field, String basePathExpression) {
+    return basePathExpression + ".property(" + javaStringLiteral(field.jsonPropertyName()) + ")";
   }
 
-  private static String itemPathExpression(FieldBinding field) {
-    return propertyPathExpression(field) + ".index(index)";
+  private static String accessor(FieldBinding field, String ownerExpression) {
+    return ownerExpression + "." + field.javaFieldName() + "()";
   }
 
   private static List<String> indent(List<String> lines, String indent) {
@@ -810,12 +871,47 @@ public final class ValidatorSourceEmitter {
   }
 
   private static List<FieldBinding> allFields(BindingModel model) {
+    ArrayList<FieldBinding> fields = new ArrayList<>();
     if (model.taggedUnion().isEmpty()) {
-      return model.rootObject().fields();
+      collectFields(model.rootObject(), fields);
+      return List.copyOf(fields);
     }
-    return model.taggedUnion().orElseThrow().branches().stream()
-        .flatMap(branch -> branch.object().fields().stream())
-        .toList();
+    for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+      collectFields(branch.object(), fields);
+    }
+    return List.copyOf(fields);
+  }
+
+  private static void collectFields(ObjectBinding object, List<FieldBinding> fields) {
+    for (FieldBinding field : object.fields()) {
+      fields.add(field);
+      field.valueType().objectBinding().ifPresent(nested -> collectFields(nested, fields));
+    }
+  }
+
+  private static List<ObjectBinding> nestedObjects(BindingModel model) {
+    ArrayList<ObjectBinding> objects = new ArrayList<>();
+    if (model.taggedUnion().isEmpty()) {
+      collectNestedObjects(model.rootObject(), objects);
+    } else {
+      for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+        collectNestedObjects(branch.object(), objects);
+      }
+    }
+    return List.copyOf(objects);
+  }
+
+  private static void collectNestedObjects(ObjectBinding object, List<ObjectBinding> objects) {
+    for (FieldBinding field : object.fields()) {
+      field
+          .valueType()
+          .objectBinding()
+          .ifPresent(
+              nested -> {
+                objects.add(nested);
+                collectNestedObjects(nested, objects);
+              });
+    }
   }
 
   private static List<String> validateMinLengthHelper() {

@@ -39,12 +39,19 @@ Supported object fields are:
 | optional `boolean` | `Optional<Boolean>` |
 | required homogeneous scalar array | `List<T>` |
 | optional homogeneous scalar array | `Optional<List<T>>` |
+| required closed object | nested record type |
+| optional closed object | `Optional<NestedRecord>` |
 | nullable scalar or nullable homogeneous scalar array | `JsonField<T>` |
 
 Nullable fields use field-level `type` arrays containing exactly `null` and one
 supported non-null type, such as `["null", "string"]`. `JsonField.absent()`,
 `JsonField.explicitNull()`, and `JsonField.value(value)` preserve absent,
 explicit-null, and present-value states.
+
+Nested object fields must use the same closed-object shape as roots and tagged
+branches: `type: "object"`, optional `properties`, optional `required`, and
+`additionalProperties: false`. Nested nullable object fields and object arrays
+remain outside the current profile.
 
 ## Supported Keywords
 
@@ -118,7 +125,7 @@ as `/properties/value/allOf`.
 | Keyword | Vocabulary | Status | Profile behavior |
 |---|---|---|---|
 | `type` | Validation | Supported with profile limits | Root objects, field scalars, arrays, and nullable pairs containing exactly `null` plus one supported non-null type are accepted. |
-| `properties` | Applicator | Supported with profile limits | Root and tagged-branch object properties are accepted when every property maps to a supported field shape. |
+| `properties` | Applicator | Supported with profile limits | Root, tagged-branch, and nested object properties are accepted when every property maps to a supported field shape. |
 | `required` | Validation | Supported | Drives required field generation and reader/validator required-property checks. |
 | `additionalProperties` | Applicator | Supported with profile limits | Currently accepted only as literal `false`; object-valued map bindings are recommended next. |
 | `items` | Applicator | Supported with profile limits | Accepted only for homogeneous scalar array items. |
@@ -193,7 +200,7 @@ documents from that scan.
 
 | Rank | Feature | Commonness | Usefulness | Complexity | Decision |
 |---:|---|---:|---|---|---|
-| 1 | Nested object property bindings | Very high inferred | Very high | High | Create `TASK-0030`. |
+| 1 | Nested object property bindings | Very high inferred | Very high | High | Implemented in `TASK-0030`. |
 | 2 | Internal `$defs` / local `$ref` resolution | 73.4% `$ref` | Very high | High | Create `TASK-0031`. |
 | 3 | Map bindings via object-valued `additionalProperties` | 48.2% | Very high | High | Create `TASK-0032`. |
 | 4 | Constrained object `allOf` flattening | 25.2% | High | High | Create `TASK-0033`. |

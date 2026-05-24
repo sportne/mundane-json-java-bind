@@ -1,0 +1,244 @@
+package io.github.mundanej.mjjb.generated;
+
+import io.github.mundanej.mjjb.runtime.JsonDiagnostic;
+import io.github.mundanej.mjjb.runtime.JsonPath;
+import io.github.mundanej.mjjb.runtime.JsonReadException;
+import io.github.mundanej.mjjb.runtime.JsonReader;
+import io.github.mundanej.mjjb.runtime.JsonToken;
+import java.util.Objects;
+import java.util.Optional;
+
+public final class GeneratedBindingsJsonReader {
+  private GeneratedBindingsJsonReader() {}
+
+  public static GeneratedBindings read(JsonReader reader) throws JsonReadException {
+    Objects.requireNonNull(reader, "reader");
+    if (reader.peek() != JsonToken.BEGIN_OBJECT) {
+      throw error("MJJBR-001", "Expected root JSON object.", JsonPath.ROOT, reader.location());
+    }
+    reader.beginObject();
+    GeneratedBindings.GeneratedBindingsProfile profile = null;
+    boolean profileSeen = false;
+    Optional<GeneratedBindings.GeneratedBindingsSettings> settings = Optional.empty();
+    boolean settingsSeen = false;
+    String label = null;
+    boolean labelSeen = false;
+    while (reader.hasNext()) {
+      String name = reader.nextName();
+      switch (name) {
+        case "profile" -> {
+          if (profileSeen) {
+            throw duplicateProperty("profile", reader.location());
+          }
+          profile = readGeneratedBindingsProfile(reader, propertyPath("profile"));
+          profileSeen = true;
+        }
+        case "settings" -> {
+          if (settingsSeen) {
+            throw duplicateProperty("settings", reader.location());
+          }
+          settings = Optional.of(readGeneratedBindingsSettings(reader, propertyPath("settings")));
+          settingsSeen = true;
+        }
+        case "label" -> {
+          if (labelSeen) {
+            throw duplicateProperty("label", reader.location());
+          }
+          label = readString(reader, propertyPath("label"));
+          labelSeen = true;
+        }
+        default ->
+            throw error("MJJBR-004", "Unknown JSON property '" + name + "'.", propertyPath(name), reader.location());
+      }
+    }
+    reader.endObject();
+    if (!profileSeen) {
+      throw missingRequired("profile", propertyPath("profile"), reader.location());
+    }
+    if (!labelSeen) {
+      throw missingRequired("label", propertyPath("label"), reader.location());
+    }
+    if (reader.peek() != JsonToken.END_DOCUMENT) {
+      throw error("MJJBR-002", "Unexpected JSON content after root value.", JsonPath.ROOT, reader.location());
+    }
+    return new GeneratedBindings(profile, settings, label);
+  }
+
+  private static GeneratedBindings.GeneratedBindingsProfile readGeneratedBindingsProfile(JsonReader reader, JsonPath path) throws JsonReadException {
+    requireToken(reader, JsonToken.BEGIN_OBJECT, "MJJBR-001", "Expected JSON object.", path);
+    try {
+      reader.beginObject();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+    String name = null;
+    boolean nameSeen = false;
+    GeneratedBindings.GeneratedBindingsProfileAddress address = null;
+    boolean addressSeen = false;
+    while (reader.hasNext()) {
+      String __mjjbPropertyName = reader.nextName();
+      switch (__mjjbPropertyName) {
+        case "name" -> {
+          if (nameSeen) {
+            throw error("MJJBR-003", "Duplicate JSON property 'name'.", path.property("name"), reader.location());
+          }
+          name = readString(reader, path.property("name"));
+          nameSeen = true;
+        }
+        case "address" -> {
+          if (addressSeen) {
+            throw error("MJJBR-003", "Duplicate JSON property 'address'.", path.property("address"), reader.location());
+          }
+          address = readGeneratedBindingsProfileAddress(reader, path.property("address"));
+          addressSeen = true;
+        }
+        default ->
+            throw error("MJJBR-004", "Unknown JSON property '" + __mjjbPropertyName + "'.", path.property(__mjjbPropertyName), reader.location());
+      }
+    }
+    reader.endObject();
+    if (!nameSeen) {
+      throw missingRequired("name", path.property("name"), reader.location());
+    }
+    if (!addressSeen) {
+      throw missingRequired("address", path.property("address"), reader.location());
+    }
+    return new GeneratedBindings.GeneratedBindingsProfile(name, address);
+  }
+
+  private static GeneratedBindings.GeneratedBindingsProfileAddress readGeneratedBindingsProfileAddress(JsonReader reader, JsonPath path) throws JsonReadException {
+    requireToken(reader, JsonToken.BEGIN_OBJECT, "MJJBR-001", "Expected JSON object.", path);
+    try {
+      reader.beginObject();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+    String city = null;
+    boolean citySeen = false;
+    Optional<String> postalCode = Optional.empty();
+    boolean postalCodeSeen = false;
+    while (reader.hasNext()) {
+      String name = reader.nextName();
+      switch (name) {
+        case "city" -> {
+          if (citySeen) {
+            throw error("MJJBR-003", "Duplicate JSON property 'city'.", path.property("city"), reader.location());
+          }
+          city = readString(reader, path.property("city"));
+          citySeen = true;
+        }
+        case "postalCode" -> {
+          if (postalCodeSeen) {
+            throw error("MJJBR-003", "Duplicate JSON property 'postalCode'.", path.property("postalCode"), reader.location());
+          }
+          postalCode = Optional.of(readString(reader, path.property("postalCode")));
+          postalCodeSeen = true;
+        }
+        default ->
+            throw error("MJJBR-004", "Unknown JSON property '" + name + "'.", path.property(name), reader.location());
+      }
+    }
+    reader.endObject();
+    if (!citySeen) {
+      throw missingRequired("city", path.property("city"), reader.location());
+    }
+    return new GeneratedBindings.GeneratedBindingsProfileAddress(city, postalCode);
+  }
+
+  private static GeneratedBindings.GeneratedBindingsSettings readGeneratedBindingsSettings(JsonReader reader, JsonPath path) throws JsonReadException {
+    requireToken(reader, JsonToken.BEGIN_OBJECT, "MJJBR-001", "Expected JSON object.", path);
+    try {
+      reader.beginObject();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+    Optional<Boolean> enabled = Optional.empty();
+    boolean enabledSeen = false;
+    while (reader.hasNext()) {
+      String name = reader.nextName();
+      switch (name) {
+        case "enabled" -> {
+          if (enabledSeen) {
+            throw error("MJJBR-003", "Duplicate JSON property 'enabled'.", path.property("enabled"), reader.location());
+          }
+          enabled = Optional.of(readBoolean(reader, path.property("enabled")));
+          enabledSeen = true;
+        }
+        default ->
+            throw error("MJJBR-004", "Unknown JSON property '" + name + "'.", path.property(name), reader.location());
+      }
+    }
+    reader.endObject();
+    return new GeneratedBindings.GeneratedBindingsSettings(enabled);
+  }
+
+  private static JsonReadException duplicateProperty(
+      String name, io.github.mundanej.mjjb.runtime.JsonLocation location) {
+    return error("MJJBR-003", "Duplicate JSON property '" + name + "'.", propertyPath(name), location);
+  }
+
+  private static JsonReadException missingRequired(
+      String name, JsonPath path, io.github.mundanej.mjjb.runtime.JsonLocation location) {
+    return error("MJJBR-005", "Missing required JSON property '" + name + "'.", path, location);
+  }
+
+  private static String readString(JsonReader reader, JsonPath path)
+      throws JsonReadException {
+    requireToken(reader, JsonToken.STRING, "MJJBR-006", "Expected JSON string.", path);
+    try {
+      return reader.nextString();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+  }
+
+  private static boolean readBoolean(JsonReader reader, JsonPath path)
+      throws JsonReadException {
+    requireToken(
+        reader, JsonToken.BOOLEAN, "MJJBR-009", "Expected JSON boolean.", path);
+    try {
+      return reader.nextBoolean();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+  }
+
+  private static String readNumberLiteral(
+      JsonReader reader, JsonPath path, String code, String message)
+      throws JsonReadException {
+    requireToken(reader, JsonToken.NUMBER, code, message, path);
+    try {
+      return reader.nextNumberLiteral();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+  }
+
+  private static void requireToken(
+      JsonReader reader, JsonToken expected, String code, String message, JsonPath path)
+      throws JsonReadException {
+    JsonToken actual;
+    try {
+      actual = reader.peek();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+    if (actual != expected) {
+      throw error(code, message, path, reader.location());
+    }
+  }
+
+  private static JsonReadException atPath(JsonReadException exception, JsonPath path) {
+    JsonDiagnostic diagnostic = exception.diagnostic();
+    return error(diagnostic.code(), diagnostic.message(), path, diagnostic.location());
+  }
+
+  private static JsonReadException error(
+      String code, String message, JsonPath path, io.github.mundanej.mjjb.runtime.JsonLocation location) {
+    return new JsonReadException(JsonDiagnostic.error(code, message, path, location));
+  }
+
+  private static JsonPath propertyPath(String name) {
+    return JsonPath.ROOT.property(name);
+  }
+}

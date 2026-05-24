@@ -53,6 +53,13 @@ states with `JsonField<T>`:
 | `["null", "boolean"]` | `JsonField<Boolean>` | `JsonField<Boolean>` |
 | `["null", "array"]` with scalar `items` | `JsonField<List<T>>` | `JsonField<List<T>>` |
 
+Closed object properties map to nested records owned by the root generated
+type:
+
+| JSON Schema property type | Required Java type | Optional Java type |
+| --- | --- | --- |
+| `object` with `additionalProperties: false` | nested record type | `Optional<NestedRecord>` |
+
 ## Basic Object Model Shape
 
 Generated basic object models are Java records. Record components are emitted in
@@ -85,6 +92,12 @@ Array fields are defensively copied with `List.copyOf` in the compact
 constructor. Required array fields reject null lists; optional array fields
 reject null optional containers. Present arrays reject null elements through the
 same copy operation. Accessors expose immutable lists.
+
+Nested object fields generate public nested records inside the root model type.
+Names are derived from the parent generated type and property name, with stable
+numeric suffixes when normalized names collide. Nested records use the same
+record-component ordering, required/optional semantics, compact-constructor
+null checks, metadata annotations, and closed-object profile as root records.
 
 The JSON Schema `default` keyword is an annotation in generated code. It does
 not affect constructors, readers, writers, or validation. For supported scalar
@@ -150,6 +163,8 @@ written. Optional scalar fields are written only when their `Optional<T>` is
 present; absent optionals are skipped rather than serialized as `null`.
 Nullable fields are written only when not `JsonField.absent()`; explicit null
 fields write JSON `null`, and value fields write the contained value.
+Nested object fields delegate to generated private writer methods and preserve
+schema order at every object depth.
 
 For tagged `oneOf` roots, writers dispatch with explicit branch type checks,
 write the tag property first with that branch's `const` value, and then write
@@ -198,6 +213,9 @@ root type mismatch, trailing root content, duplicate property, unknown property,
 missing required property, and scalar type mismatch. Parser failures retain
 their `MJJBP-*` codes; generated scalar readers re-path those failures to the
 active JSON instance field path where the reader knows it.
+Nested object readers recurse without buffering generic JSON objects. Duplicate,
+unknown, missing-required, scalar, and parser diagnostics use the active nested
+instance path, such as `$.profile.address.city`.
 
 `integer` fields parse JSON number literals as Java `long` values and reject
 decimal, exponent, and out-of-range literals. `number` fields parse Java
@@ -254,6 +272,9 @@ number values. Array validators also enforce `minItems` with `MJJBV-005` and
 `maxItems` with `MJJBV-006`; array size errors report the array field path and
 array item errors report indexed item paths.
 Required nullable fields with `JsonField.absent()` use `MJJBV-017`.
+Nested object validators delegate to generated private methods with the current
+base path, so field and facet failures preserve paths such as
+`$.profile.address.postalCode`.
 
 Generated validators also enforce scalar `enum` and `const` constraints for
 scalar fields and homogeneous scalar array items. Literal validation runs only

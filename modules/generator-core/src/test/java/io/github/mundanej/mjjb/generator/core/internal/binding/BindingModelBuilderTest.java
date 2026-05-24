@@ -64,6 +64,22 @@ final class BindingModelBuilderTest {
   }
 
   @Test
+  void rejectsRequiredNamesWhenPropertiesAreAbsent() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "required": ["id"],
+              "additionalProperties": false
+            }
+            """);
+
+    assertEquals(BindingDiagnostic.UNKNOWN_REQUIRED_CODE, result.diagnostics().getFirst().code());
+    assertEquals("/required/0", result.diagnostics().getFirst().pointer().value());
+  }
+
+  @Test
   void mapsJavaFieldNamesDeterministically() {
     BindingBuildResult result =
         build(
@@ -153,6 +169,94 @@ final class BindingModelBuilderTest {
         "JsonField<List<Double>>",
         model.rootObject().fields().get(1).valueType().requiredJavaType());
     assertEquals(List.of(true, false), requiredFlags(model));
+  }
+
+  @Test
+  void buildsNestedObjectBindings() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "profile": {
+                  "type": "object",
+                  "properties": {
+                    "name": {"type": "string"},
+                    "address": {
+                      "type": "object",
+                      "properties": {
+                        "city": {"type": "string"}
+                      },
+                      "required": ["city"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["name", "address"],
+                  "additionalProperties": false
+                },
+                "settings": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {"type": "boolean"}
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "required": ["profile"],
+              "additionalProperties": false
+            }
+            """);
+
+    assertTrue(result.diagnostics().isEmpty());
+    BindingModel model = result.model().orElseThrow();
+    FieldBinding profile = model.rootObject().fields().get(0);
+    FieldBinding settings = model.rootObject().fields().get(1);
+    ObjectBinding profileObject = profile.valueType().objectBinding().orElseThrow();
+    ObjectBinding settingsObject = settings.valueType().objectBinding().orElseThrow();
+    FieldBinding address = profileObject.fields().get(1);
+    ObjectBinding addressObject = address.valueType().objectBinding().orElseThrow();
+
+    assertTrue(profile.object());
+    assertEquals("GeneratedBindingsProfile", profileObject.javaTypeName());
+    assertEquals("GeneratedBindingsSettings", settingsObject.javaTypeName());
+    assertEquals("GeneratedBindingsProfileAddress", addressObject.javaTypeName());
+    assertEquals("GeneratedBindingsProfile", profile.valueType().requiredJavaType());
+    assertEquals("Optional<GeneratedBindingsSettings>", settings.valueType().optionalJavaType());
+    assertEquals(List.of("name", "address"), nestedJsonPropertyNames(profileObject));
+    assertEquals(List.of(true, true), nestedRequiredFlags(profileObject));
+    assertEquals("/properties/profile/properties/address", address.schemaPointer().value());
+    assertEquals(List.of("city"), nestedJsonPropertyNames(addressObject));
+  }
+
+  @Test
+  void disambiguatesNestedObjectTypeNameCollisions() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "user-profile": {
+                  "type": "object",
+                  "additionalProperties": false
+                },
+                "user_profile": {
+                  "type": "object",
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+            """);
+
+    assertTrue(result.diagnostics().isEmpty());
+    List<FieldBinding> fields = result.model().orElseThrow().rootObject().fields();
+    assertEquals(
+        List.of("GeneratedBindingsUserProfile", "GeneratedBindingsUserProfile2"),
+        fields.stream()
+            .map(field -> field.valueType().objectBinding().orElseThrow().javaTypeName())
+            .toList());
   }
 
   @Test
@@ -314,6 +418,41 @@ final class BindingModelBuilderTest {
   }
 
   @Test
+  void rejectsTaggedOneOfBranchTypeNameCollisionWithEarlierNestedObject() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {"type": "string", "const": "card"},
+                    "bank": {
+                      "type": "object",
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["kind"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {"type": "string", "const": "card-bank"}
+                  },
+                  "required": ["kind"],
+                  "additionalProperties": false
+                }
+              ]
+            }
+            """);
+
+    assertEquals(BindingDiagnostic.NAME_COLLISION_CODE, result.diagnostics().getFirst().code());
+    assertEquals("/oneOf/1/properties/kind", result.diagnostics().getFirst().pointer().value());
+  }
+
+  @Test
   void disambiguatesJavaFieldNameCollisions() {
     BindingBuildResult result =
         build(
@@ -415,15 +554,40 @@ final class BindingModelBuilderTest {
             {
               "type": "object",
               "properties": {
+                "tuple": {"type": "array", "items": [{"type": "string"}]},
+                "nullableObject": {"type": ["null", "object"], "additionalProperties": false}
+              },
+              "additionalProperties": false
+            }
+            """);
+
+    assertEquals(
+        List.of("/properties/nullableObject/type", "/properties/tuple/items"),
+        diagnosticPointers(result));
+    assertEquals(
+        List.of(
+            BindingDiagnostic.UNSUPPORTED_PROPERTY_TYPE_CODE,
+            BindingDiagnostic.UNSUPPORTED_PROPERTY_TYPE_CODE),
+        diagnosticCodes(result));
+  }
+
+  @Test
+  void rejectsOpenNestedObjectBindings() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "properties": {
                 "child": {"type": "object"}
               },
               "additionalProperties": false
             }
             """);
 
-    assertEquals(List.of("/properties/child/type"), diagnosticPointers(result));
     assertEquals(
-        List.of(BindingDiagnostic.UNSUPPORTED_PROPERTY_TYPE_CODE), diagnosticCodes(result));
+        BindingDiagnostic.ADDITIONAL_PROPERTIES_CODE, result.diagnostics().getFirst().code());
+    assertEquals("/properties/child", result.diagnostics().getFirst().pointer().value());
   }
 
   @Test
@@ -640,5 +804,13 @@ final class BindingModelBuilderTest {
 
   private static List<Boolean> branchRequiredFlags(TaggedUnionBranch branch) {
     return branch.object().fields().stream().map(FieldBinding::required).toList();
+  }
+
+  private static List<String> nestedJsonPropertyNames(ObjectBinding object) {
+    return object.fields().stream().map(FieldBinding::jsonPropertyName).toList();
+  }
+
+  private static List<Boolean> nestedRequiredFlags(ObjectBinding object) {
+    return object.fields().stream().map(FieldBinding::required).toList();
   }
 }

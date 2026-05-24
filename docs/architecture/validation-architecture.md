@@ -29,6 +29,11 @@ stable generated-validator codes `MJJBV-005` and `MJJBV-006`. Validation that
 targets an array item, such as non-finite `number` items, reports the indexed
 instance path, for example `$.scores[0]`.
 
+Nested object validators validate generated nested records by delegation rather
+than by interpreting schemas at runtime. Each delegated validator receives the
+current JSON instance base path, so required-field, optional-container, and
+facet failures are reported at nested paths such as `$.profile.address.city`.
+
 Tagged `oneOf` validators validate the generated sealed root interface. The
 generated validator checks root null first, then dispatches by concrete nested
 branch record type and validates that branch's fields in schema property order.
