@@ -1,7 +1,7 @@
 # TASK-0039: External Issue Mining
 
 Task ID: `TASK-0039`
-Status: `ready-for-implementation`
+Status: `complete`
 Gate: Post-v1 hardening and simplification
 Depends on: `TASK-0038`
 Specification references: `docs/supported-profile.md`; `docs/standards-baseline.md`; ADR-0001 JSON Schema Draft 2020-12 baseline

@@ -397,6 +397,31 @@ final class BindingModelBuilderTest {
   }
 
   @Test
+  void disambiguatesAdditionalPropertiesMapFromDeclaredPropertyName() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "additionalProperties": {"type": "string"}
+              },
+              "additionalProperties": {"type": "integer"}
+            }
+            """);
+
+    assertTrue(result.diagnostics().isEmpty());
+    ObjectBinding root = result.model().orElseThrow().rootObject();
+    FieldBinding field = root.fields().getFirst();
+    MapBinding map = root.additionalProperties().orElseThrow();
+
+    assertEquals("additionalProperties", field.jsonPropertyName());
+    assertEquals("additionalProperties", field.javaFieldName());
+    assertEquals("additionalProperties2", map.javaFieldName());
+    assertEquals(JavaScalarType.INTEGER, map.scalarType());
+  }
+
+  @Test
   void buildsPatternPropertiesMapBinding() {
     BindingBuildResult result =
         build(
