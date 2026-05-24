@@ -92,6 +92,7 @@ final class FieldValueTypeTest {
     assertFalse(valueType.nullable());
     assertEquals(1L, valueType.minItems().orElseThrow());
     assertEquals(3L, valueType.maxItems().orElseThrow());
+    assertFalse(valueType.uniqueItems());
     assertEquals("List<Double>", valueType.requiredJavaType());
     assertEquals("Optional<List<Double>>", valueType.optionalJavaType());
     assertEquals("List<Double>", valueType.nullableValueJavaType());
@@ -154,6 +155,7 @@ final class FieldValueTypeTest {
     assertTrue(valueType.nullable());
     assertEquals(1L, valueType.minItems().orElseThrow());
     assertEquals(5L, valueType.maxItems().orElseThrow());
+    assertFalse(valueType.uniqueItems());
     assertEquals("JsonField<List<Boolean>>", valueType.requiredJavaType());
     assertEquals("JsonField<List<Boolean>>", valueType.optionalJavaType());
     assertEquals("List<Boolean>", valueType.nullableValueJavaType());
@@ -178,6 +180,41 @@ final class FieldValueTypeTest {
                     LiteralConstraints.EMPTY));
 
     assertEquals("scalar fields must not have array item bounds", exception.getMessage());
+  }
+
+  @Test
+  void arrayFactoryPreservesUniqueItems() {
+    FieldValueType valueType =
+        FieldValueType.array(
+            JavaScalarType.STRING,
+            OptionalLong.empty(),
+            OptionalLong.empty(),
+            true,
+            FacetConstraints.EMPTY,
+            LiteralConstraints.EMPTY);
+
+    assertTrue(valueType.array());
+    assertTrue(valueType.uniqueItems());
+  }
+
+  @Test
+  void scalarRecordRejectsUniqueItems() {
+    IllegalArgumentException exception =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                new FieldValueType(
+                    JavaScalarType.STRING,
+                    Optional.empty(),
+                    false,
+                    false,
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    true,
+                    FacetConstraints.EMPTY,
+                    LiteralConstraints.EMPTY));
+
+    assertEquals("scalar fields must not have uniqueItems", exception.getMessage());
   }
 
   @Test

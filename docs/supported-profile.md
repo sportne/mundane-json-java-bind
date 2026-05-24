@@ -77,7 +77,7 @@ The profile supports these binding and validation keywords:
 | Collections | `minItems`, `maxItems` |
 | Objects | `minProperties`, `maxProperties`, `propertyNames`, `dependentRequired` |
 | String facets | `minLength`, `maxLength`, `pattern`, `format` |
-| Numeric facets | `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum` |
+| Numeric facets | `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `multipleOf` |
 | Literal constraints | `enum`, `const` |
 | Metadata annotation | `default` |
 
@@ -93,6 +93,13 @@ string assertions (`type: "string"`, `minLength`, `maxLength`, `pattern`, and
 supported `format` values) over present declared names and generated map keys.
 `dependentRequired` validates generated property presence and reports missing
 dependent names at their property paths.
+
+`multipleOf` uses decimal arithmetic over generated integer values and finite
+generated `double` number values. The profile does not preserve arbitrary JSON
+decimal precision beyond the generated Java `double` representation.
+`uniqueItems` is supported for homogeneous scalar arrays and uses JSON Schema
+scalar equality, including normalized decimal equality for finite generated
+`number` arrays.
 
 `default` is an annotation. It does not change generated constructors, readers,
 writers, or validators. Supported defaults are exposed through generated model
@@ -192,8 +199,8 @@ as `/properties/value/allOf`.
 | `maximum` | Validation | Supported | Generated validators compare numeric values against exact schema literals. |
 | `exclusiveMinimum` | Validation | Supported | Generated validators compare numeric values against exact schema literals. |
 | `exclusiveMaximum` | Validation | Supported | Generated validators compare numeric values against exact schema literals. |
-| `multipleOf` | Validation | Recommended next | Numeric divisibility is a low-risk generated validator addition. |
-| `uniqueItems` | Validation | Recommended next | Scalar-array uniqueness is a low-to-medium complexity generated validator addition. |
+| `multipleOf` | Validation | Supported with profile limits | Generated validators enforce divisibility for numeric scalar fields, numeric map values, and homogeneous numeric array items over generated Java numeric values. |
+| `uniqueItems` | Validation | Supported with profile limits | Generated validators enforce uniqueness for homogeneous scalar arrays. |
 | `maxContains` | Validation | Deferred - poor tradeoff | Depends on deferred `contains` support. |
 | `minContains` | Validation | Deferred - poor tradeoff | Depends on deferred `contains` support. |
 | `maxProperties` | Validation | Supported | Generated validators enforce object upper bounds using generated property-presence semantics. |
@@ -238,7 +245,7 @@ documents from that scan.
 | 4 | Constrained object `allOf` flattening | 25.2% | High | High | Implemented in `TASK-0033`. |
 | 5 | `patternProperties` map bindings | 22.8% | High | High | Implemented in `TASK-0034`. |
 | 6 | Object validation keywords: `minProperties`, `maxProperties`, `propertyNames`, `dependentRequired` | 5.7% / low | Medium | Medium | Implemented in `TASK-0035`. |
-| 7 | Low-risk scalar/array validators: `multipleOf`, `uniqueItems` | Not in scan | Medium | Low-medium | Create `TASK-0036`. |
+| 7 | Low-risk scalar/array validators: `multipleOf`, `uniqueItems` | Not in scan | Medium | Low-medium | Implemented in `TASK-0036`. |
 
 ### Deferred Low-Tradeoff Features
 

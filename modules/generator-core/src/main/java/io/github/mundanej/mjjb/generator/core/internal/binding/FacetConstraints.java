@@ -13,7 +13,8 @@ public record FacetConstraints(
     Optional<String> minimum,
     Optional<String> maximum,
     Optional<String> exclusiveMinimum,
-    Optional<String> exclusiveMaximum) {
+    Optional<String> exclusiveMaximum,
+    Optional<String> multipleOf) {
   public static final FacetConstraints EMPTY =
       new FacetConstraints(
           OptionalLong.empty(),
@@ -23,7 +24,29 @@ public record FacetConstraints(
           Optional.empty(),
           Optional.empty(),
           Optional.empty(),
+          Optional.empty(),
           Optional.empty());
+
+  public FacetConstraints(
+      OptionalLong minLength,
+      OptionalLong maxLength,
+      Optional<String> pattern,
+      Optional<String> format,
+      Optional<String> minimum,
+      Optional<String> maximum,
+      Optional<String> exclusiveMinimum,
+      Optional<String> exclusiveMaximum) {
+    this(
+        minLength,
+        maxLength,
+        pattern,
+        format,
+        minimum,
+        maximum,
+        exclusiveMinimum,
+        exclusiveMaximum,
+        Optional.empty());
+  }
 
   public FacetConstraints {
     Objects.requireNonNull(minLength, "minLength");
@@ -34,6 +57,7 @@ public record FacetConstraints(
     Objects.requireNonNull(maximum, "maximum");
     Objects.requireNonNull(exclusiveMinimum, "exclusiveMinimum");
     Objects.requireNonNull(exclusiveMaximum, "exclusiveMaximum");
+    Objects.requireNonNull(multipleOf, "multipleOf");
   }
 
   public boolean hasStringFacets() {
@@ -47,6 +71,7 @@ public record FacetConstraints(
     return minimum.isPresent()
         || maximum.isPresent()
         || exclusiveMinimum.isPresent()
-        || exclusiveMaximum.isPresent();
+        || exclusiveMaximum.isPresent()
+        || multipleOf.isPresent();
   }
 }

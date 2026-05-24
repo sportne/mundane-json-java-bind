@@ -12,8 +12,21 @@ public record FieldValueType(
     boolean nullable,
     OptionalLong minItems,
     OptionalLong maxItems,
+    boolean uniqueItems,
     FacetConstraints facets,
     LiteralConstraints literals) {
+  public FieldValueType(
+      JavaScalarType scalarType,
+      Optional<ObjectBinding> objectBinding,
+      boolean array,
+      boolean nullable,
+      OptionalLong minItems,
+      OptionalLong maxItems,
+      FacetConstraints facets,
+      LiteralConstraints literals) {
+    this(scalarType, objectBinding, array, nullable, minItems, maxItems, false, facets, literals);
+  }
+
   public FieldValueType {
     Objects.requireNonNull(objectBinding, "objectBinding");
     Objects.requireNonNull(minItems, "minItems");
@@ -29,11 +42,15 @@ public record FieldValueType(
     if (!array && (minItems.isPresent() || maxItems.isPresent())) {
       throw new IllegalArgumentException("scalar fields must not have array item bounds");
     }
+    if (!array && uniqueItems) {
+      throw new IllegalArgumentException("scalar fields must not have uniqueItems");
+    }
     if (objectBinding.isPresent()
         && (array
             || nullable
             || minItems.isPresent()
             || maxItems.isPresent()
+            || uniqueItems
             || !facets.equals(FacetConstraints.EMPTY)
             || !literals.equals(LiteralConstraints.EMPTY))) {
       throw new IllegalArgumentException("object fields must not have scalar constraints");
@@ -58,6 +75,7 @@ public record FieldValueType(
         false,
         OptionalLong.empty(),
         OptionalLong.empty(),
+        false,
         facets,
         literals);
   }
@@ -72,6 +90,7 @@ public record FieldValueType(
         true,
         OptionalLong.empty(),
         OptionalLong.empty(),
+        false,
         facets,
         literals);
   }
@@ -95,9 +114,27 @@ public record FieldValueType(
       OptionalLong maxItems,
       FacetConstraints facets,
       LiteralConstraints literals) {
+    return array(scalarType, minItems, maxItems, false, facets, literals);
+  }
+
+  public static FieldValueType array(
+      JavaScalarType scalarType,
+      OptionalLong minItems,
+      OptionalLong maxItems,
+      boolean uniqueItems,
+      FacetConstraints facets,
+      LiteralConstraints literals) {
     Objects.requireNonNull(scalarType, "scalarType");
     return new FieldValueType(
-        scalarType, Optional.empty(), true, false, minItems, maxItems, facets, literals);
+        scalarType,
+        Optional.empty(),
+        true,
+        false,
+        minItems,
+        maxItems,
+        uniqueItems,
+        facets,
+        literals);
   }
 
   public static FieldValueType nullableArray(
@@ -106,9 +143,27 @@ public record FieldValueType(
       OptionalLong maxItems,
       FacetConstraints facets,
       LiteralConstraints literals) {
+    return nullableArray(scalarType, minItems, maxItems, false, facets, literals);
+  }
+
+  public static FieldValueType nullableArray(
+      JavaScalarType scalarType,
+      OptionalLong minItems,
+      OptionalLong maxItems,
+      boolean uniqueItems,
+      FacetConstraints facets,
+      LiteralConstraints literals) {
     Objects.requireNonNull(scalarType, "scalarType");
     return new FieldValueType(
-        scalarType, Optional.empty(), true, true, minItems, maxItems, facets, literals);
+        scalarType,
+        Optional.empty(),
+        true,
+        true,
+        minItems,
+        maxItems,
+        uniqueItems,
+        facets,
+        literals);
   }
 
   public static FieldValueType object(ObjectBinding objectBinding) {
@@ -120,6 +175,7 @@ public record FieldValueType(
         false,
         OptionalLong.empty(),
         OptionalLong.empty(),
+        false,
         FacetConstraints.EMPTY,
         LiteralConstraints.EMPTY);
   }

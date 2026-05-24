@@ -87,6 +87,11 @@ Object validation keywords do not change model, reader, or writer shape.
 `dependentRequired` are emitted only into generated validators, using generated
 field and map presence semantics.
 
+`multipleOf` and `uniqueItems` also affect generated validators only.
+`multipleOf` is emitted for generated numeric scalar values and numeric array
+items. `uniqueItems` is emitted for homogeneous scalar arrays and does not add
+runtime schema interpretation or deep object/array equality.
+
 ## Basic Object Model Shape
 
 Generated basic object models are Java records. Record components are emitted in

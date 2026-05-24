@@ -76,9 +76,17 @@ item paths for array items.
 | `maximum` | `integer`, `number` | `MJJBV-012` | Compares generated model values against exact schema literals with `BigDecimal`. |
 | `exclusiveMinimum` | `integer`, `number` | `MJJBV-013` | Requires model value greater than the schema literal. |
 | `exclusiveMaximum` | `integer`, `number` | `MJJBV-014` | Requires model value less than the schema literal. |
+| `multipleOf` | `integer`, `number` | `MJJBV-021` | Uses `BigDecimal` remainder checks over generated Java numeric values. |
 | `minProperties` | `object` | `MJJBV-018` | Counts generated property presence including map keys. |
 | `maxProperties` | `object` | `MJJBV-019` | Counts generated property presence including map keys. |
 | `dependentRequired` | `object` | `MJJBV-020` | Reports the missing dependent property path. |
+
+`uniqueItems` is supported for homogeneous scalar arrays. Generated validators
+report duplicate values with `MJJBV-022` at the duplicate item path. Number
+array uniqueness normalizes generated finite `double` values through
+`BigDecimal` before comparison so scalar numeric equality does not depend on
+decimal scale. Non-finite direct-construction values are reported separately by
+the finite-number validator and skipped by uniqueness normalization.
 
 ## Literal Constraints
 

@@ -149,6 +149,12 @@ public final class ValidatorSourceEmitter {
     if (hasExclusiveMaximumFacet(model)) {
       lines.addAll(validateExclusiveMaximumHelper());
     }
+    if (hasMultipleOfFacet(model)) {
+      lines.addAll(validateMultipleOfHelper());
+    }
+    if (hasUniqueItemsConstraint(model)) {
+      lines.addAll(validateUniqueItemsHelper());
+    }
     if (hasEnumConstraint(model)) {
       lines.addAll(validateEnumHelper());
     }
@@ -243,7 +249,9 @@ public final class ValidatorSourceEmitter {
     imports.add("io.github.mundanej.mjjb.runtime.ValidationErrors");
     imports.add("io.github.mundanej.mjjb.runtime.ValidationMode");
     imports.add("io.github.mundanej.mjjb.runtime.ValidationResult");
-    if (hasNumericFacet(model) || hasNumberLiteralConstraint(model)) {
+    if (hasNumericFacet(model)
+        || hasNumberLiteralConstraint(model)
+        || hasNumberUniqueItems(model)) {
       imports.add("java.math.BigDecimal");
     }
     imports.add("java.util.Objects");
@@ -783,6 +791,7 @@ public final class ValidatorSourceEmitter {
     if (field.valueType().minItems().isEmpty()
         && field.valueType().maxItems().isEmpty()
         && field.scalarType() != JavaScalarType.NUMBER
+        && !field.valueType().uniqueItems()
         && !field.valueType().facets().hasStringFacets()
         && !field.valueType().facets().hasNumericFacets()
         && !field.valueType().literals().hasEnum()
@@ -818,6 +827,7 @@ public final class ValidatorSourceEmitter {
       lines.add("        return errors.toResult();");
       lines.add("      }");
     }
+    boolean uniqueItemsAfterItemValidation = field.valueType().uniqueItems();
     if (field.scalarType() == JavaScalarType.NUMBER) {
       lines.add("      int index = 0;");
       lines.add("      for (Double item : " + valueExpression + ") {");
@@ -867,6 +877,16 @@ public final class ValidatorSourceEmitter {
       lines.add("        index++;");
       lines.add("      }");
     }
+    if (uniqueItemsAfterItemValidation) {
+      lines.add(
+          "      if (!validateUniqueItems(errors, "
+              + valueExpression
+              + ", "
+              + pathExpression
+              + ")) {");
+      lines.add("        return errors.toResult();");
+      lines.add("      }");
+    }
     lines.add("    }");
     return lines;
   }
@@ -881,6 +901,7 @@ public final class ValidatorSourceEmitter {
     if (map.valueType().minItems().isEmpty()
         && map.valueType().maxItems().isEmpty()
         && map.scalarType() != JavaScalarType.NUMBER
+        && !map.valueType().uniqueItems()
         && !map.valueType().facets().hasStringFacets()
         && !map.valueType().facets().hasNumericFacets()
         && !map.valueType().literals().hasEnum()
@@ -915,6 +936,7 @@ public final class ValidatorSourceEmitter {
       lines.add(indentPrefix + "    return errors.toResult();");
       lines.add(indentPrefix + "  }");
     }
+    boolean uniqueItemsAfterItemValidation = map.valueType().uniqueItems();
     if (map.scalarType() == JavaScalarType.NUMBER) {
       lines.add(indentPrefix + "  int index = 0;");
       lines.add(indentPrefix + "  for (Double item : " + valueExpression + ") {");
@@ -963,6 +985,17 @@ public final class ValidatorSourceEmitter {
       lines.addAll(
           indent(validateLiteralLines(map, "item", "true", itemPathExpression), indentPrefix));
       lines.add(indentPrefix + "    index++;");
+      lines.add(indentPrefix + "  }");
+    }
+    if (uniqueItemsAfterItemValidation) {
+      lines.add(
+          indentPrefix
+              + "  if (!validateUniqueItems(errors, "
+              + valueExpression
+              + ", "
+              + pathExpression
+              + ")) {");
+      lines.add(indentPrefix + "    return errors.toResult();");
       lines.add(indentPrefix + "  }");
     }
     lines.add(indentPrefix + "}");
@@ -1155,6 +1188,18 @@ public final class ValidatorSourceEmitter {
       lines.add("        return errors.toResult();");
       lines.add("      }");
     }
+    if (facets.multipleOf().isPresent()) {
+      lines.add(
+          "      if (!validateMultipleOf(errors, "
+              + numericValue
+              + ", "
+              + javaStringLiteral(facets.multipleOf().orElseThrow())
+              + ", "
+              + pathExpression
+              + ")) {");
+      lines.add("        return errors.toResult();");
+      lines.add("      }");
+    }
     lines.add("    }");
     return lines;
   }
@@ -1283,6 +1328,12 @@ public final class ValidatorSourceEmitter {
             .anyMatch(field -> field.array() && field.valueType().maxItems().isPresent())
         || allMaps(model).stream()
             .anyMatch(map -> map.array() && map.valueType().maxItems().isPresent());
+  }
+
+  private static boolean hasUniqueItemsConstraint(BindingModel model) {
+    return allFields(model).stream()
+            .anyMatch(field -> field.array() && field.valueType().uniqueItems())
+        || allMaps(model).stream().anyMatch(map -> map.array() && map.valueType().uniqueItems());
   }
 
   private static boolean hasMinPropertiesConstraint(BindingModel model) {
@@ -1464,6 +1515,13 @@ public final class ValidatorSourceEmitter {
             .anyMatch(map -> map.valueType().facets().exclusiveMaximum().isPresent());
   }
 
+  private static boolean hasMultipleOfFacet(BindingModel model) {
+    return allFields(model).stream()
+            .anyMatch(field -> field.valueType().facets().multipleOf().isPresent())
+        || allMaps(model).stream()
+            .anyMatch(map -> map.valueType().facets().multipleOf().isPresent());
+  }
+
   private static boolean hasNumericFacet(BindingModel model) {
     return allFields(model).stream()
             .anyMatch(field -> field.valueType().facets().hasNumericFacets())
@@ -1494,6 +1552,21 @@ public final class ValidatorSourceEmitter {
                         && map.scalarType() == JavaScalarType.NUMBER
                         && (map.valueType().literals().hasEnum()
                             || map.valueType().literals().hasConst()));
+  }
+
+  private static boolean hasNumberUniqueItems(BindingModel model) {
+    return allFields(model).stream()
+            .anyMatch(
+                field ->
+                    field.array()
+                        && field.valueType().uniqueItems()
+                        && field.scalarType() == JavaScalarType.NUMBER)
+        || allMaps(model).stream()
+            .anyMatch(
+                map ->
+                    map.array()
+                        && map.valueType().uniqueItems()
+                        && map.scalarType() == JavaScalarType.NUMBER);
   }
 
   private static List<FieldBinding> allFields(BindingModel model) {
@@ -1788,6 +1861,53 @@ public final class ValidatorSourceEmitter {
         "            \"MJJBV-014\",",
         "            \"Expected number to be less than \" + exclusiveMaximum + \".\",",
         "            path));",
+        "  }");
+  }
+
+  private static List<String> validateMultipleOfHelper() {
+    return List.of(
+        "",
+        "  private static boolean validateMultipleOf(",
+        "      ValidationErrors errors, BigDecimal value, String multipleOf, JsonPath path) {",
+        "    if (value.remainder(new BigDecimal(multipleOf)).compareTo(BigDecimal.ZERO) == 0) {",
+        "      return true;",
+        "    }",
+        "    return errors.add(",
+        "        ValidationError.of(",
+        "            \"MJJBV-021\",",
+        "            \"Expected number to be a multiple of \" + multipleOf + \".\",",
+        "            path));",
+        "  }");
+  }
+
+  private static List<String> validateUniqueItemsHelper() {
+    return List.of(
+        "",
+        "  private static boolean validateUniqueItems(",
+        "      ValidationErrors errors, java.util.List<?> items, JsonPath path) {",
+        "    java.util.HashSet<Object> seen = new java.util.HashSet<>();",
+        "    int index = 0;",
+        "    for (Object item : items) {",
+        "      Object key;",
+        "      if (item instanceof Double number) {",
+        "        if (!Double.isFinite(number)) {",
+        "          index++;",
+        "          continue;",
+        "        }",
+        "        key = java.math.BigDecimal.valueOf(number).stripTrailingZeros();",
+        "      } else {",
+        "        key = item;",
+        "      }",
+        "      if (!seen.add(key)) {",
+        "        if (!errors.add(",
+        "            ValidationError.of(",
+        "                \"MJJBV-022\", \"Expected array items to be unique.\", path.index(index)))) {",
+        "          return false;",
+        "        }",
+        "      }",
+        "      index++;",
+        "    }",
+        "    return true;",
         "  }");
   }
 

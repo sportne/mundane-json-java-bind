@@ -1,0 +1,17 @@
+package io.github.mundanej.mjjb.generated;
+
+import java.util.List;
+import java.util.Objects;
+
+public record GeneratedBindings(
+    long stepCount,
+    double ratio,
+    List<Long> steps,
+    List<String> labels,
+    List<Double> scores) {
+  public GeneratedBindings {
+    steps = List.copyOf(Objects.requireNonNull(steps, "steps"));
+    labels = List.copyOf(Objects.requireNonNull(labels, "labels"));
+    scores = List.copyOf(Objects.requireNonNull(scores, "scores"));
+  }
+}

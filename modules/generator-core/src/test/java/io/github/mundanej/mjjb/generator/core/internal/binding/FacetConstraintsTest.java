@@ -24,6 +24,7 @@ final class FacetConstraintsTest {
         () -> assertFalse(constraints.maximum().isPresent()),
         () -> assertFalse(constraints.exclusiveMinimum().isPresent()),
         () -> assertFalse(constraints.exclusiveMaximum().isPresent()),
+        () -> assertFalse(constraints.multipleOf().isPresent()),
         () -> assertFalse(constraints.hasStringFacets()),
         () -> assertFalse(constraints.hasNumericFacets()));
   }
@@ -43,7 +44,8 @@ final class FacetConstraintsTest {
         () -> assertHasOnlyNumericFacets(emptyWithMinimum("1")),
         () -> assertHasOnlyNumericFacets(emptyWithMaximum("10")),
         () -> assertHasOnlyNumericFacets(emptyWithExclusiveMinimum("0")),
-        () -> assertHasOnlyNumericFacets(emptyWithExclusiveMaximum("11")));
+        () -> assertHasOnlyNumericFacets(emptyWithExclusiveMaximum("11")),
+        () -> assertHasOnlyNumericFacets(emptyWithMultipleOf("0.25")));
   }
 
   @Test
@@ -283,5 +285,18 @@ final class FacetConstraintsTest {
         Optional.empty(),
         Optional.empty(),
         Optional.of(exclusiveMaximum));
+  }
+
+  private static FacetConstraints emptyWithMultipleOf(String multipleOf) {
+    return new FacetConstraints(
+        OptionalLong.empty(),
+        OptionalLong.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.of(multipleOf));
   }
 }

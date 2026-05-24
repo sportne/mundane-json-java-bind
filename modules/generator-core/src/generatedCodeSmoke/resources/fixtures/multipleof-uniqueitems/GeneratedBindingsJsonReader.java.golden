@@ -1,0 +1,264 @@
+package io.github.mundanej.mjjb.generated;
+
+import io.github.mundanej.mjjb.runtime.JsonDiagnostic;
+import io.github.mundanej.mjjb.runtime.JsonPath;
+import io.github.mundanej.mjjb.runtime.JsonReadException;
+import io.github.mundanej.mjjb.runtime.JsonReader;
+import io.github.mundanej.mjjb.runtime.JsonToken;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+public final class GeneratedBindingsJsonReader {
+  private GeneratedBindingsJsonReader() {}
+
+  public static GeneratedBindings read(JsonReader reader) throws JsonReadException {
+    Objects.requireNonNull(reader, "reader");
+    if (reader.peek() != JsonToken.BEGIN_OBJECT) {
+      throw error("MJJBR-001", "Expected root JSON object.", JsonPath.ROOT, reader.location());
+    }
+    reader.beginObject();
+    long stepCount = 0L;
+    boolean stepCountSeen = false;
+    double ratio = 0.0D;
+    boolean ratioSeen = false;
+    List<Long> steps = null;
+    boolean stepsSeen = false;
+    List<String> labels = null;
+    boolean labelsSeen = false;
+    List<Double> scores = null;
+    boolean scoresSeen = false;
+    while (reader.hasNext()) {
+      String name = reader.nextName();
+      switch (name) {
+        case "stepCount" -> {
+          if (stepCountSeen) {
+            throw duplicateProperty("stepCount", reader.location());
+          }
+          stepCount = readInteger(reader, propertyPath("stepCount"));
+          stepCountSeen = true;
+        }
+        case "ratio" -> {
+          if (ratioSeen) {
+            throw duplicateProperty("ratio", reader.location());
+          }
+          ratio = readNumber(reader, propertyPath("ratio"));
+          ratioSeen = true;
+        }
+        case "steps" -> {
+          if (stepsSeen) {
+            throw duplicateProperty("steps", reader.location());
+          }
+          steps = readIntegerArray(reader, propertyPath("steps"));
+          stepsSeen = true;
+        }
+        case "labels" -> {
+          if (labelsSeen) {
+            throw duplicateProperty("labels", reader.location());
+          }
+          labels = readStringArray(reader, propertyPath("labels"));
+          labelsSeen = true;
+        }
+        case "scores" -> {
+          if (scoresSeen) {
+            throw duplicateProperty("scores", reader.location());
+          }
+          scores = readNumberArray(reader, propertyPath("scores"));
+          scoresSeen = true;
+        }
+        default ->
+            throw error("MJJBR-004", "Unknown JSON property '" + name + "'.", propertyPath(name), reader.location());
+      }
+    }
+    reader.endObject();
+    if (!stepCountSeen) {
+      throw missingRequired("stepCount", propertyPath("stepCount"), reader.location());
+    }
+    if (!ratioSeen) {
+      throw missingRequired("ratio", propertyPath("ratio"), reader.location());
+    }
+    if (!stepsSeen) {
+      throw missingRequired("steps", propertyPath("steps"), reader.location());
+    }
+    if (!labelsSeen) {
+      throw missingRequired("labels", propertyPath("labels"), reader.location());
+    }
+    if (!scoresSeen) {
+      throw missingRequired("scores", propertyPath("scores"), reader.location());
+    }
+    if (reader.peek() != JsonToken.END_DOCUMENT) {
+      throw error("MJJBR-002", "Unexpected JSON content after root value.", JsonPath.ROOT, reader.location());
+    }
+    return new GeneratedBindings(stepCount, ratio, steps, labels, scores);
+  }
+
+  private static JsonReadException duplicateProperty(
+      String name, io.github.mundanej.mjjb.runtime.JsonLocation location) {
+    return error("MJJBR-003", "Duplicate JSON property '" + name + "'.", propertyPath(name), location);
+  }
+
+  private static JsonReadException missingRequired(
+      String name, JsonPath path, io.github.mundanej.mjjb.runtime.JsonLocation location) {
+    return error("MJJBR-005", "Missing required JSON property '" + name + "'.", path, location);
+  }
+
+  private static String readString(JsonReader reader, JsonPath path)
+      throws JsonReadException {
+    requireToken(reader, JsonToken.STRING, "MJJBR-006", "Expected JSON string.", path);
+    try {
+      return reader.nextString();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+  }
+
+  private static long readInteger(JsonReader reader, JsonPath path)
+      throws JsonReadException {
+    String literal =
+        readNumberLiteral(reader, path, "MJJBR-007", "Expected JSON integer.");
+    if (!isIntegerLiteral(literal)) {
+      throw error(
+          "MJJBR-007", "Expected JSON integer.", path, reader.location());
+    }
+    try {
+      return Long.parseLong(literal);
+    } catch (NumberFormatException exception) {
+      throw error(
+          "MJJBR-007", "Expected JSON integer.", path, reader.location());
+    }
+  }
+
+  private static boolean isIntegerLiteral(String literal) {
+    return literal.indexOf('.') < 0 && literal.indexOf('e') < 0 && literal.indexOf('E') < 0;
+  }
+
+  private static double readNumber(JsonReader reader, JsonPath path)
+      throws JsonReadException {
+    String literal =
+        readNumberLiteral(reader, path, "MJJBR-008", "Expected JSON number.");
+    double value;
+    try {
+      value = Double.parseDouble(literal);
+    } catch (NumberFormatException exception) {
+      throw error("MJJBR-008", "Expected JSON number.", path, reader.location());
+    }
+    if (!Double.isFinite(value)) {
+      throw error("MJJBR-008", "Expected finite JSON number.", path, reader.location());
+    }
+    return value;
+  }
+
+  private static List<String> readStringArray(JsonReader reader, JsonPath path)
+      throws JsonReadException {
+    requireToken(reader, JsonToken.BEGIN_ARRAY, "MJJBR-010", "Expected JSON array.", path);
+    ArrayList<String> values = new ArrayList<>();
+    try {
+      reader.beginArray();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+    int index = 0;
+    while (hasNext(reader, path)) {
+      values.add(readString(reader, path.index(index)));
+      index++;
+    }
+    try {
+      reader.endArray();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+    return List.copyOf(values);
+  }
+
+  private static List<Long> readIntegerArray(JsonReader reader, JsonPath path)
+      throws JsonReadException {
+    requireToken(reader, JsonToken.BEGIN_ARRAY, "MJJBR-010", "Expected JSON array.", path);
+    ArrayList<Long> values = new ArrayList<>();
+    try {
+      reader.beginArray();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+    int index = 0;
+    while (hasNext(reader, path)) {
+      values.add(readInteger(reader, path.index(index)));
+      index++;
+    }
+    try {
+      reader.endArray();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+    return List.copyOf(values);
+  }
+
+  private static List<Double> readNumberArray(JsonReader reader, JsonPath path)
+      throws JsonReadException {
+    requireToken(reader, JsonToken.BEGIN_ARRAY, "MJJBR-010", "Expected JSON array.", path);
+    ArrayList<Double> values = new ArrayList<>();
+    try {
+      reader.beginArray();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+    int index = 0;
+    while (hasNext(reader, path)) {
+      values.add(readNumber(reader, path.index(index)));
+      index++;
+    }
+    try {
+      reader.endArray();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+    return List.copyOf(values);
+  }
+
+  private static String readNumberLiteral(
+      JsonReader reader, JsonPath path, String code, String message)
+      throws JsonReadException {
+    requireToken(reader, JsonToken.NUMBER, code, message, path);
+    try {
+      return reader.nextNumberLiteral();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+  }
+
+  private static void requireToken(
+      JsonReader reader, JsonToken expected, String code, String message, JsonPath path)
+      throws JsonReadException {
+    JsonToken actual;
+    try {
+      actual = reader.peek();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+    if (actual != expected) {
+      throw error(code, message, path, reader.location());
+    }
+  }
+
+  private static boolean hasNext(JsonReader reader, JsonPath path)
+      throws JsonReadException {
+    try {
+      return reader.hasNext();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+  }
+
+  private static JsonReadException atPath(JsonReadException exception, JsonPath path) {
+    JsonDiagnostic diagnostic = exception.diagnostic();
+    return error(diagnostic.code(), diagnostic.message(), path, diagnostic.location());
+  }
+
+  private static JsonReadException error(
+      String code, String message, JsonPath path, io.github.mundanej.mjjb.runtime.JsonLocation location) {
+    return new JsonReadException(JsonDiagnostic.error(code, message, path, location));
+  }
+
+  private static JsonPath propertyPath(String name) {
+    return JsonPath.ROOT.property(name);
+  }
+}

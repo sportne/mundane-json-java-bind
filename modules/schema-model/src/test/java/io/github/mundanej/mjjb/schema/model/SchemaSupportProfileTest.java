@@ -96,8 +96,8 @@ final class SchemaSupportProfileTest {
           "type": "object",
           "properties": {
             "id": {"type": "string", "minLength": 1, "maxLength": 36, "pattern": "^[a-z]+$", "format": "uuid"},
-            "count": {"type": "integer", "minimum": 0, "maximum": 10, "exclusiveMinimum": -1, "exclusiveMaximum": 11},
-            "tags": {"type": "array", "items": {"type": "string"}, "minItems": 0, "maxItems": 3},
+            "count": {"type": "integer", "minimum": 0, "maximum": 10, "exclusiveMinimum": -1, "exclusiveMaximum": 11, "multipleOf": 1},
+            "tags": {"type": "array", "items": {"type": "string"}, "minItems": 0, "maxItems": 3, "uniqueItems": true},
             "nullable": {"type": ["null", "string"], "enum": ["x", null], "const": null, "default": null}
           },
           "patternProperties": {
@@ -352,6 +352,10 @@ final class SchemaSupportProfileTest {
     assertInvalid("{\"maxProperties\": 1.5}", "/maxProperties");
     assertInvalid("{\"minLength\": \"1\"}", "/minLength");
     assertInvalid("{\"maximum\": \"10\"}", "/maximum");
+    assertInvalid("{\"multipleOf\": \"2\"}", "/multipleOf");
+    assertInvalid("{\"multipleOf\": 0}", "/multipleOf");
+    assertInvalid("{\"multipleOf\": -1}", "/multipleOf");
+    assertInvalid("{\"uniqueItems\": \"true\"}", "/uniqueItems");
     assertInvalid("{\"pattern\": 1}", "/pattern");
     assertInvalid("{\"pattern\": \"[\"}", "/pattern");
     assertInvalid("{\"format\": true}", "/format");

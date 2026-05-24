@@ -115,6 +115,8 @@ public final class SchemaSupportProfile {
           requireNonNegativeInteger(member.value(), keyword.keyword(), diagnostics);
       case MINIMUM, MAXIMUM, EXCLUSIVE_MINIMUM, EXCLUSIVE_MAXIMUM ->
           requireNumber(member.value(), keyword.keyword(), diagnostics);
+      case MULTIPLE_OF -> requirePositiveNumber(member.value(), keyword.keyword(), diagnostics);
+      case UNIQUE_ITEMS -> requireBoolean(member.value(), keyword.keyword(), diagnostics);
       case PATTERN -> validatePattern(member.value(), diagnostics);
       case FORMAT -> validateFormat(member.value(), diagnostics);
       case ONE_OF -> validateOneOf(member.value(), diagnostics);
@@ -624,6 +626,25 @@ public final class SchemaSupportProfile {
     if (!(value instanceof NumberValue)) {
       diagnostics.add(
           invalidValue("The '" + keyword + "' keyword value must be a number.", value.pointer()));
+    }
+  }
+
+  private static void requirePositiveNumber(
+      SchemaSyntaxValue value, String keyword, List<SchemaSupportDiagnostic> diagnostics) {
+    if (!(value instanceof NumberValue numberValue)
+        || new java.math.BigDecimal(numberValue.literal()).compareTo(java.math.BigDecimal.ZERO)
+            <= 0) {
+      diagnostics.add(
+          invalidValue(
+              "The '" + keyword + "' keyword value must be a positive number.", value.pointer()));
+    }
+  }
+
+  private static void requireBoolean(
+      SchemaSyntaxValue value, String keyword, List<SchemaSupportDiagnostic> diagnostics) {
+    if (!(value instanceof BooleanValue)) {
+      diagnostics.add(
+          invalidValue("The '" + keyword + "' keyword value must be a boolean.", value.pointer()));
     }
   }
 

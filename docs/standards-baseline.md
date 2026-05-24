@@ -30,9 +30,9 @@ readers.
 
 | Category | Keywords |
 |---|---|
-| Supported binding keywords | `type`, `properties`, `required`, `additionalProperties`, `patternProperties`, `propertyNames`, `enum`, `const`, `default`, `items`, `minItems`, `maxItems`, `minProperties`, `maxProperties`, `dependentRequired`, `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `minLength`, `maxLength`, `pattern`, `format`, `oneOf`, `$ref`, `$defs` |
+| Supported binding keywords | `type`, `properties`, `required`, `additionalProperties`, `patternProperties`, `propertyNames`, `enum`, `const`, `default`, `items`, `minItems`, `maxItems`, `uniqueItems`, `minProperties`, `maxProperties`, `dependentRequired`, `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `multipleOf`, `minLength`, `maxLength`, `pattern`, `format`, `oneOf`, `$ref`, `$defs` |
 | Accepted ignored annotations and dialect markers | `$schema`, `title`, `description`, `$comment`, `examples`, `deprecated`, `readOnly`, `writeOnly` |
-| Recommended post-v1 keywords | `multipleOf`, `uniqueItems` |
+| Recommended post-v1 keywords | None currently. |
 | Known rejected or deferred Draft 2020-12 keywords | `$id`, `$anchor`, `$dynamicAnchor`, `$vocabulary`, `$dynamicRef`, `anyOf`, `not`, `if`, `then`, `else`, `dependentSchemas`, `prefixItems`, `contains`, `unevaluatedItems`, `unevaluatedProperties`, `maxContains`, `minContains`, `contentEncoding`, `contentMediaType`, `contentSchema` |
 
 Unknown non-Draft extension keywords are ignored as annotations. Known Draft
@@ -65,6 +65,11 @@ outside the profile.
 `JSP-DATA-2020-12` supports generated validation for `minLength`, `maxLength`,
 `pattern`, `format`, `minimum`, `maximum`, `exclusiveMinimum`, and
 `exclusiveMaximum` on scalar fields and homogeneous scalar array items.
+`multipleOf` is supported for generated numeric scalar fields and homogeneous
+numeric array items over generated Java numeric values. Integer bindings retain
+integral precision; `number` bindings use finite Java `double` values and do
+not preserve arbitrary JSON decimal precision. `uniqueItems` is supported for
+homogeneous scalar arrays.
 
 Supported `format` assertions are limited to `date`, `date-time`, and `uuid`.
 Other known format values are rejected by the schema profile until deliberately
@@ -87,7 +92,8 @@ generated root-object binding shape instead of interpreted dynamically; see
 | Scalar `type` | `tests/draft2020-12/type.json` | String and boolean valid/invalid cases projected through a `value` property. | Root scalar schemas and broader integer equivalence are skipped as `ROOT_NON_OBJECT_BINDING` or `NUMERIC_SEMANTICS_DEFERRED`. |
 | String length | `tests/draft2020-12/minLength.json`, `tests/draft2020-12/maxLength.json` | Boundary success and failure cases for generated string validators. | Non-string applicability cases remain outside the generated binding projection. |
 | Numeric bounds | `tests/draft2020-12/minimum.json`, `maximum.json`, `exclusiveMinimum.json`, `exclusiveMaximum.json` | Boundary success and failure cases for generated `number` validators. | Broader numeric equivalence and unsupported numeric keywords stay deferred. |
-| Array length | `tests/draft2020-12/minItems.json`, `maxItems.json` | Boundary success and failure cases for homogeneous integer arrays. | Tuple, containment, and unique-item fixtures are skipped by unsupported keyword policy. |
+| Numeric divisibility | `tests/draft2020-12/multipleOf.json` | Integer and number success/failure cases for generated validators. | Broader numeric equivalence outside generated numeric shapes remains skipped. |
+| Array length and uniqueness | `tests/draft2020-12/minItems.json`, `maxItems.json`, `uniqueItems.json` | Boundary success/failure cases for homogeneous integer arrays and scalar uniqueness. | Tuple and containment fixtures are skipped by unsupported keyword policy. |
 | Object validation | `tests/draft2020-12/minProperties.json`, `maxProperties.json`, `propertyNames.json`, `dependentRequired.json` | Boundary and dependency success/failure cases projected through generated object and map bindings. | Generic property-name schemas outside string assertions and schema-valued dependencies remain outside the profile. |
 | Nested object properties | `tests/draft2020-12/properties.json` | Valid and invalid closed nested object property projections. | Generic object applicability cases that do not define generated binding shapes remain skipped. |
 | Literal constraints | `tests/draft2020-12/enum.json`, `const.json` | Scalar match and mismatch cases through generated validators and reader failures. | Object/array literal constraints outside scalar or scalar-item bindings stay unsupported. |

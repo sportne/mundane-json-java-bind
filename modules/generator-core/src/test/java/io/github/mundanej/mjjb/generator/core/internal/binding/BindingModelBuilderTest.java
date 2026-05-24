@@ -258,7 +258,12 @@ final class BindingModelBuilderTest {
               "type": "object",
               "properties": {
                 "tags": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-                "scores": {"type": "array", "items": {"type": "number"}, "maxItems": 3}
+                "scores": {
+                  "type": "array",
+                  "items": {"type": "number"},
+                  "maxItems": 3,
+                  "uniqueItems": true
+                }
               },
               "required": ["tags"],
               "additionalProperties": false
@@ -277,6 +282,7 @@ final class BindingModelBuilderTest {
         model.rootObject().fields().get(1).valueType().optionalJavaType());
     assertEquals(1L, model.rootObject().fields().get(0).valueType().minItems().orElseThrow());
     assertEquals(3L, model.rootObject().fields().get(1).valueType().maxItems().orElseThrow());
+    assertTrue(model.rootObject().fields().get(1).valueType().uniqueItems());
   }
 
   @Test
@@ -589,7 +595,8 @@ final class BindingModelBuilderTest {
                   "minimum": 1,
                   "maximum": 10,
                   "exclusiveMinimum": 0,
-                  "exclusiveMaximum": 11
+                  "exclusiveMaximum": 11,
+                  "multipleOf": 2
                 },
                 "names": {
                   "type": "array",
@@ -610,6 +617,7 @@ final class BindingModelBuilderTest {
     assertEquals("10", fields.get(1).valueType().facets().maximum().orElseThrow());
     assertEquals("0", fields.get(1).valueType().facets().exclusiveMinimum().orElseThrow());
     assertEquals("11", fields.get(1).valueType().facets().exclusiveMaximum().orElseThrow());
+    assertEquals("2", fields.get(1).valueType().facets().multipleOf().orElseThrow());
     assertEquals(1L, fields.get(2).valueType().facets().minLength().orElseThrow());
     assertEquals("^[a-z]+$", fields.get(2).valueType().facets().pattern().orElseThrow());
   }

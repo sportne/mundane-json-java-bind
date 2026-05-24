@@ -981,6 +981,7 @@ public final class BindingModelBuilder {
     }
     OptionalLong minItems = nonNegativeIntegerMember(propertySchema, "minItems");
     OptionalLong maxItems = nonNegativeIntegerMember(propertySchema, "maxItems");
+    boolean uniqueItems = booleanMember(propertySchema, "uniqueItems").orElse(false);
     if (minItems.isPresent()
         && maxItems.isPresent()
         && minItems.getAsLong() > maxItems.getAsLong()) {
@@ -1007,11 +1008,16 @@ public final class BindingModelBuilder {
     if (nullable) {
       return Optional.of(
           FieldValueType.nullableArray(
-              itemType.get(), minItems, maxItems, facets(itemsSchema), literals.get()));
+              itemType.get(),
+              minItems,
+              maxItems,
+              uniqueItems,
+              facets(itemsSchema),
+              literals.get()));
     }
     return Optional.of(
         FieldValueType.array(
-            itemType.get(), minItems, maxItems, facets(itemsSchema), literals.get()));
+            itemType.get(), minItems, maxItems, uniqueItems, facets(itemsSchema), literals.get()));
   }
 
   private static OptionalLong nonNegativeIntegerMember(ObjectValue objectValue, String name) {
@@ -1035,7 +1041,8 @@ public final class BindingModelBuilder {
         numberLiteralMember(schema, "minimum"),
         numberLiteralMember(schema, "maximum"),
         numberLiteralMember(schema, "exclusiveMinimum"),
-        numberLiteralMember(schema, "exclusiveMaximum"));
+        numberLiteralMember(schema, "exclusiveMaximum"),
+        numberLiteralMember(schema, "multipleOf"));
   }
 
   private static ObjectValidationConstraints objectValidationConstraints(ObjectValue schema) {
@@ -1083,6 +1090,14 @@ public final class BindingModelBuilder {
       return Optional.empty();
     }
     return Optional.of(stringValue.value());
+  }
+
+  private static Optional<Boolean> booleanMember(ObjectValue objectValue, String name) {
+    Optional<Member> member = member(objectValue, name);
+    if (member.isEmpty() || !(member.get().value() instanceof BooleanValue booleanValue)) {
+      return Optional.empty();
+    }
+    return Optional.of(booleanValue.value());
   }
 
   private static Optional<String> numberLiteralMember(ObjectValue objectValue, String name) {

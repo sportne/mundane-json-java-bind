@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "stepCount": {
+      "type": "integer",
+      "multipleOf": 5
+    },
+    "ratio": {
+      "type": "number",
+      "multipleOf": 0.25
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "multipleOf": 2
+      },
+      "uniqueItems": true
+    },
+    "labels": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "scores": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "stepCount",
+    "ratio",
+    "steps",
+    "labels",
+    "scores"
+  ],
+  "additionalProperties": false
+}
