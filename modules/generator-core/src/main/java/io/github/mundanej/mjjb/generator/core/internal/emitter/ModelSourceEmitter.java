@@ -3,6 +3,7 @@ package io.github.mundanej.mjjb.generator.core.internal.emitter;
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModel;
 import io.github.mundanej.mjjb.generator.core.internal.binding.FieldBinding;
 import io.github.mundanej.mjjb.generator.core.internal.binding.LiteralValue;
+import io.github.mundanej.mjjb.generator.core.internal.binding.MapBinding;
 import io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding;
 import io.github.mundanej.mjjb.generator.core.internal.binding.TaggedUnionBranch;
 import java.util.ArrayList;
@@ -53,6 +54,19 @@ public final class ModelSourceEmitter {
         imports.add("java.util.Optional");
       }
     }
+    if (allObjects(model).stream().anyMatch(object -> object.additionalProperties().isPresent())) {
+      imports.add("java.util.Map");
+      imports.add("java.util.Set");
+      imports.add("java.util.Objects");
+    }
+    for (MapBinding map : allMaps(model)) {
+      if (map.valueType().nullable()) {
+        imports.add("io.github.mundanej.mjjb.runtime.JsonField");
+      }
+      if (map.array()) {
+        imports.add("java.util.List");
+      }
+    }
     return List.copyOf(imports);
   }
 
@@ -83,17 +97,17 @@ public final class ModelSourceEmitter {
 
   private static List<String> branchRecordLines(BindingModel model, TaggedUnionBranch branch) {
     List<FieldBinding> fields = branch.object().fields();
+    List<String> components = recordComponents(branch.object());
     String typeName = branch.object().javaTypeName();
-    if (fields.isEmpty()) {
+    if (components.isEmpty()) {
       return List.of("  record " + typeName + "() implements " + model.rootTypeName() + " {}");
     }
     ArrayList<String> lines = new ArrayList<>();
     lines.add("  record " + typeName + "(");
-    for (int index = 0; index < fields.size(); index++) {
-      FieldBinding field = fields.get(index);
+    for (int index = 0; index < components.size(); index++) {
       String suffix =
-          index == fields.size() - 1 ? ") implements " + model.rootTypeName() + " {" : ",";
-      lines.add("      " + javaType(field) + " " + field.javaFieldName() + suffix);
+          index == components.size() - 1 ? ") implements " + model.rootTypeName() + " {" : ",";
+      lines.add("      " + components.get(index) + suffix);
     }
     List<FieldBinding> defaultFields =
         fields.stream().filter(field -> field.valueType().literals().hasDefault()).toList();
@@ -102,7 +116,7 @@ public final class ModelSourceEmitter {
     }
     List<FieldBinding> checkedFields =
         fields.stream().filter(ModelSourceEmitter::requiresNullCheck).toList();
-    if (checkedFields.isEmpty()) {
+    if (checkedFields.isEmpty() && branch.object().additionalProperties().isEmpty()) {
       lines.add("  }");
       return lines;
     }
@@ -115,6 +129,13 @@ public final class ModelSourceEmitter {
         lines.add("      " + assignmentLine);
       }
     }
+    branch
+        .object()
+        .additionalProperties()
+        .ifPresent(
+            map ->
+                mapConstructorLines(map, branch.object())
+                    .forEach(line -> lines.add("      " + line)));
     lines.add("    }");
     lines.add("  }");
     return lines;
@@ -137,6 +158,24 @@ public final class ModelSourceEmitter {
     for (FieldBinding field : object.fields()) {
       field.valueType().objectBinding().ifPresent(nested -> collectFields(nested, fields));
     }
+    object
+        .additionalProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(nested -> collectFields(nested, fields));
+  }
+
+  private static List<ObjectBinding> allObjects(BindingModel model) {
+    ArrayList<ObjectBinding> objects = new ArrayList<>();
+    if (model.taggedUnion().isEmpty()) {
+      objects.add(model.rootObject());
+      collectNestedObjects(model.rootObject(), objects);
+      return List.copyOf(objects);
+    }
+    for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+      objects.add(branch.object());
+      collectNestedObjects(branch.object(), objects);
+    }
+    return List.copyOf(objects);
   }
 
   private static List<String> indent(List<String> lines, String indent) {
@@ -145,15 +184,15 @@ public final class ModelSourceEmitter {
 
   private static List<String> recordLines(BindingModel model) {
     List<FieldBinding> fields = model.rootObject().fields();
-    if (fields.isEmpty()) {
+    List<String> components = recordComponents(model.rootObject());
+    if (components.isEmpty()) {
       return List.of("public record " + model.rootTypeName() + "() {}");
     }
     ArrayList<String> lines = new ArrayList<>();
     lines.add("public record " + model.rootTypeName() + "(");
-    for (int index = 0; index < fields.size(); index++) {
-      FieldBinding field = fields.get(index);
-      String suffix = index == fields.size() - 1 ? ") {" : ",";
-      lines.add("    " + javaType(field) + " " + field.javaFieldName() + suffix);
+    for (int index = 0; index < components.size(); index++) {
+      String suffix = index == components.size() - 1 ? ") {" : ",";
+      lines.add("    " + components.get(index) + suffix);
     }
     List<FieldBinding> defaultFields =
         fields.stream().filter(field -> field.valueType().literals().hasDefault()).toList();
@@ -166,7 +205,7 @@ public final class ModelSourceEmitter {
     }
     List<FieldBinding> checkedFields =
         fields.stream().filter(ModelSourceEmitter::requiresNullCheck).toList();
-    if (checkedFields.isEmpty()) {
+    if (checkedFields.isEmpty() && model.rootObject().additionalProperties().isEmpty()) {
       lines.add("}");
       return lines;
     }
@@ -179,6 +218,13 @@ public final class ModelSourceEmitter {
         lines.add("    " + assignmentLine);
       }
     }
+    model
+        .rootObject()
+        .additionalProperties()
+        .ifPresent(
+            map ->
+                mapConstructorLines(map, model.rootObject())
+                    .forEach(line -> lines.add("    " + line)));
     lines.add("  }");
     lines.add("}");
     return lines;
@@ -186,19 +232,19 @@ public final class ModelSourceEmitter {
 
   private static List<String> objectRecordLines(ObjectBinding object) {
     List<FieldBinding> fields = object.fields();
-    if (fields.isEmpty()) {
+    List<String> components = recordComponents(object);
+    if (components.isEmpty()) {
       return List.of("public record " + object.javaTypeName() + "() {}");
     }
     ArrayList<String> lines = new ArrayList<>();
     lines.add("public record " + object.javaTypeName() + "(");
-    for (int index = 0; index < fields.size(); index++) {
-      FieldBinding field = fields.get(index);
-      String suffix = index == fields.size() - 1 ? ") {" : ",";
-      lines.add("    " + javaType(field) + " " + field.javaFieldName() + suffix);
+    for (int index = 0; index < components.size(); index++) {
+      String suffix = index == components.size() - 1 ? ") {" : ",";
+      lines.add("    " + components.get(index) + suffix);
     }
     List<FieldBinding> checkedFields =
         fields.stream().filter(ModelSourceEmitter::requiresNullCheck).toList();
-    if (checkedFields.isEmpty()) {
+    if (checkedFields.isEmpty() && object.additionalProperties().isEmpty()) {
       lines.add("}");
       return lines;
     }
@@ -208,6 +254,10 @@ public final class ModelSourceEmitter {
         lines.add("    " + assignmentLine);
       }
     }
+    object
+        .additionalProperties()
+        .ifPresent(
+            map -> mapConstructorLines(map, object).forEach(line -> lines.add("    " + line)));
     lines.add("  }");
     lines.add("}");
     return lines;
@@ -218,6 +268,21 @@ public final class ModelSourceEmitter {
       return field.valueType().requiredJavaType();
     }
     return field.valueType().optionalJavaType();
+  }
+
+  private static List<String> recordComponents(ObjectBinding object) {
+    ArrayList<String> components = new ArrayList<>();
+    for (FieldBinding field : object.fields()) {
+      components.add(javaType(field) + " " + field.javaFieldName());
+    }
+    object
+        .additionalProperties()
+        .ifPresent(map -> components.add(mapJavaType(map) + " " + map.javaFieldName()));
+    return List.copyOf(components);
+  }
+
+  private static String mapJavaType(MapBinding map) {
+    return "Map<String, " + map.valueType().requiredJavaType() + ">";
   }
 
   private static boolean requiresNullCheck(FieldBinding field) {
@@ -257,6 +322,123 @@ public final class ModelSourceEmitter {
     return List.of(name + " = Objects.requireNonNull(" + name + ", \"" + name + "\");");
   }
 
+  private static List<String> mapConstructorLines(MapBinding map, ObjectBinding object) {
+    ArrayList<String> lines = new ArrayList<>();
+    String name = map.javaFieldName();
+    if (map.valueType().nullable()) {
+      String copyName = name + "Copy";
+      lines.add(
+          "var "
+              + copyName
+              + " = new java.util.LinkedHashMap<String, "
+              + map.valueType().requiredJavaType()
+              + ">();");
+      lines.add(
+          "for (Map.Entry<String, "
+              + map.valueType().requiredJavaType()
+              + "> entry : Objects.requireNonNull("
+              + name
+              + ", \""
+              + name
+              + "\").entrySet()) {");
+      lines.add(
+          "  "
+              + map.valueType().requiredJavaType()
+              + " entryValue = Objects.requireNonNull(entry.getValue(), \""
+              + name
+              + " value\");");
+      lines.add("  if (entryValue.isAbsent()) {");
+      lines.add(
+          "    throw new IllegalArgumentException(\"additionalProperties nullable entries must be present or explicit null\");");
+      lines.add("  }");
+      lines.add("  if (entryValue.hasValue()) {");
+      if (map.array()) {
+        lines.add("    entryValue = JsonField.value(List.copyOf(entryValue.requireValue()));");
+      } else {
+        lines.add("    entryValue = JsonField.value(entryValue.requireValue());");
+      }
+      lines.add("  }");
+      lines.add(
+          "  "
+              + copyName
+              + ".put(Objects.requireNonNull(entry.getKey(), \""
+              + name
+              + " key\"), entryValue);");
+      lines.add("}");
+      lines.add(name + " = Map.copyOf(" + copyName + ");");
+    } else if (map.array()) {
+      String copyName = name + "Copy";
+      lines.add(
+          "var "
+              + copyName
+              + " = new java.util.LinkedHashMap<String, "
+              + map.valueType().requiredJavaType()
+              + ">();");
+      lines.add(
+          "for (Map.Entry<String, "
+              + map.valueType().requiredJavaType()
+              + "> entry : Objects.requireNonNull("
+              + name
+              + ", \""
+              + name
+              + "\").entrySet()) {");
+      lines.add(
+          "  "
+              + copyName
+              + ".put(Objects.requireNonNull(entry.getKey(), \""
+              + name
+              + " key\"), List.copyOf(Objects.requireNonNull(entry.getValue(), \""
+              + name
+              + " value\")));");
+      lines.add("}");
+      lines.add(name + " = Map.copyOf(" + copyName + ");");
+    } else {
+      lines.add(name + " = Map.copyOf(Objects.requireNonNull(" + name + ", \"" + name + "\"));");
+    }
+    List<String> reservedNames = reservedJsonPropertyNames(object);
+    if (!reservedNames.isEmpty()) {
+      lines.add("if (!java.util.Collections.disjoint(" + name + ".keySet(), Set.of(");
+      for (int index = 0; index < reservedNames.size(); index++) {
+        String suffix = index == reservedNames.size() - 1 ? "))) {" : ",";
+        lines.add("    " + javaStringLiteral(reservedNames.get(index)) + suffix);
+      }
+      lines.add(
+          "  throw new IllegalArgumentException(\"additionalProperties must not contain declared property names\");");
+      lines.add("}");
+    }
+    return lines;
+  }
+
+  private static List<String> reservedJsonPropertyNames(ObjectBinding object) {
+    ArrayList<String> names = new ArrayList<>();
+    object.fields().stream().map(FieldBinding::jsonPropertyName).forEach(names::add);
+    names.addAll(object.reservedJsonPropertyNames());
+    return List.copyOf(names);
+  }
+
+  private static List<MapBinding> allMaps(BindingModel model) {
+    ArrayList<MapBinding> maps = new ArrayList<>();
+    if (model.taggedUnion().isEmpty()) {
+      collectMaps(model.rootObject(), maps);
+      return List.copyOf(maps);
+    }
+    for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+      collectMaps(branch.object(), maps);
+    }
+    return List.copyOf(maps);
+  }
+
+  private static void collectMaps(ObjectBinding object, List<MapBinding> maps) {
+    object.additionalProperties().ifPresent(maps::add);
+    for (FieldBinding field : object.fields()) {
+      field.valueType().objectBinding().ifPresent(nested -> collectMaps(nested, maps));
+    }
+    object
+        .additionalProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(nested -> collectMaps(nested, maps));
+  }
+
   private static List<ObjectBinding> nestedObjects(BindingModel model) {
     ArrayList<ObjectBinding> objects = new ArrayList<>();
     if (model.taggedUnion().isEmpty()) {
@@ -280,6 +462,14 @@ public final class ModelSourceEmitter {
                 collectNestedObjects(nested, objects);
               });
     }
+    object
+        .additionalProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(
+            nested -> {
+              objects.add(nested);
+              collectNestedObjects(nested, objects);
+            });
   }
 
   private static List<String> defaultAccessorLines(FieldBinding field) {

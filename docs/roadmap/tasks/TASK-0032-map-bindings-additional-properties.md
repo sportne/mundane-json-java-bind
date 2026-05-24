@@ -1,7 +1,7 @@
 # TASK-0032: Map Bindings for Object-Valued `additionalProperties`
 
 Task ID: `TASK-0032`
-Status: `draft`
+Status: `complete`
 Gate: Post-v1 profile expansion
 Depends on: `TASK-0031`
 Specification references: JSON Schema Draft 2020-12 Applicator keyword `additionalProperties`

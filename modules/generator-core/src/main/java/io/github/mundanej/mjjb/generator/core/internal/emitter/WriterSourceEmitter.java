@@ -3,6 +3,8 @@ package io.github.mundanej.mjjb.generator.core.internal.emitter;
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModel;
 import io.github.mundanej.mjjb.generator.core.internal.binding.FieldBinding;
 import io.github.mundanej.mjjb.generator.core.internal.binding.JavaScalarType;
+import io.github.mundanej.mjjb.generator.core.internal.binding.MapBinding;
+import io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding;
 import io.github.mundanej.mjjb.generator.core.internal.binding.TaggedUnionBranch;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,7 +19,7 @@ public final class WriterSourceEmitter {
     ArrayList<String> lines = new ArrayList<>();
     lines.add("package " + model.packageName() + ";");
     lines.add("");
-    for (String importName : imports()) {
+    for (String importName : imports(model)) {
       lines.add("import " + importName + ";");
     }
     lines.add("");
@@ -38,6 +40,10 @@ public final class WriterSourceEmitter {
       for (FieldBinding field : model.rootObject().fields()) {
         lines.addAll(writeFieldLines(field));
       }
+      model
+          .rootObject()
+          .additionalProperties()
+          .ifPresent(map -> lines.addAll(writeMapLines(model.rootTypeName(), map)));
       lines.add("    writer.endObject();");
     }
     lines.add("  }");
@@ -72,11 +78,21 @@ public final class WriterSourceEmitter {
     return model.rootTypeName() + "JsonWriter";
   }
 
-  private static List<String> imports() {
+  private static List<String> imports(BindingModel model) {
     Set<String> imports = new TreeSet<>();
     imports.add("io.github.mundanej.mjjb.runtime.JsonWriteException");
     imports.add("io.github.mundanej.mjjb.runtime.JsonWriter");
     imports.add("java.util.Objects");
+    List<MapBinding> maps = allMaps(model);
+    if (!maps.isEmpty()) {
+      imports.add("java.util.Map");
+    }
+    if (maps.stream().anyMatch(map -> map.valueType().nullable())) {
+      imports.add("io.github.mundanej.mjjb.runtime.JsonField");
+    }
+    if (maps.stream().anyMatch(MapBinding::array)) {
+      imports.add("java.util.List");
+    }
     return List.copyOf(imports);
   }
 
@@ -174,6 +190,10 @@ public final class WriterSourceEmitter {
     for (FieldBinding field : branch.object().fields()) {
       lines.addAll(writeFieldLines(field));
     }
+    branch
+        .object()
+        .additionalProperties()
+        .ifPresent(map -> lines.addAll(writeMapLines(model.rootTypeName(), map)));
     lines.add("    writer.endObject();");
     lines.add("  }");
     return lines;
@@ -208,9 +228,7 @@ public final class WriterSourceEmitter {
     return lines;
   }
 
-  private static List<String> objectWriterLines(
-      String rootTypeName,
-      io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding object) {
+  private static List<String> objectWriterLines(String rootTypeName, ObjectBinding object) {
     ArrayList<String> lines = new ArrayList<>();
     lines.add("");
     lines.add(
@@ -226,6 +244,7 @@ public final class WriterSourceEmitter {
     for (FieldBinding field : object.fields()) {
       lines.addAll(writeFieldLines(field));
     }
+    object.additionalProperties().ifPresent(map -> lines.addAll(writeMapLines(rootTypeName, map)));
     lines.add("    writer.endObject();");
     lines.add("  }");
     return lines;
@@ -280,6 +299,93 @@ public final class WriterSourceEmitter {
     return writeScalarStatement(field.scalarType(), valueExpression);
   }
 
+  private static List<String> writeMapLines(String rootTypeName, MapBinding map) {
+    ArrayList<String> lines = new ArrayList<>();
+    String accessor = "value." + map.javaFieldName() + "()";
+    lines.add(
+        "    for (Map.Entry<String, "
+            + mapValueType(rootTypeName, map)
+            + "> entry : "
+            + accessor
+            + ".entrySet().stream().sorted(Map.Entry.comparingByKey()).toList()) {");
+    lines.addAll(numberPreflightLines(map, "entry.getValue()", "entry.getKey()", "      "));
+    lines.add("      writer.name(entry.getKey());");
+    lines.addAll(writeMapValueLines(map, "entry.getValue()", "      "));
+    lines.add("    }");
+    return lines;
+  }
+
+  private static String mapValueType(String rootTypeName, MapBinding map) {
+    if (map.object()) {
+      return rootTypeName + "." + map.valueType().objectBinding().orElseThrow().javaTypeName();
+    }
+    return map.valueType().requiredJavaType();
+  }
+
+  private static List<String> writeMapValueLines(
+      MapBinding map, String valueExpression, String indent) {
+    if (map.object()) {
+      return List.of(
+          indent
+              + objectWriteMethodName(map.valueType().objectBinding().orElseThrow())
+              + "(writer, "
+              + valueExpression
+              + ");");
+    }
+    if (map.valueType().nullable()) {
+      ArrayList<String> lines = new ArrayList<>();
+      lines.add(indent + "if (" + valueExpression + ".isExplicitNull()) {");
+      lines.add(indent + "  writer.nullValue();");
+      lines.add(indent + "} else {");
+      if (map.array()) {
+        lines.addAll(writeArrayLines(map, valueExpression + ".requireValue()", indent + "  "));
+      } else {
+        lines.add(
+            indent
+                + "  "
+                + writeScalarStatement(map.scalarType(), valueExpression + ".requireValue()"));
+      }
+      lines.add(indent + "}");
+      return lines;
+    }
+    if (map.array()) {
+      return writeArrayLines(map, valueExpression, indent);
+    }
+    return List.of(indent + writeScalarStatement(map.scalarType(), valueExpression));
+  }
+
+  private static List<String> numberPreflightLines(
+      MapBinding map, String valueExpression, String nameExpression, String indent) {
+    if (map.object() || map.scalarType() != JavaScalarType.NUMBER) {
+      return List.of();
+    }
+    ArrayList<String> lines = new ArrayList<>();
+    if (map.valueType().nullable() && map.array()) {
+      lines.add(indent + "if (" + valueExpression + ".hasValue()) {");
+      lines.add(indent + "  for (Double item : " + valueExpression + ".requireValue()) {");
+      lines.add(indent + "    requireFinite(item, " + nameExpression + ");");
+      lines.add(indent + "  }");
+      lines.add(indent + "}");
+    } else if (map.valueType().nullable()) {
+      lines.add(indent + "if (" + valueExpression + ".hasValue()) {");
+      lines.add(
+          indent
+              + "  requireFinite("
+              + valueExpression
+              + ".requireValue(), "
+              + nameExpression
+              + ");");
+      lines.add(indent + "}");
+    } else if (map.array()) {
+      lines.add(indent + "for (Double item : " + valueExpression + ") {");
+      lines.add(indent + "  requireFinite(item, " + nameExpression + ");");
+      lines.add(indent + "}");
+    } else {
+      lines.add(indent + "requireFinite(" + valueExpression + ", " + nameExpression + ");");
+    }
+    return lines;
+  }
+
   private static List<String> writeArrayLines(
       FieldBinding field, String valueExpression, String indent) {
     return List.of(
@@ -295,6 +401,16 @@ public final class WriterSourceEmitter {
         indent + "writer.endArray();");
   }
 
+  private static List<String> writeArrayLines(
+      MapBinding map, String valueExpression, String indent) {
+    return List.of(
+        indent + "writer.beginArray();",
+        indent + "for (" + map.scalarType().boxedJavaType() + " item : " + valueExpression + ") {",
+        indent + "  " + writeScalarStatement(map.scalarType(), "item"),
+        indent + "}",
+        indent + "writer.endArray();");
+  }
+
   private static String writeScalarStatement(JavaScalarType scalarType, String valueExpression) {
     return switch (scalarType) {
       case STRING -> "writer.value(" + valueExpression + ");";
@@ -305,7 +421,10 @@ public final class WriterSourceEmitter {
   }
 
   private static boolean hasNumberField(BindingModel model) {
-    return allFields(model).stream().anyMatch(field -> field.scalarType() == JavaScalarType.NUMBER);
+    return allFields(model).stream().anyMatch(field -> field.scalarType() == JavaScalarType.NUMBER)
+        || allObjects(model).stream()
+            .flatMap(object -> object.additionalProperties().stream())
+            .anyMatch(map -> !map.object() && map.scalarType() == JavaScalarType.NUMBER);
   }
 
   private static List<FieldBinding> allFields(BindingModel model) {
@@ -320,19 +439,56 @@ public final class WriterSourceEmitter {
     return List.copyOf(fields);
   }
 
-  private static void collectFields(
-      io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding object,
-      List<FieldBinding> fields) {
+  private static void collectFields(ObjectBinding object, List<FieldBinding> fields) {
     fields.addAll(object.fields());
     for (FieldBinding field : object.fields()) {
       field.valueType().objectBinding().ifPresent(nested -> collectFields(nested, fields));
     }
+    object
+        .additionalProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(nested -> collectFields(nested, fields));
   }
 
-  private static List<io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding>
-      nestedObjects(BindingModel model) {
-    ArrayList<io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding> objects =
-        new ArrayList<>();
+  private static List<ObjectBinding> allObjects(BindingModel model) {
+    ArrayList<ObjectBinding> objects = new ArrayList<>();
+    if (model.taggedUnion().isEmpty()) {
+      objects.add(model.rootObject());
+      collectNestedObjects(model.rootObject(), objects);
+      return List.copyOf(objects);
+    }
+    for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+      objects.add(branch.object());
+      collectNestedObjects(branch.object(), objects);
+    }
+    return List.copyOf(objects);
+  }
+
+  private static List<MapBinding> allMaps(BindingModel model) {
+    ArrayList<MapBinding> maps = new ArrayList<>();
+    if (model.taggedUnion().isEmpty()) {
+      collectMaps(model.rootObject(), maps);
+      return List.copyOf(maps);
+    }
+    for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+      collectMaps(branch.object(), maps);
+    }
+    return List.copyOf(maps);
+  }
+
+  private static void collectMaps(ObjectBinding object, List<MapBinding> maps) {
+    object.additionalProperties().ifPresent(maps::add);
+    for (FieldBinding field : object.fields()) {
+      field.valueType().objectBinding().ifPresent(nested -> collectMaps(nested, maps));
+    }
+    object
+        .additionalProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(nested -> collectMaps(nested, maps));
+  }
+
+  private static List<ObjectBinding> nestedObjects(BindingModel model) {
+    ArrayList<ObjectBinding> objects = new ArrayList<>();
     if (model.taggedUnion().isEmpty()) {
       collectNestedObjects(model.rootObject(), objects);
     } else {
@@ -343,9 +499,7 @@ public final class WriterSourceEmitter {
     return List.copyOf(objects);
   }
 
-  private static void collectNestedObjects(
-      io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding object,
-      List<io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding> objects) {
+  private static void collectNestedObjects(ObjectBinding object, List<ObjectBinding> objects) {
     for (FieldBinding field : object.fields()) {
       field
           .valueType()
@@ -356,10 +510,17 @@ public final class WriterSourceEmitter {
                 collectNestedObjects(nested, objects);
               });
     }
+    object
+        .additionalProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(
+            nested -> {
+              objects.add(nested);
+              collectNestedObjects(nested, objects);
+            });
   }
 
-  private static String objectWriteMethodName(
-      io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding object) {
+  private static String objectWriteMethodName(ObjectBinding object) {
     return "write" + object.javaTypeName();
   }
 

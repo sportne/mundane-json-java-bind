@@ -1,0 +1,31 @@
+package io.github.mundanej.mjjb.generated;
+
+import io.github.mundanej.mjjb.runtime.JsonField;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
+public record GeneratedBindings(
+    String id,
+    Map<String, JsonField<List<Double>>> additionalProperties) {
+  public GeneratedBindings {
+    id = Objects.requireNonNull(id, "id");
+    var additionalPropertiesCopy = new java.util.LinkedHashMap<String, JsonField<List<Double>>>();
+    for (Map.Entry<String, JsonField<List<Double>>> entry : Objects.requireNonNull(additionalProperties, "additionalProperties").entrySet()) {
+      JsonField<List<Double>> entryValue = Objects.requireNonNull(entry.getValue(), "additionalProperties value");
+      if (entryValue.isAbsent()) {
+        throw new IllegalArgumentException("additionalProperties nullable entries must be present or explicit null");
+      }
+      if (entryValue.hasValue()) {
+        entryValue = JsonField.value(List.copyOf(entryValue.requireValue()));
+      }
+      additionalPropertiesCopy.put(Objects.requireNonNull(entry.getKey(), "additionalProperties key"), entryValue);
+    }
+    additionalProperties = Map.copyOf(additionalPropertiesCopy);
+    if (!java.util.Collections.disjoint(additionalProperties.keySet(), Set.of(
+        "id"))) {
+      throw new IllegalArgumentException("additionalProperties must not contain declared property names");
+    }
+  }
+}

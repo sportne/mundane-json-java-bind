@@ -1,0 +1,31 @@
+package io.github.mundanej.mjjb.generated;
+
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
+public sealed interface GeneratedBindings permits
+    GeneratedBindings.Card,
+    GeneratedBindings.Bank {
+
+  record Card(
+      String last4,
+      Map<String, String> additionalProperties) implements GeneratedBindings {
+    public Card {
+      last4 = Objects.requireNonNull(last4, "last4");
+      additionalProperties = Map.copyOf(Objects.requireNonNull(additionalProperties, "additionalProperties"));
+      if (!java.util.Collections.disjoint(additionalProperties.keySet(), Set.of(
+          "last4",
+          "kind"))) {
+        throw new IllegalArgumentException("additionalProperties must not contain declared property names");
+      }
+    }
+  }
+
+  record Bank(
+      String iban) implements GeneratedBindings {
+    public Bank {
+      iban = Objects.requireNonNull(iban, "iban");
+    }
+  }
+}

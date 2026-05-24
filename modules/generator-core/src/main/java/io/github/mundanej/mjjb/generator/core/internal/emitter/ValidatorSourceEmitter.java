@@ -6,6 +6,7 @@ import io.github.mundanej.mjjb.generator.core.internal.binding.FieldBinding;
 import io.github.mundanej.mjjb.generator.core.internal.binding.JavaScalarType;
 import io.github.mundanej.mjjb.generator.core.internal.binding.LiteralConstraints;
 import io.github.mundanej.mjjb.generator.core.internal.binding.LiteralValue;
+import io.github.mundanej.mjjb.generator.core.internal.binding.MapBinding;
 import io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding;
 import io.github.mundanej.mjjb.generator.core.internal.binding.TaggedUnionBranch;
 import java.util.ArrayList;
@@ -50,6 +51,13 @@ public final class ValidatorSourceEmitter {
       for (FieldBinding field : model.rootObject().fields()) {
         lines.addAll(validateFieldLines(field, "value", "JsonPath.ROOT"));
       }
+      model
+          .rootObject()
+          .additionalProperties()
+          .ifPresent(
+              map ->
+                  lines.addAll(
+                      validateMapLines(model.rootTypeName(), map, "value", "JsonPath.ROOT")));
     }
     lines.add("    return errors.toResult();");
     lines.add("  }");
@@ -167,6 +175,13 @@ public final class ValidatorSourceEmitter {
     for (FieldBinding field : branch.object().fields()) {
       lines.addAll(validateFieldLines(field, "value", "JsonPath.ROOT"));
     }
+    branch
+        .object()
+        .additionalProperties()
+        .ifPresent(
+            map ->
+                lines.addAll(
+                    validateMapLines(model.rootTypeName(), map, "value", "JsonPath.ROOT")));
     lines.add("    return errors.toResult();");
     lines.add("  }");
     return lines;
@@ -186,6 +201,9 @@ public final class ValidatorSourceEmitter {
     for (FieldBinding field : object.fields()) {
       lines.addAll(validateFieldLines(field, "value", "basePath"));
     }
+    object
+        .additionalProperties()
+        .ifPresent(map -> lines.addAll(validateMapLines(rootTypeName, map, "value", "basePath")));
     lines.add("    return errors.toResult();");
     lines.add("  }");
     return lines;
@@ -211,7 +229,104 @@ public final class ValidatorSourceEmitter {
     if (hasPatternFacet(model)) {
       imports.add("java.util.regex.Pattern");
     }
+    List<MapBinding> maps = allMaps(model);
+    if (!maps.isEmpty()) {
+      imports.add("java.util.Map");
+    }
+    if (maps.stream().anyMatch(map -> map.valueType().nullable())) {
+      imports.add("io.github.mundanej.mjjb.runtime.JsonField");
+    }
+    if (maps.stream().anyMatch(MapBinding::array)) {
+      imports.add("java.util.List");
+    }
     return List.copyOf(imports);
+  }
+
+  private static List<String> validateMapLines(
+      String rootTypeName, MapBinding map, String ownerExpression, String basePathExpression) {
+    ArrayList<String> lines = new ArrayList<>();
+    String accessor = ownerExpression + "." + map.javaFieldName() + "()";
+    lines.add("    if (" + accessor + " == null) {");
+    lines.add(
+        "      if (!errors.add(ValidationError.of(\"MJJBV-002\", \"additionalProperties map must not be null.\", "
+            + basePathExpression
+            + "))) {");
+    lines.add("        return errors.toResult();");
+    lines.add("      }");
+    lines.add("    }");
+    lines.add("    if (" + accessor + " != null) {");
+    lines.add(
+        "      for (Map.Entry<String, "
+            + mapValueType(rootTypeName, map)
+            + "> entry : "
+            + accessor
+            + ".entrySet()) {");
+    String pathExpression = basePathExpression + ".property(entry.getKey())";
+    if (map.object()) {
+      lines.add(
+          "        validate"
+              + map.valueType().objectBinding().orElseThrow().javaTypeName()
+              + "(entry.getValue(), errors, "
+              + pathExpression
+              + ", mode);");
+      lines.add("        if (mode == ValidationMode.FAIL_FAST && !errors.errors().isEmpty()) {");
+      lines.add("          return errors.toResult();");
+      lines.add("        }");
+    } else if (map.valueType().nullable()) {
+      lines.add("        if (entry.getValue() == null) {");
+      lines.add(
+          "          if (!errors.add(ValidationError.of(\"MJJBV-002\", \"additionalProperties value must not be null.\", "
+              + pathExpression
+              + "))) {");
+      lines.add("            return errors.toResult();");
+      lines.add("          }");
+      lines.add("        }");
+      lines.add("        if (entry.getValue() != null && entry.getValue().isAbsent()) {");
+      lines.add(
+          "          if (!errors.add(ValidationError.of(\"MJJBV-017\", \"additionalProperties nullable value must be present or explicit null.\", "
+              + pathExpression
+              + "))) {");
+      lines.add("            return errors.toResult();");
+      lines.add("          }");
+      lines.add("        }");
+      if (map.array()) {
+        lines.addAll(
+            validateMapArrayLines(
+                map,
+                "entry.getValue().requireValue()",
+                "entry.getValue() != null && entry.getValue().hasValue()",
+                pathExpression,
+                "        "));
+      } else {
+        lines.addAll(
+            validateMapScalarLines(
+                map,
+                "entry.getValue().requireValue()",
+                "entry.getValue() != null && entry.getValue().hasValue()",
+                pathExpression,
+                "        "));
+        lines.addAll(
+            validateNullableLiteralLines(map, "entry.getValue()", pathExpression, "        "));
+      }
+    } else if (map.array()) {
+      lines.addAll(
+          validateMapArrayLines(map, "entry.getValue()", "true", pathExpression, "        "));
+    } else {
+      lines.addAll(
+          validateMapScalarLines(map, "entry.getValue()", "true", pathExpression, "        "));
+      lines.addAll(
+          indent(validateLiteralLines(map, "entry.getValue()", "true", pathExpression), "    "));
+    }
+    lines.add("      }");
+    lines.add("    }");
+    return lines;
+  }
+
+  private static String mapValueType(String rootTypeName, MapBinding map) {
+    if (map.object()) {
+      return rootTypeName + "." + map.valueType().objectBinding().orElseThrow().javaTypeName();
+    }
+    return map.valueType().requiredJavaType();
   }
 
   private static List<String> validateFieldLines(
@@ -518,14 +633,162 @@ public final class ValidatorSourceEmitter {
     return lines;
   }
 
+  private static List<String> validateMapArrayLines(
+      MapBinding map,
+      String valueExpression,
+      String guard,
+      String pathExpression,
+      String indentPrefix) {
+    ArrayList<String> lines = new ArrayList<>();
+    if (map.valueType().minItems().isEmpty()
+        && map.valueType().maxItems().isEmpty()
+        && map.scalarType() != JavaScalarType.NUMBER
+        && !map.valueType().facets().hasStringFacets()
+        && !map.valueType().facets().hasNumericFacets()
+        && !map.valueType().literals().hasEnum()
+        && !map.valueType().literals().hasConst()) {
+      return lines;
+    }
+    String itemPathExpression = pathExpression + ".index(index)";
+    lines.add(indentPrefix + "if (" + guard + ") {");
+    if (map.valueType().minItems().isPresent()) {
+      lines.add(
+          indentPrefix
+              + "  if (!validateMinItems(errors, "
+              + valueExpression
+              + ".size(), "
+              + map.valueType().minItems().getAsLong()
+              + "L, "
+              + pathExpression
+              + ")) {");
+      lines.add(indentPrefix + "    return errors.toResult();");
+      lines.add(indentPrefix + "  }");
+    }
+    if (map.valueType().maxItems().isPresent()) {
+      lines.add(
+          indentPrefix
+              + "  if (!validateMaxItems(errors, "
+              + valueExpression
+              + ".size(), "
+              + map.valueType().maxItems().getAsLong()
+              + "L, "
+              + pathExpression
+              + ")) {");
+      lines.add(indentPrefix + "    return errors.toResult();");
+      lines.add(indentPrefix + "  }");
+    }
+    if (map.scalarType() == JavaScalarType.NUMBER) {
+      lines.add(indentPrefix + "  int index = 0;");
+      lines.add(indentPrefix + "  for (Double item : " + valueExpression + ") {");
+      lines.add(
+          indentPrefix + "    if (!validateFinite(errors, item, " + itemPathExpression + ")) {");
+      lines.add(indentPrefix + "      return errors.toResult();");
+      lines.add(indentPrefix + "    }");
+      lines.addAll(
+          indent(
+              validateNumericFacetLines(map, "item", "Double.isFinite(item)", itemPathExpression),
+              indentPrefix));
+      lines.addAll(
+          indent(
+              validateLiteralLines(map, "item", "Double.isFinite(item)", itemPathExpression),
+              indentPrefix));
+      lines.add(indentPrefix + "    index++;");
+      lines.add(indentPrefix + "  }");
+    } else if (map.scalarType() == JavaScalarType.INTEGER
+        && (map.valueType().facets().hasNumericFacets()
+            || map.valueType().literals().hasEnum()
+            || map.valueType().literals().hasConst())) {
+      lines.add(indentPrefix + "  int index = 0;");
+      lines.add(indentPrefix + "  for (Long item : " + valueExpression + ") {");
+      lines.addAll(
+          indent(validateNumericFacetLines(map, "item", "true", itemPathExpression), indentPrefix));
+      lines.addAll(
+          indent(validateLiteralLines(map, "item", "true", itemPathExpression), indentPrefix));
+      lines.add(indentPrefix + "    index++;");
+      lines.add(indentPrefix + "  }");
+    } else if (map.scalarType() == JavaScalarType.STRING
+        && (map.valueType().facets().hasStringFacets()
+            || map.valueType().literals().hasEnum()
+            || map.valueType().literals().hasConst())) {
+      lines.add(indentPrefix + "  int index = 0;");
+      lines.add(indentPrefix + "  for (String item : " + valueExpression + ") {");
+      lines.addAll(
+          indent(validateStringFacetLines(map, "item", "true", itemPathExpression), indentPrefix));
+      lines.addAll(
+          indent(validateLiteralLines(map, "item", "true", itemPathExpression), indentPrefix));
+      lines.add(indentPrefix + "    index++;");
+      lines.add(indentPrefix + "  }");
+    } else if (map.scalarType() == JavaScalarType.BOOLEAN
+        && (map.valueType().literals().hasEnum() || map.valueType().literals().hasConst())) {
+      lines.add(indentPrefix + "  int index = 0;");
+      lines.add(indentPrefix + "  for (Boolean item : " + valueExpression + ") {");
+      lines.addAll(
+          indent(validateLiteralLines(map, "item", "true", itemPathExpression), indentPrefix));
+      lines.add(indentPrefix + "    index++;");
+      lines.add(indentPrefix + "  }");
+    }
+    lines.add(indentPrefix + "}");
+    return lines;
+  }
+
+  private static List<String> validateMapScalarLines(
+      MapBinding map,
+      String valueExpression,
+      String guard,
+      String pathExpression,
+      String indentPrefix) {
+    ArrayList<String> lines = new ArrayList<>();
+    if (map.scalarType() == JavaScalarType.STRING) {
+      lines.addAll(
+          indent(validateStringFacetLines(map, valueExpression, guard, pathExpression), "    "));
+    }
+    if (map.scalarType() == JavaScalarType.NUMBER) {
+      lines.add(indentPrefix + "if (" + guard + ") {");
+      lines.add(
+          indentPrefix
+              + "  if (!validateFinite(errors, "
+              + valueExpression
+              + ", "
+              + pathExpression
+              + ")) {");
+      lines.add(indentPrefix + "    return errors.toResult();");
+      lines.add(indentPrefix + "  }");
+      lines.add(indentPrefix + "}");
+    }
+    if (map.scalarType() == JavaScalarType.INTEGER || map.scalarType() == JavaScalarType.NUMBER) {
+      String numericGuard =
+          map.scalarType() == JavaScalarType.NUMBER
+              ? guard + " && Double.isFinite(" + valueExpression + ")"
+              : guard;
+      lines.addAll(
+          indent(
+              validateNumericFacetLines(map, valueExpression, numericGuard, pathExpression),
+              "    "));
+    }
+    return lines;
+  }
+
   private static boolean hasNumberField(BindingModel model) {
-    return allFields(model).stream().anyMatch(field -> field.scalarType() == JavaScalarType.NUMBER);
+    return allFields(model).stream().anyMatch(field -> field.scalarType() == JavaScalarType.NUMBER)
+        || allMaps(model).stream()
+            .anyMatch(map -> !map.object() && map.scalarType() == JavaScalarType.NUMBER);
   }
 
   private static List<String> validateStringFacetLines(
       FieldBinding field, String valueExpression, String guard, String pathExpression) {
+    return validateStringFacetLines(
+        field.valueType().facets(), valueExpression, guard, pathExpression);
+  }
+
+  private static List<String> validateStringFacetLines(
+      MapBinding map, String valueExpression, String guard, String pathExpression) {
+    return validateStringFacetLines(
+        map.valueType().facets(), valueExpression, guard, pathExpression);
+  }
+
+  private static List<String> validateStringFacetLines(
+      FacetConstraints facets, String valueExpression, String guard, String pathExpression) {
     ArrayList<String> lines = new ArrayList<>();
-    FacetConstraints facets = field.valueType().facets();
     if (!facets.hasStringFacets()) {
       return lines;
     }
@@ -584,12 +847,27 @@ public final class ValidatorSourceEmitter {
 
   private static List<String> validateNumericFacetLines(
       FieldBinding field, String valueExpression, String guard, String pathExpression) {
+    return validateNumericFacetLines(
+        field.valueType().facets(), field.scalarType(), valueExpression, guard, pathExpression);
+  }
+
+  private static List<String> validateNumericFacetLines(
+      MapBinding map, String valueExpression, String guard, String pathExpression) {
+    return validateNumericFacetLines(
+        map.valueType().facets(), map.scalarType(), valueExpression, guard, pathExpression);
+  }
+
+  private static List<String> validateNumericFacetLines(
+      FacetConstraints facets,
+      JavaScalarType scalarType,
+      String valueExpression,
+      String guard,
+      String pathExpression) {
     ArrayList<String> lines = new ArrayList<>();
-    FacetConstraints facets = field.valueType().facets();
     if (!facets.hasNumericFacets()) {
       return lines;
     }
-    String numericValue = numericValueExpression(field.scalarType(), valueExpression);
+    String numericValue = numericValueExpression(scalarType, valueExpression);
     lines.add("    if (" + guard + ") {");
     if (facets.minimum().isPresent()) {
       lines.add(
@@ -645,7 +923,22 @@ public final class ValidatorSourceEmitter {
 
   private static List<String> validateLiteralLines(
       FieldBinding field, String valueExpression, String guard, String pathExpression) {
-    LiteralConstraints literals = field.valueType().literals();
+    return validateLiteralLines(
+        field.valueType().literals(), field.scalarType(), valueExpression, guard, pathExpression);
+  }
+
+  private static List<String> validateLiteralLines(
+      MapBinding map, String valueExpression, String guard, String pathExpression) {
+    return validateLiteralLines(
+        map.valueType().literals(), map.scalarType(), valueExpression, guard, pathExpression);
+  }
+
+  private static List<String> validateLiteralLines(
+      LiteralConstraints literals,
+      JavaScalarType scalarType,
+      String valueExpression,
+      String guard,
+      String pathExpression) {
     if (!literals.hasEnum() && !literals.hasConst()) {
       return List.of();
     }
@@ -654,7 +947,7 @@ public final class ValidatorSourceEmitter {
     if (literals.hasEnum()) {
       lines.add(
           "      if (!validateEnum(errors, "
-              + enumMatchExpression(field.scalarType(), valueExpression, literals.enumValues())
+              + enumMatchExpression(scalarType, valueExpression, literals.enumValues())
               + ", "
               + pathExpression
               + ")) {");
@@ -665,7 +958,7 @@ public final class ValidatorSourceEmitter {
       lines.add(
           "      if (!validateConst(errors, "
               + literalMatchExpression(
-                  field.scalarType(), valueExpression, literals.constValue().orElseThrow())
+                  scalarType, valueExpression, literals.constValue().orElseThrow())
               + ", "
               + pathExpression
               + ")) {");
@@ -678,47 +971,80 @@ public final class ValidatorSourceEmitter {
 
   private static List<String> validateNullableLiteralLines(
       FieldBinding field, String ownerExpression, String pathExpression) {
-    LiteralConstraints literals = field.valueType().literals();
+    return validateNullableLiteralLines(
+        field.valueType().literals(),
+        field.scalarType(),
+        accessor(field, ownerExpression),
+        pathExpression,
+        "    ");
+  }
+
+  private static List<String> validateNullableLiteralLines(
+      MapBinding map, String fieldExpression, String pathExpression, String indentPrefix) {
+    return validateNullableLiteralLines(
+        map.valueType().literals(),
+        map.scalarType(),
+        fieldExpression,
+        pathExpression,
+        indentPrefix);
+  }
+
+  private static List<String> validateNullableLiteralLines(
+      LiteralConstraints literals,
+      JavaScalarType scalarType,
+      String fieldExpression,
+      String pathExpression,
+      String indentPrefix) {
     if (!literals.hasEnum() && !literals.hasConst()) {
       return List.of();
     }
     ArrayList<String> lines = new ArrayList<>();
-    String fieldExpression = accessor(field, ownerExpression);
-    lines.add("    if (" + fieldExpression + " != null && !" + fieldExpression + ".isAbsent()) {");
+    lines.add(
+        indentPrefix
+            + "if ("
+            + fieldExpression
+            + " != null && !"
+            + fieldExpression
+            + ".isAbsent()) {");
     if (literals.hasEnum()) {
       lines.add(
-          "      if (!validateEnum(errors, "
-              + nullableEnumMatchExpression(
-                  field.scalarType(), fieldExpression, literals.enumValues())
+          indentPrefix
+              + "  if (!validateEnum(errors, "
+              + nullableEnumMatchExpression(scalarType, fieldExpression, literals.enumValues())
               + ", "
               + pathExpression
               + ")) {");
-      lines.add("        return errors.toResult();");
-      lines.add("      }");
+      lines.add(indentPrefix + "    return errors.toResult();");
+      lines.add(indentPrefix + "  }");
     }
     if (literals.hasConst()) {
       lines.add(
-          "      if (!validateConst(errors, "
+          indentPrefix
+              + "  if (!validateConst(errors, "
               + nullableLiteralMatchExpression(
-                  field.scalarType(), fieldExpression, literals.constValue().orElseThrow())
+                  scalarType, fieldExpression, literals.constValue().orElseThrow())
               + ", "
               + pathExpression
               + ")) {");
-      lines.add("        return errors.toResult();");
-      lines.add("      }");
+      lines.add(indentPrefix + "    return errors.toResult();");
+      lines.add(indentPrefix + "  }");
     }
-    lines.add("    }");
+    lines.add(indentPrefix + "}");
     return lines;
   }
 
   private static boolean hasArrayWithMinItems(BindingModel model) {
     return allFields(model).stream()
-        .anyMatch(field -> field.array() && field.valueType().minItems().isPresent());
+            .anyMatch(field -> field.array() && field.valueType().minItems().isPresent())
+        || allMaps(model).stream()
+            .anyMatch(map -> map.array() && map.valueType().minItems().isPresent());
   }
 
   private static boolean hasArrayWithMaxItems(BindingModel model) {
     return allFields(model).stream()
-        .anyMatch(field -> field.array() && field.valueType().maxItems().isPresent());
+            .anyMatch(field -> field.array() && field.valueType().maxItems().isPresent())
+        || allMaps(model).stream()
+            .anyMatch(map -> map.array() && map.valueType().maxItems().isPresent());
   }
 
   private static String arrayGuard(FieldBinding field, String ownerExpression) {
@@ -810,64 +1136,86 @@ public final class ValidatorSourceEmitter {
 
   private static boolean hasMinLengthFacet(BindingModel model) {
     return allFields(model).stream()
-        .anyMatch(field -> field.valueType().facets().minLength().isPresent());
+            .anyMatch(field -> field.valueType().facets().minLength().isPresent())
+        || allMaps(model).stream()
+            .anyMatch(map -> map.valueType().facets().minLength().isPresent());
   }
 
   private static boolean hasMaxLengthFacet(BindingModel model) {
     return allFields(model).stream()
-        .anyMatch(field -> field.valueType().facets().maxLength().isPresent());
+            .anyMatch(field -> field.valueType().facets().maxLength().isPresent())
+        || allMaps(model).stream()
+            .anyMatch(map -> map.valueType().facets().maxLength().isPresent());
   }
 
   private static boolean hasPatternFacet(BindingModel model) {
     return allFields(model).stream()
-        .anyMatch(field -> field.valueType().facets().pattern().isPresent());
+            .anyMatch(field -> field.valueType().facets().pattern().isPresent())
+        || allMaps(model).stream().anyMatch(map -> map.valueType().facets().pattern().isPresent());
   }
 
   private static boolean hasFormatFacet(BindingModel model) {
     return allFields(model).stream()
-        .anyMatch(field -> field.valueType().facets().format().isPresent());
+            .anyMatch(field -> field.valueType().facets().format().isPresent())
+        || allMaps(model).stream().anyMatch(map -> map.valueType().facets().format().isPresent());
   }
 
   private static boolean hasMinimumFacet(BindingModel model) {
     return allFields(model).stream()
-        .anyMatch(field -> field.valueType().facets().minimum().isPresent());
+            .anyMatch(field -> field.valueType().facets().minimum().isPresent())
+        || allMaps(model).stream().anyMatch(map -> map.valueType().facets().minimum().isPresent());
   }
 
   private static boolean hasMaximumFacet(BindingModel model) {
     return allFields(model).stream()
-        .anyMatch(field -> field.valueType().facets().maximum().isPresent());
+            .anyMatch(field -> field.valueType().facets().maximum().isPresent())
+        || allMaps(model).stream().anyMatch(map -> map.valueType().facets().maximum().isPresent());
   }
 
   private static boolean hasExclusiveMinimumFacet(BindingModel model) {
     return allFields(model).stream()
-        .anyMatch(field -> field.valueType().facets().exclusiveMinimum().isPresent());
+            .anyMatch(field -> field.valueType().facets().exclusiveMinimum().isPresent())
+        || allMaps(model).stream()
+            .anyMatch(map -> map.valueType().facets().exclusiveMinimum().isPresent());
   }
 
   private static boolean hasExclusiveMaximumFacet(BindingModel model) {
     return allFields(model).stream()
-        .anyMatch(field -> field.valueType().facets().exclusiveMaximum().isPresent());
+            .anyMatch(field -> field.valueType().facets().exclusiveMaximum().isPresent())
+        || allMaps(model).stream()
+            .anyMatch(map -> map.valueType().facets().exclusiveMaximum().isPresent());
   }
 
   private static boolean hasNumericFacet(BindingModel model) {
     return allFields(model).stream()
-        .anyMatch(field -> field.valueType().facets().hasNumericFacets());
+            .anyMatch(field -> field.valueType().facets().hasNumericFacets())
+        || allMaps(model).stream().anyMatch(map -> map.valueType().facets().hasNumericFacets());
   }
 
   private static boolean hasEnumConstraint(BindingModel model) {
-    return allFields(model).stream().anyMatch(field -> field.valueType().literals().hasEnum());
+    return allFields(model).stream().anyMatch(field -> field.valueType().literals().hasEnum())
+        || allMaps(model).stream().anyMatch(map -> map.valueType().literals().hasEnum());
   }
 
   private static boolean hasConstConstraint(BindingModel model) {
-    return allFields(model).stream().anyMatch(field -> field.valueType().literals().hasConst());
+    return allFields(model).stream().anyMatch(field -> field.valueType().literals().hasConst())
+        || allMaps(model).stream().anyMatch(map -> map.valueType().literals().hasConst());
   }
 
   private static boolean hasNumberLiteralConstraint(BindingModel model) {
     return allFields(model).stream()
-        .anyMatch(
-            field ->
-                field.scalarType() == JavaScalarType.NUMBER
-                    && (field.valueType().literals().hasEnum()
-                        || field.valueType().literals().hasConst()));
+            .anyMatch(
+                field ->
+                    field.scalarType() == JavaScalarType.NUMBER
+                        && (field.valueType().literals().hasEnum()
+                            || field.valueType().literals().hasConst()))
+        || allMaps(model).stream()
+            .anyMatch(
+                map ->
+                    !map.object()
+                        && map.scalarType() == JavaScalarType.NUMBER
+                        && (map.valueType().literals().hasEnum()
+                            || map.valueType().literals().hasConst()));
   }
 
   private static List<FieldBinding> allFields(BindingModel model) {
@@ -882,11 +1230,38 @@ public final class ValidatorSourceEmitter {
     return List.copyOf(fields);
   }
 
+  private static List<MapBinding> allMaps(BindingModel model) {
+    ArrayList<MapBinding> maps = new ArrayList<>();
+    if (model.taggedUnion().isEmpty()) {
+      collectMaps(model.rootObject(), maps);
+      return List.copyOf(maps);
+    }
+    for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
+      collectMaps(branch.object(), maps);
+    }
+    return List.copyOf(maps);
+  }
+
+  private static void collectMaps(ObjectBinding object, List<MapBinding> maps) {
+    object.additionalProperties().ifPresent(maps::add);
+    for (FieldBinding field : object.fields()) {
+      field.valueType().objectBinding().ifPresent(nested -> collectMaps(nested, maps));
+    }
+    object
+        .additionalProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(nested -> collectMaps(nested, maps));
+  }
+
   private static void collectFields(ObjectBinding object, List<FieldBinding> fields) {
     for (FieldBinding field : object.fields()) {
       fields.add(field);
       field.valueType().objectBinding().ifPresent(nested -> collectFields(nested, fields));
     }
+    object
+        .additionalProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(nested -> collectFields(nested, fields));
   }
 
   private static List<ObjectBinding> nestedObjects(BindingModel model) {
@@ -912,6 +1287,14 @@ public final class ValidatorSourceEmitter {
                 collectNestedObjects(nested, objects);
               });
     }
+    object
+        .additionalProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(
+            nested -> {
+              objects.add(nested);
+              collectNestedObjects(nested, objects);
+            });
   }
 
   private static List<String> validateMinLengthHelper() {

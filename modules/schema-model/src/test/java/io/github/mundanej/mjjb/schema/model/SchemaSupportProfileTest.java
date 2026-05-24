@@ -154,6 +154,38 @@ final class SchemaSupportProfileTest {
   }
 
   @Test
+  void acceptsAdditionalPropertiesMapKeywordShapes() {
+    assertValid(
+        """
+        {
+          "type": "object",
+          "properties": {
+            "id": {"type": "string"}
+          },
+          "additionalProperties": {"type": "string", "minLength": 1}
+        }
+        """);
+    assertValid(
+        """
+        {
+          "type": "object",
+          "additionalProperties": {"type": "array", "items": {"type": "integer"}}
+        }
+        """);
+    assertValid(
+        """
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "additionalProperties": false
+          }
+        }
+        """);
+  }
+
+  @Test
   void acceptsLocalReferenceKeywordShapes() {
     assertValid(
         """
@@ -298,7 +330,7 @@ final class SchemaSupportProfileTest {
   @Test
   void reportsUnsupportedKeywordValueShapes() {
     assertUnsupportedValue("{\"additionalProperties\": true}", "/additionalProperties");
-    assertUnsupportedValue("{\"additionalProperties\": {}}", "/additionalProperties");
+    assertInvalid("{\"additionalProperties\": []}", "/additionalProperties");
     assertUnsupportedValue("{\"type\": [\"string\", \"number\"]}", "/type");
     assertUnsupportedValue("{\"type\": [\"null\"]}", "/type");
     assertUnsupportedValue("{\"format\": \"email\"}", "/format");

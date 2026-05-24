@@ -87,7 +87,7 @@ Bacon config	https://dystroy.org/bacon/.bacon.schema.json	5d2e7b623ea6c3285406b6
 Upsun config	https://meta.upsun.com/schema/upsun	59ca23210812bb6b1335dcae1466d758a6588b8d7b806edca7bca981811cc31b	REJECTS	PROFILE_DIAGNOSTIC
 Platform.sh application	https://raw.githubusercontent.com/platformsh/platformify/refs/heads/main/validator/schema/platformsh.application.json	d0b35278902a39c39e96514d066461e0703d59f0edfc84b21dc0fa53fb90d27f	REJECTS	PROFILE_DIAGNOSTIC
 Platform.sh routes	https://raw.githubusercontent.com/platformsh/platformify/refs/heads/main/validator/schema/platformsh.routes.json	34dd05b6214ff3d69fa83a04047e3b2f0996d9d017afb1e8f92fa5de02935d00	REJECTS	PROFILE_DIAGNOSTIC
-Platform.sh services	https://raw.githubusercontent.com/platformsh/platformify/refs/heads/main/validator/schema/platformsh.services.json	1362840d603f5b64778152b486e5272b6a05e2a51e77e224f806fac073759874	REJECTS	PROFILE_DIAGNOSTIC
+Platform.sh services	https://raw.githubusercontent.com/platformsh/platformify/refs/heads/main/validator/schema/platformsh.services.json	1362840d603f5b64778152b486e5272b6a05e2a51e77e224f806fac073759874	REJECTS	GENERATOR_DIAGNOSTIC
 Application Accelerator	https://www.schemastore.org/accelerator.json	e0447d762d4b45b2265a3d0a1ad8f24afaa7ff31ddb8b1e58653c91c2753aa82	REJECTS	PROFILE_DIAGNOSTIC
 amplify.yml	https://www.schemastore.org/amplify.json	0f618465e14d16e4cd7acd5d21e42158143191b8d2a6a4384133b6a94ea1a161	REJECTS	PROFILE_DIAGNOSTIC
 Applicant Profile Protocol	https://app-protocol.org/schema/app-1.0.json	8a8c12223091bbdced69908637d7d0ed1f169497de0d081312511307c8b84e6f	REJECTS	PROFILE_DIAGNOSTIC

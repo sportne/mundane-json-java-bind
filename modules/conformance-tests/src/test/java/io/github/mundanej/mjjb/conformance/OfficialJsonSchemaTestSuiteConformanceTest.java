@@ -50,6 +50,7 @@ final class OfficialJsonSchemaTestSuiteConformanceTest {
           "minItems",
           "maxItems",
           "properties",
+          "additionalProperties",
           "ref",
           "enum",
           "const");
@@ -137,6 +138,44 @@ final class OfficialJsonSchemaTestSuiteConformanceTest {
                   }
                   """,
                   "{\"name\":\"Ada\",\"address\":{\"city\":\"A\"}}",
+                  false),
+              allowedProjected(
+                  "additionalProperties",
+                  "tests/draft2020-12/additionalProperties.json",
+                  "additionalProperties with schema",
+                  "additionalProperties schema validates additional property",
+                  """
+                  {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "$comment": "Projected JSON Schema Test Suite case pinned at __COMMIT__.",
+                    "type": "object",
+                    "properties": {
+                      "known": {"type": "string"}
+                    },
+                    "required": ["known"],
+                    "additionalProperties": {"type": "string", "minLength": 2}
+                  }
+                  """,
+                  "{\"known\":\"ok\",\"extra\":\"ab\"}",
+                  true),
+              allowedProjected(
+                  "additionalProperties",
+                  "tests/draft2020-12/additionalProperties.json",
+                  "additionalProperties with schema",
+                  "additionalProperties schema rejects invalid additional property",
+                  """
+                  {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "$comment": "Projected JSON Schema Test Suite case pinned at __COMMIT__.",
+                    "type": "object",
+                    "properties": {
+                      "known": {"type": "string"}
+                    },
+                    "required": ["known"],
+                    "additionalProperties": {"type": "string", "minLength": 2}
+                  }
+                  """,
+                  "{\"known\":\"ok\",\"extra\":\"a\"}",
                   false),
               allowed(
                   "ref",
@@ -366,8 +405,8 @@ final class OfficialJsonSchemaTestSuiteConformanceTest {
                   SkipReason.UNSUPPORTED_KEYWORD),
               skipped(
                   "tests/draft2020-12/additionalProperties.json",
-                  "additionalProperties with schema",
-                  "additionalProperties schema validates additional property",
+                  "additionalProperties with boolean schema true",
+                  "any additional property is valid",
                   SkipReason.UNSUPPORTED_KEYWORD_VALUE),
               skipped(
                   "tests/draft2020-12/ref.json",
@@ -529,6 +568,24 @@ final class OfficialJsonSchemaTestSuiteConformanceTest {
         testDescription,
         objectSchema(valueSchema),
         objectInstance(valueJson),
+        expectedValid);
+  }
+
+  private static AllowedCase allowedProjected(
+      String category,
+      String upstreamPath,
+      String caseDescription,
+      String testDescription,
+      String schema,
+      String json,
+      boolean expectedValid) {
+    return new AllowedCase(
+        category,
+        upstreamPath,
+        caseDescription,
+        testDescription,
+        schema.replace("__COMMIT__", UPSTREAM_COMMIT),
+        json,
         expectedValid);
   }
 

@@ -230,6 +230,52 @@ final class BindingModelBuilderTest {
   }
 
   @Test
+  void buildsAdditionalPropertiesMapBinding() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "id": {"type": "string"}
+              },
+              "required": ["id"],
+              "additionalProperties": {"type": "string", "minLength": 2}
+            }
+            """);
+
+    assertTrue(result.diagnostics().isEmpty());
+    ObjectBinding root = result.model().orElseThrow().rootObject();
+    MapBinding map = root.additionalProperties().orElseThrow();
+
+    assertEquals("additionalProperties", map.javaFieldName());
+    assertEquals(JavaScalarType.STRING, map.scalarType());
+    assertEquals(2L, map.valueType().facets().minLength().orElseThrow());
+  }
+
+  @Test
+  void disambiguatesAdditionalPropertiesMapFieldName() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "additionalProperties": {"type": "string"}
+              },
+              "additionalProperties": {"type": "integer"}
+            }
+            """);
+
+    assertTrue(result.diagnostics().isEmpty());
+    ObjectBinding root = result.model().orElseThrow().rootObject();
+
+    assertEquals("additionalProperties", root.fields().getFirst().javaFieldName());
+    assertEquals(
+        "additionalProperties2", root.additionalProperties().orElseThrow().javaFieldName());
+  }
+
+  @Test
   void disambiguatesNestedObjectTypeNameCollisions() {
     BindingBuildResult result =
         build(

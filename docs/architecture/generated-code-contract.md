@@ -60,6 +60,12 @@ type:
 | --- | --- | --- |
 | `object` with `additionalProperties: false` | nested record type | `Optional<NestedRecord>` |
 
+Object-valued `additionalProperties` generates one non-null
+`Map<String, T>` record component after declared properties. Constructors copy
+the map and reject keys that duplicate declared property names. Generated
+writers emit declared properties first in schema order, then additional map
+entries sorted by key.
+
 ## Basic Object Model Shape
 
 Generated basic object models are Java records. Record components are emitted in

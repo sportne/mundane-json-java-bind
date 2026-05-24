@@ -1,0 +1,18 @@
+package io.github.mundanej.mjjb.generated;
+
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
+public record GeneratedBindings(
+    String id,
+    Map<String, String> additionalProperties) {
+  public GeneratedBindings {
+    id = Objects.requireNonNull(id, "id");
+    additionalProperties = Map.copyOf(Objects.requireNonNull(additionalProperties, "additionalProperties"));
+    if (!java.util.Collections.disjoint(additionalProperties.keySet(), Set.of(
+        "id"))) {
+      throw new IllegalArgumentException("additionalProperties must not contain declared property names");
+    }
+  }
+}

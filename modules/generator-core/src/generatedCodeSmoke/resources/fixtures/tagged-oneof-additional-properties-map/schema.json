@@ -1,0 +1,22 @@
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "kind": {"type": "string", "const": "card"},
+        "last4": {"type": "string"}
+      },
+      "required": ["kind", "last4"],
+      "additionalProperties": {"type": "string", "minLength": 2}
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": {"type": "string", "const": "bank"},
+        "iban": {"type": "string"}
+      },
+      "required": ["kind", "iban"],
+      "additionalProperties": false
+    }
+  ]
+}

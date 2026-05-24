@@ -34,6 +34,10 @@ than by interpreting schemas at runtime. Each delegated validator receives the
 current JSON instance base path, so required-field, optional-container, and
 facet failures are reported at nested paths such as `$.profile.address.city`.
 
+Map validators apply the `additionalProperties` value schema to every generated
+map entry. Entry failures are reported at the JSON property path for that key,
+for example `$.customName` or `$["custom.name"]`.
+
 Tagged `oneOf` validators validate the generated sealed root interface. The
 generated validator checks root null first, then dispatches by concrete nested
 branch record type and validates that branch's fields in schema property order.

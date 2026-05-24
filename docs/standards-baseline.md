@@ -44,6 +44,9 @@ until their implementation tasks are complete.
 Nested object property bindings are supported as a profile shape rather than a
 new keyword: object-valued properties use the existing `type`, `properties`,
 `required`, and `additionalProperties` keywords with closed-object semantics.
+Object-valued `additionalProperties` is supported when its value schema maps to
+a deterministic `Map<String, T>` value type; `additionalProperties: true`
+remains outside the profile because it implies generic JSON value binding.
 
 Local reference resolution is supported as a pre-binding normalization step.
 `$ref` values must be same-document JSON Pointer fragments and `$defs` provides

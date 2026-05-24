@@ -1,0 +1,46 @@
+package io.github.mundanej.mjjb.generated;
+
+import io.github.mundanej.mjjb.runtime.JsonWriteException;
+import io.github.mundanej.mjjb.runtime.JsonWriter;
+import java.util.Map;
+import java.util.Objects;
+
+public final class GeneratedBindingsJsonWriter {
+  private GeneratedBindingsJsonWriter() {}
+
+  public static void write(JsonWriter writer, GeneratedBindings value) throws JsonWriteException {
+    Objects.requireNonNull(writer, "writer");
+    Objects.requireNonNull(value, "value");
+    if (value instanceof GeneratedBindings.Card branch) {
+      writeCard(writer, branch);
+      return;
+    }
+    if (value instanceof GeneratedBindings.Bank branch) {
+      writeBank(writer, branch);
+      return;
+    }
+    throw new JsonWriteException("Unsupported tagged oneOf branch: " + value.getClass().getName());
+  }
+
+  private static void writeCard(JsonWriter writer, GeneratedBindings.Card value) throws JsonWriteException {
+    writer.beginObject();
+    writer.name("kind");
+    writer.value("card");
+    writer.name("last4");
+    writer.value(value.last4());
+    for (Map.Entry<String, String> entry : value.additionalProperties().entrySet().stream().sorted(Map.Entry.comparingByKey()).toList()) {
+      writer.name(entry.getKey());
+      writer.value(entry.getValue());
+    }
+    writer.endObject();
+  }
+
+  private static void writeBank(JsonWriter writer, GeneratedBindings.Bank value) throws JsonWriteException {
+    writer.beginObject();
+    writer.name("kind");
+    writer.value("bank");
+    writer.name("iban");
+    writer.value(value.iban());
+    writer.endObject();
+  }
+}

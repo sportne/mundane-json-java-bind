@@ -93,7 +93,6 @@ public final class BindingModelBuilder {
     }
 
     validateRootType(rootObject, diagnostics);
-    validateAdditionalProperties(rootObject, diagnostics);
     validateRootLiteralConstraints(rootObject, diagnostics);
     ObjectValue properties = propertiesObject(rootObject);
     RequiredNames requiredNames = requiredNames(rootObject);
@@ -102,13 +101,16 @@ public final class BindingModelBuilder {
     objectTypeNames.add(rootTypeName);
     List<FieldBinding> fields =
         objectFields(properties, requiredNames, null, rootTypeName, objectTypeNames, diagnostics);
+    Optional<MapBinding> additionalProperties =
+        additionalPropertiesBinding(rootObject, rootTypeName, objectTypeNames, fields, diagnostics);
 
     List<BindingDiagnostic> sortedDiagnostics = sorted(diagnostics);
     if (!sortedDiagnostics.isEmpty()) {
       return BindingBuildResult.failure(sortedDiagnostics);
     }
     ObjectBinding rootBinding =
-        new ObjectBinding(rootTypeName, root.pointer(), fields, annotations(rootObject));
+        new ObjectBinding(
+            rootTypeName, root.pointer(), fields, additionalProperties, annotations(rootObject));
     return BindingBuildResult.success(new BindingModel(packageName, rootTypeName, rootBinding));
   }
 
@@ -143,7 +145,6 @@ public final class BindingModelBuilder {
         continue;
       }
       validateRootType(branchSchema, diagnostics);
-      validateAdditionalProperties(branchSchema, diagnostics);
       validateRootLiteralConstraints(branchSchema, diagnostics);
       ObjectValue properties = propertiesObject(branchSchema);
       RequiredNames requiredNames = requiredNames(branchSchema);
@@ -197,11 +198,19 @@ public final class BindingModelBuilder {
               branchTypeName,
               objectTypeNames,
               diagnostics);
+      Optional<MapBinding> additionalProperties =
+          additionalPropertiesBinding(
+              branchSchema, branchTypeName, objectTypeNames, fields, diagnostics);
       branches.add(
           new TaggedUnionBranch(
               tagProperty.get().value(),
               new ObjectBinding(
-                  branchTypeName, branchSchema.pointer(), fields, annotations(branchSchema))));
+                  branchTypeName,
+                  branchSchema.pointer(),
+                  fields,
+                  List.of(tagProperty.get().name()),
+                  additionalProperties,
+                  annotations(branchSchema))));
     }
     List<BindingDiagnostic> sortedDiagnostics = sorted(diagnostics);
     if (!sortedDiagnostics.isEmpty()) {
@@ -299,24 +308,58 @@ public final class BindingModelBuilder {
             value.pointer()));
   }
 
-  private static void validateAdditionalProperties(
-      ObjectValue rootObject, List<BindingDiagnostic> diagnostics) {
+  private static Optional<MapBinding> additionalPropertiesBinding(
+      ObjectValue rootObject,
+      String parentTypeName,
+      Set<String> objectTypeNames,
+      List<FieldBinding> fields,
+      List<BindingDiagnostic> diagnostics) {
     Optional<Member> additionalProperties = member(rootObject, "additionalProperties");
     if (additionalProperties.isEmpty()) {
       diagnostics.add(
           additionalPropertiesDiagnostic(
-              "The root object schema must declare 'additionalProperties' as false.",
+              "The object schema must declare 'additionalProperties' as false or a supported schema object.",
               rootObject.pointer()));
-      return;
+      return Optional.empty();
     }
     SchemaSyntaxValue value = additionalProperties.get().value();
     if (value instanceof BooleanValue booleanValue && !booleanValue.value()) {
-      return;
+      return Optional.empty();
+    }
+    if (value instanceof ObjectValue valueSchema) {
+      Optional<Member> typeMember = member(valueSchema, "type");
+      if (typeMember.isEmpty()) {
+        diagnostics.add(
+            missingPropertyType(
+                "additionalProperties schema must declare a supported 'type'.",
+                additionalProperties.get().pointer()));
+        return Optional.empty();
+      }
+      Optional<FieldValueType> valueType =
+          valueType(
+              "additionalProperty",
+              valueSchema,
+              typeMember.get(),
+              parentTypeName,
+              objectTypeNames,
+              diagnostics);
+      if (valueType.isEmpty()) {
+        return Optional.empty();
+      }
+      HashMap<String, JsonPointer> javaNames = new HashMap<>();
+      for (FieldBinding field : fields) {
+        javaNames.put(field.javaFieldName(), field.schemaPointer());
+      }
+      String javaFieldName =
+          uniqueJavaFieldName(
+              "additionalProperties", javaNames, additionalProperties.get().pointer());
+      return Optional.of(new MapBinding(javaFieldName, valueType.get(), value.pointer()));
     }
     diagnostics.add(
         additionalPropertiesDiagnostic(
-            "The root object schema must declare 'additionalProperties' as false.",
+            "The object schema must declare 'additionalProperties' as false or a supported schema object.",
             value.pointer()));
+    return Optional.empty();
   }
 
   private static void validateRootLiteralConstraints(
@@ -557,7 +600,6 @@ public final class BindingModelBuilder {
       Set<String> objectTypeNames,
       List<BindingDiagnostic> diagnostics) {
     validateRootType(propertySchema, diagnostics);
-    validateAdditionalProperties(propertySchema, diagnostics);
     validateRootLiteralConstraints(propertySchema, diagnostics);
     ObjectValue properties = propertiesObject(propertySchema);
     RequiredNames requiredNames = requiredNames(propertySchema);
@@ -565,10 +607,17 @@ public final class BindingModelBuilder {
     String javaTypeName = uniqueJavaTypeName(parentTypeName, propertyName, objectTypeNames);
     List<FieldBinding> fields =
         objectFields(properties, requiredNames, null, javaTypeName, objectTypeNames, diagnostics);
+    Optional<MapBinding> additionalProperties =
+        additionalPropertiesBinding(
+            propertySchema, javaTypeName, objectTypeNames, fields, diagnostics);
     return Optional.of(
         FieldValueType.object(
             new ObjectBinding(
-                javaTypeName, propertySchema.pointer(), fields, annotations(propertySchema))));
+                javaTypeName,
+                propertySchema.pointer(),
+                fields,
+                additionalProperties,
+                annotations(propertySchema))));
   }
 
   private static Optional<FieldValueType> arrayType(

@@ -221,10 +221,14 @@ public final class SchemaSupportProfile {
     if (value instanceof BooleanValue booleanValue && !booleanValue.value()) {
       return;
     }
-    if (value instanceof BooleanValue || value instanceof ObjectValue) {
+    if (value instanceof ObjectValue objectValue) {
+      validateSchema(objectValue, diagnostics);
+      return;
+    }
+    if (value instanceof BooleanValue) {
       diagnostics.add(
           unsupportedValue(
-              "JSP-DATA-2020-12 supports 'additionalProperties' only as literal false.",
+              "JSP-DATA-2020-12 supports 'additionalProperties' only as literal false or a schema object.",
               value.pointer()));
       return;
     }

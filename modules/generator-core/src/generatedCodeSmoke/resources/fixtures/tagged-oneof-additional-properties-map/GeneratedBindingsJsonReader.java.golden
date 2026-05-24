@@ -1,0 +1,158 @@
+package io.github.mundanej.mjjb.generated;
+
+import io.github.mundanej.mjjb.runtime.JsonDiagnostic;
+import io.github.mundanej.mjjb.runtime.JsonPath;
+import io.github.mundanej.mjjb.runtime.JsonReadException;
+import io.github.mundanej.mjjb.runtime.JsonReader;
+import io.github.mundanej.mjjb.runtime.JsonToken;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
+
+public final class GeneratedBindingsJsonReader {
+  private GeneratedBindingsJsonReader() {}
+
+  public static GeneratedBindings read(JsonReader reader) throws JsonReadException {
+    Objects.requireNonNull(reader, "reader");
+    if (reader.peek() != JsonToken.BEGIN_OBJECT) {
+      throw error("MJJBR-001", "Expected root JSON object.", JsonPath.ROOT, reader.location());
+    }
+    reader.beginObject();
+    if (!reader.hasNext()) {
+      throw missingRequired("kind", propertyPath("kind"), reader.location());
+    }
+    String tagName = reader.nextName();
+    if (!"kind".equals(tagName)) {
+      throw missingRequired("kind", propertyPath("kind"), reader.location());
+    }
+    String tagValue = readString(reader, propertyPath("kind"));
+    GeneratedBindings value =
+        switch (tagValue) {
+          case "card" -> readCard(reader);
+          case "bank" -> readBank(reader);
+          default -> throw error("MJJBR-011", "Unknown tagged oneOf value '" + tagValue + "'.", propertyPath("kind"), reader.location());
+        };
+    if (reader.peek() != JsonToken.END_DOCUMENT) {
+      throw error("MJJBR-002", "Unexpected JSON content after root value.", JsonPath.ROOT, reader.location());
+    }
+    return value;
+  }
+
+  private static GeneratedBindings.Card readCard(JsonReader reader) throws JsonReadException {
+    String last4 = null;
+    boolean last4Seen = false;
+    Map<String, String> additionalProperties = new LinkedHashMap<>();
+    while (reader.hasNext()) {
+      String name = reader.nextName();
+      switch (name) {
+        case "kind" -> {
+          throw duplicateProperty("kind", reader.location());
+        }
+        case "last4" -> {
+          if (last4Seen) {
+            throw duplicateProperty("last4", reader.location());
+          }
+          last4 = readString(reader, propertyPath("last4"));
+          last4Seen = true;
+        }
+        default -> {
+          if (additionalProperties.containsKey(name)) {
+            throw error("MJJBR-003", "Duplicate JSON property '" + name + "'.", propertyPath(name), reader.location());
+          }
+          additionalProperties.put(name, readString(reader, propertyPath(name)));
+        }
+      }
+    }
+    reader.endObject();
+    if (!last4Seen) {
+      throw missingRequired("last4", propertyPath("last4"), reader.location());
+    }
+    return new GeneratedBindings.Card(last4, additionalProperties);
+  }
+
+  private static GeneratedBindings.Bank readBank(JsonReader reader) throws JsonReadException {
+    String iban = null;
+    boolean ibanSeen = false;
+    while (reader.hasNext()) {
+      String name = reader.nextName();
+      switch (name) {
+        case "kind" -> {
+          throw duplicateProperty("kind", reader.location());
+        }
+        case "iban" -> {
+          if (ibanSeen) {
+            throw duplicateProperty("iban", reader.location());
+          }
+          iban = readString(reader, propertyPath("iban"));
+          ibanSeen = true;
+        }
+        default ->
+            throw error("MJJBR-004", "Unknown JSON property '" + name + "'.", propertyPath(name), reader.location());
+      }
+    }
+    reader.endObject();
+    if (!ibanSeen) {
+      throw missingRequired("iban", propertyPath("iban"), reader.location());
+    }
+    return new GeneratedBindings.Bank(iban);
+  }
+
+  private static JsonReadException duplicateProperty(
+      String name, io.github.mundanej.mjjb.runtime.JsonLocation location) {
+    return error("MJJBR-003", "Duplicate JSON property '" + name + "'.", propertyPath(name), location);
+  }
+
+  private static JsonReadException missingRequired(
+      String name, JsonPath path, io.github.mundanej.mjjb.runtime.JsonLocation location) {
+    return error("MJJBR-005", "Missing required JSON property '" + name + "'.", path, location);
+  }
+
+  private static String readString(JsonReader reader, JsonPath path)
+      throws JsonReadException {
+    requireToken(reader, JsonToken.STRING, "MJJBR-006", "Expected JSON string.", path);
+    try {
+      return reader.nextString();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+  }
+
+  private static String readNumberLiteral(
+      JsonReader reader, JsonPath path, String code, String message)
+      throws JsonReadException {
+    requireToken(reader, JsonToken.NUMBER, code, message, path);
+    try {
+      return reader.nextNumberLiteral();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+  }
+
+  private static void requireToken(
+      JsonReader reader, JsonToken expected, String code, String message, JsonPath path)
+      throws JsonReadException {
+    JsonToken actual;
+    try {
+      actual = reader.peek();
+    } catch (JsonReadException exception) {
+      throw atPath(exception, path);
+    }
+    if (actual != expected) {
+      throw error(code, message, path, reader.location());
+    }
+  }
+
+  private static JsonReadException atPath(JsonReadException exception, JsonPath path) {
+    JsonDiagnostic diagnostic = exception.diagnostic();
+    return error(diagnostic.code(), diagnostic.message(), path, diagnostic.location());
+  }
+
+  private static JsonReadException error(
+      String code, String message, JsonPath path, io.github.mundanej.mjjb.runtime.JsonLocation location) {
+    return new JsonReadException(JsonDiagnostic.error(code, message, path, location));
+  }
+
+  private static JsonPath propertyPath(String name) {
+    return JsonPath.ROOT.property(name);
+  }
+}
