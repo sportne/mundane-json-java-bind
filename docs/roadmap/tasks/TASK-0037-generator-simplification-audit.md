@@ -1,7 +1,7 @@
 # TASK-0037: Generator Architecture Simplification Audit
 
 Task ID: `TASK-0037`
-Status: `ready-for-implementation`
+Status: `complete`
 Gate: Post-v1 hardening and simplification
 Depends on: `TASK-0036`
 Specification references: ADR-0002 generated-code no runtime reflection; `docs/architecture/generated-code-contract.md`; `docs/architecture/module-boundaries.md`
