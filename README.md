@@ -100,7 +100,7 @@ plugins {
 }
 
 dependencies {
-  implementation 'io.github.mundanej:mjjb-runtime-core:1.0.0'
+  implementation 'io.github.mundanej:mjjb-runtime-core:1.1.0'
 }
 
 mjjb {
@@ -119,9 +119,9 @@ does not add runtime dependencies for the consuming project. See
 
 ## GitHub Release Artifacts
 
-The current release version is `1.0.0`. This project publishes artifacts only
+The current release version is `1.1.0`. This project publishes artifacts only
 as GitHub Release assets, not to Maven Central. Download the
-`mjjb-1.0.0-maven-repository.zip` asset from the `v1.0.0` GitHub release,
+`mjjb-1.1.0-maven-repository.zip` asset from the `v1.1.0` GitHub release,
 verify its SHA-256 sidecar if desired, unzip it, and point your build at the
 unpacked local Maven repository.
 
@@ -140,7 +140,8 @@ The v1 Maven coordinates are:
 | Generated-binding test helpers | `io.github.mundanej:mjjb-testing-support` |
 
 Release dry-run verification is documented in
-[`docs/verification/release.md`](docs/verification/release.md).
+[`docs/verification/release.md`](docs/verification/release.md). Release notes
+are tracked in [`docs/release-notes.md`](docs/release-notes.md).
 
 ## Examples
 

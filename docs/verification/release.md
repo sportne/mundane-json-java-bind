@@ -61,11 +61,11 @@ the BOM aligns every public non-BOM module.
 
 ## Release Version
 
-The repository version is `1.0.0`. To test another version without editing
+The repository version is `1.1.0`. To test another version without editing
 repository files, pass the Gradle property:
 
 ```bash
-./gradlew releaseDryRun -Pmjjb.version=1.0.0 --console=plain
+./gradlew releaseDryRun -Pmjjb.version=1.1.0 --console=plain
 ```
 
 ## GitHub Release Workflow
