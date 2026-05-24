@@ -145,7 +145,7 @@ as `/properties/value/allOf`.
 | `additionalProperties` | Applicator | Supported with profile limits | Accepted as literal `false` for closed objects or as a supported object-valued schema for `Map<String, T>` catch-all bindings. |
 | `items` | Applicator | Supported with profile limits | Accepted only for homogeneous scalar array items. |
 | `oneOf` | Applicator | Supported with profile limits | Accepted only for root tagged object unions with one common required string `const` tag. |
-| `allOf` | Applicator | Recommended next | Useful when branches can be flattened into one deterministic closed object binding. |
+| `allOf` | Applicator | Supported with profile limits | Supported only for constrained object schemas whose branches flatten into one deterministic object binding; conflicting properties and annotations are rejected, and schema objects that constrain `additionalProperties` must declare every merged property locally. |
 | `anyOf` | Applicator | Deferred - poor tradeoff | Generic union matching requires broader runtime/schema evaluation than the current generator design. |
 | `not` | Applicator | Deferred - poor tradeoff | Negative schema assertions are hard to represent as static Java bindings. |
 | `if` | Applicator | Deferred - poor tradeoff | Conditional evaluation depends on generic schema matching. |
@@ -218,7 +218,7 @@ documents from that scan.
 | 1 | Nested object property bindings | Very high inferred | Very high | High | Implemented in `TASK-0030`. |
 | 2 | Internal `$defs` / local `$ref` resolution | 73.4% `$ref` | Very high | High | Implemented in `TASK-0031`. |
 | 3 | Map bindings via object-valued `additionalProperties` | 48.2% | Very high | High | Implemented in `TASK-0032`. |
-| 4 | Constrained object `allOf` flattening | 25.2% | High | High | Create `TASK-0033`. |
+| 4 | Constrained object `allOf` flattening | 25.2% | High | High | Implemented in `TASK-0033`. |
 | 5 | `patternProperties` map bindings | 22.8% | High | High | Create `TASK-0034`. |
 | 6 | Object validation keywords: `minProperties`, `maxProperties`, `propertyNames`, `dependentRequired` | 5.7% / low | Medium | Medium | Create `TASK-0035`. |
 | 7 | Low-risk scalar/array validators: `multipleOf`, `uniqueItems` | Not in scan | Medium | Low-medium | Create `TASK-0036`. |

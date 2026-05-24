@@ -41,6 +41,7 @@ public final class GeneratedCodeSmoke {
         new GeneratedSourceFixture("nullable-fields"),
         new GeneratedSourceFixture("nested-object"),
         new GeneratedSourceFixture("local-ref"),
+        new GeneratedSourceFixture("allof-flattened-object"),
         new GeneratedSourceFixture("additional-properties-map"),
         new GeneratedSourceFixture("additional-properties-nullable-array-map"),
         new GeneratedSourceFixture("additional-properties-nested-object-map"),

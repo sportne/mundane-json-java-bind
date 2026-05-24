@@ -117,6 +117,7 @@ public final class SchemaSupportProfile {
       case PATTERN -> validatePattern(member.value(), diagnostics);
       case FORMAT -> validateFormat(member.value(), diagnostics);
       case ONE_OF -> validateOneOf(member.value(), diagnostics);
+      case ALL_OF -> validateAllOf(member.value(), diagnostics);
       case REF -> validateRef(member.value(), diagnostics);
       case DEFS -> validateDefs(member.value(), diagnostics);
       case CONST, DEFAULT -> {
@@ -267,6 +268,24 @@ public final class SchemaSupportProfile {
           unsupportedValue(
               "JSP-DATA-2020-12 supports oneOf only as root tagged object branches.",
               value.pointer()));
+    }
+  }
+
+  private static void validateAllOf(
+      SchemaSyntaxValue value, List<SchemaSupportDiagnostic> diagnostics) {
+    if (!(value instanceof ArrayValue arrayValue)) {
+      diagnostics.add(
+          invalidValue("The 'allOf' keyword value must be a non-empty array.", value.pointer()));
+      return;
+    }
+    if (arrayValue.items().isEmpty()) {
+      diagnostics.add(
+          invalidValue("The 'allOf' keyword value must be a non-empty array.", value.pointer()));
+      return;
+    }
+    for (SchemaSyntaxValue item : arrayValue.items()) {
+      validateSchemaObjectOnly(
+          item, "Every 'allOf' array item must be a JSON Schema.", diagnostics);
     }
   }
 

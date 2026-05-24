@@ -1,0 +1,11 @@
+package io.github.mundanej.mjjb.generated;
+
+import java.util.Objects;
+
+public record GeneratedBindings(
+    String id,
+    long count) {
+  public GeneratedBindings {
+    id = Objects.requireNonNull(id, "id");
+  }
+}

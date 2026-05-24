@@ -245,7 +245,7 @@ final class ProfileDiagnosticsConformanceTest {
               "type": "object",
               "properties": {
                 "z": {"$dynamicRef": "#other"},
-                "a": {"allOf": []}
+                "a": {"anyOf": []}
               },
               "additionalProperties": false
             }
@@ -253,7 +253,7 @@ final class ProfileDiagnosticsConformanceTest {
 
     assertFalse(result.successful());
     assertEquals(2, result.diagnostics().size());
-    assertEquals("/properties/a/allOf", result.diagnostics().get(0).schemaPointer());
+    assertEquals("/properties/a/anyOf", result.diagnostics().get(0).schemaPointer());
     assertEquals("/properties/z/$dynamicRef", result.diagnostics().get(1).schemaPointer());
     assertTrue(
         result
@@ -261,7 +261,7 @@ final class ProfileDiagnosticsConformanceTest {
             .get(0)
             .toManifestLine()
             .contains("MJJBG-SCHEMA-UNSUPPORTED-KEYWORD | "));
-    assertTrue(result.diagnostics().get(0).toManifestLine().contains("#/properties/a/allOf | "));
+    assertTrue(result.diagnostics().get(0).toManifestLine().contains("#/properties/a/anyOf | "));
   }
 
   @Test

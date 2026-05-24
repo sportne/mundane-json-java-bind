@@ -1,7 +1,7 @@
 # TASK-0033: Constrained `allOf` Object Flattening
 
 Task ID: `TASK-0033`
-Status: `draft`
+Status: `complete`
 Gate: Post-v1 profile expansion
 Depends on: `TASK-0032`
 Specification references: JSON Schema Draft 2020-12 Applicator keyword `allOf`
@@ -24,7 +24,8 @@ Forbidden files:
 Expected behavior:
 - `allOf` is accepted only when every branch is a supported object schema that can be flattened into one deterministic object binding.
 - Flattening merges properties, required names, annotations, and compatible object-level constraints without changing generated read/write/validate semantics.
-- Conflicting property definitions, incompatible `additionalProperties`, ambiguous annotations, or non-object branches reject with stable diagnostics.
+- Conflicting property definitions, unsafe `additionalProperties` constraints, ambiguous annotations, or non-object branches reject with stable diagnostics.
+- Any schema object inside the flattened `allOf` composition that constrains `additionalProperties` must declare every merged property in that same schema object.
 - Local `$ref` branches are allowed only after `TASK-0031` resolution is complete.
 
 Tests to add/update:

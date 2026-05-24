@@ -34,6 +34,11 @@ than by interpreting schemas at runtime. Each delegated validator receives the
 current JSON instance base path, so required-field, optional-container, and
 facet failures are reported at nested paths such as `$.profile.address.city`.
 
+Constrained `allOf` object schemas are flattened before validator generation.
+Validators therefore operate on the merged generated record shape and preserve
+the original property-level schema locations in generated diagnostics where a
+merged branch contributed the property.
+
 Map validators apply the `additionalProperties` value schema to every generated
 map entry. Entry failures are reported at the JSON property path for that key,
 for example `$.customName` or `$["custom.name"]`.

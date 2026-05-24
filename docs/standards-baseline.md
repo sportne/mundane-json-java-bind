@@ -32,7 +32,7 @@ readers.
 |---|---|
 | Supported binding keywords | `type`, `properties`, `required`, `additionalProperties`, `enum`, `const`, `default`, `items`, `minItems`, `maxItems`, `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `minLength`, `maxLength`, `pattern`, `format`, `oneOf`, `$ref`, `$defs` |
 | Accepted ignored annotations and dialect markers | `$schema`, `title`, `description`, `$comment`, `examples`, `deprecated`, `readOnly`, `writeOnly` |
-| Recommended post-v1 keywords | `allOf`, `patternProperties`, `propertyNames`, `multipleOf`, `uniqueItems`, `maxProperties`, `minProperties`, `dependentRequired` |
+| Recommended post-v1 keywords | `patternProperties`, `propertyNames`, `multipleOf`, `uniqueItems`, `maxProperties`, `minProperties`, `dependentRequired` |
 | Known rejected or deferred Draft 2020-12 keywords | `$id`, `$anchor`, `$dynamicAnchor`, `$vocabulary`, `$dynamicRef`, `anyOf`, `not`, `if`, `then`, `else`, `dependentSchemas`, `prefixItems`, `contains`, `unevaluatedItems`, `unevaluatedProperties`, `maxContains`, `minContains`, `contentEncoding`, `contentMediaType`, `contentSchema` |
 
 Unknown non-Draft extension keywords are ignored as annotations. Known Draft
@@ -84,5 +84,5 @@ generated root-object binding shape instead of interpreted dynamically; see
 | Array length | `tests/draft2020-12/minItems.json`, `maxItems.json` | Boundary success and failure cases for homogeneous integer arrays. | Tuple, containment, and unique-item fixtures are skipped by unsupported keyword policy. |
 | Nested object properties | `tests/draft2020-12/properties.json` | Valid and invalid closed nested object property projections. | Generic object applicability cases that do not define generated binding shapes remain skipped. |
 | Literal constraints | `tests/draft2020-12/enum.json`, `const.json` | Scalar match and mismatch cases through generated validators and reader failures. | Object/array literal constraints outside scalar or scalar-item bindings stay unsupported. |
-| Object/applicator/reference behavior | `required.json`, `properties.json`, `allOf.json`, `additionalProperties.json`, `ref.json` | Local JSON Pointer references are covered through generated binding fixtures; representative unsupported applicator and remote-reference cases remain in the skip manifest. | Skips use `MISSING_REQUIRED_BINDING_SHAPE`, `UNTYPED_PROPERTY_SCHEMA`, `UNSUPPORTED_KEYWORD`, `UNSUPPORTED_KEYWORD_VALUE`, or `REMOTE_REFERENCE`. |
+| Object/applicator/reference behavior | `required.json`, `properties.json`, `allOf.json`, `additionalProperties.json`, `ref.json` | Local JSON Pointer references and constrained `allOf` object flattening are covered through generated binding fixtures; representative unsupported applicator and remote-reference cases remain in the skip manifest. | Skips use `MISSING_REQUIRED_BINDING_SHAPE`, `UNTYPED_PROPERTY_SCHEMA`, `UNSUPPORTED_KEYWORD`, `UNSUPPORTED_KEYWORD_VALUE`, or `REMOTE_REFERENCE`. |
 | Format assertions | `tests/draft2020-12/format.json` | Supported local formats are covered by generator tests. | Optional upstream formats outside `date`, `date-time`, and `uuid` are skipped as `OPTIONAL_FORMAT_SCOPE`. |

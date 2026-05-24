@@ -42,7 +42,7 @@ public enum JsonSchemaKeyword {
   REF("$ref", JsonSchemaKeywordSupport.SUPPORTED_BINDING),
   DYNAMIC_REF("$dynamicRef", JsonSchemaKeywordSupport.UNSUPPORTED),
   DEFS("$defs", JsonSchemaKeywordSupport.SUPPORTED_BINDING),
-  ALL_OF("allOf", JsonSchemaKeywordSupport.UNSUPPORTED),
+  ALL_OF("allOf", JsonSchemaKeywordSupport.SUPPORTED_BINDING),
   ANY_OF("anyOf", JsonSchemaKeywordSupport.UNSUPPORTED),
   NOT("not", JsonSchemaKeywordSupport.UNSUPPORTED),
   IF("if", JsonSchemaKeywordSupport.UNSUPPORTED),

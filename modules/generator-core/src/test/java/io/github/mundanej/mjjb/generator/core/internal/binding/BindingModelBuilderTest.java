@@ -64,6 +64,143 @@ final class BindingModelBuilderTest {
   }
 
   @Test
+  void flattensConstrainedAllOfObjectSchemas() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "id": {"type": "string"},
+                "count": {"type": "integer"}
+              },
+              "additionalProperties": false,
+              "allOf": [
+                {
+                  "type": "object",
+                  "title": "Merged",
+                  "required": ["id"]
+                },
+                {
+                  "type": "object",
+                  "required": ["count"]
+                }
+              ]
+            }
+            """);
+
+    assertTrue(result.diagnostics().isEmpty());
+    BindingModel model = result.model().orElseThrow();
+    assertEquals(List.of("id", "count"), jsonPropertyNames(model));
+    assertEquals(List.of(true, true), requiredFlags(model));
+    assertEquals(List.of("/properties/id", "/properties/count"), schemaPointers(model));
+    assertEquals("Merged", model.rootObject().annotations().title().orElseThrow());
+  }
+
+  @Test
+  void rejectsConflictingAllOfPropertySchemas() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "allOf": [
+                {
+                  "type": "object",
+                  "properties": {"id": {"type": "string"}},
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {"id": {"type": "integer"}},
+                  "additionalProperties": false
+                }
+              ]
+            }
+            """);
+
+    assertEquals(BindingDiagnostic.UNSUPPORTED_ALL_OF_CODE, result.diagnostics().getFirst().code());
+    assertEquals("/allOf/1/properties/id", result.diagnostics().getFirst().pointer().value());
+  }
+
+  @Test
+  void rejectsClosedAllOfBranchesMissingMergedProperties() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "allOf": [
+                {
+                  "type": "object",
+                  "properties": {"id": {"type": "string"}},
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {"count": {"type": "integer"}},
+                  "additionalProperties": false
+                }
+              ]
+            }
+            """);
+
+    assertEquals(BindingDiagnostic.UNSUPPORTED_ALL_OF_CODE, result.diagnostics().getFirst().code());
+    assertEquals(
+        "/allOf/0/additionalProperties", result.diagnostics().getFirst().pointer().value());
+  }
+
+  @Test
+  void treatsObjectMemberOrderAsInsignificantForAllOfDuplicateProperties() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "id": {"type": "string", "minLength": 2}
+              },
+              "additionalProperties": false,
+              "allOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {"minLength": 2, "type": "string"}
+                  }
+                }
+              ]
+            }
+            """);
+
+    assertTrue(result.diagnostics().isEmpty());
+    assertEquals(List.of("id"), jsonPropertyNames(result.model().orElseThrow()));
+  }
+
+  @Test
+  void rejectsIncompatibleAllOfAdditionalProperties() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "allOf": [
+                {
+                  "type": "object",
+                  "properties": {"id": {"type": "string"}},
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {"count": {"type": "integer"}},
+                  "additionalProperties": {"type": "string"}
+                }
+              ]
+            }
+            """);
+
+    assertEquals(BindingDiagnostic.UNSUPPORTED_ALL_OF_CODE, result.diagnostics().getFirst().code());
+    assertEquals(
+        "/allOf/0/additionalProperties", result.diagnostics().getFirst().pointer().value());
+  }
+
+  @Test
   void rejectsRequiredNamesWhenPropertiesAreAbsent() {
     BindingBuildResult result =
         build(

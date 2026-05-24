@@ -288,6 +288,28 @@ final class SchemaSupportProfileTest {
   }
 
   @Test
+  void acceptsConstrainedAllOfKeywordShapes() {
+    assertValid(
+        """
+        {
+          "allOf": [
+            {
+              "type": "object",
+              "properties": {"id": {"type": "string"}},
+              "required": ["id"],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {"count": {"type": "integer"}},
+              "additionalProperties": false
+            }
+          ]
+        }
+        """);
+  }
+
+  @Test
   void ignoresUnknownExtensionKeywordsAsAnnotations() {
     assertValid("{\"type\":\"object\",\"x-extension\":{\"$ref\":\"annotation text\"}}");
   }
@@ -295,10 +317,10 @@ final class SchemaSupportProfileTest {
   @Test
   void reportsUnsupportedKeywordsWithExactPointersAndDeterministicOrdering() {
     List<SchemaSupportDiagnostic> diagnostics =
-        validate("{\"properties\":{\"b\":{\"$dynamicRef\":\"#x\"},\"a\":{\"allOf\":[]}}}");
+        validate("{\"properties\":{\"b\":{\"$dynamicRef\":\"#x\"},\"a\":{\"anyOf\":[]}}}");
 
     assertEquals(2, diagnostics.size());
-    assertEquals("/properties/a/allOf", diagnostics.get(0).pointer().value());
+    assertEquals("/properties/a/anyOf", diagnostics.get(0).pointer().value());
     assertEquals("/properties/b/$dynamicRef", diagnostics.get(1).pointer().value());
     assertEquals(SchemaSupportProfile.UNSUPPORTED_KEYWORD_CODE, diagnostics.get(0).code());
   }

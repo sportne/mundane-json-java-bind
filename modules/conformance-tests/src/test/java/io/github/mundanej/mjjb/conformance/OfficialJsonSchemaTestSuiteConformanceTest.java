@@ -51,6 +51,7 @@ final class OfficialJsonSchemaTestSuiteConformanceTest {
           "maxItems",
           "properties",
           "additionalProperties",
+          "allOf",
           "ref",
           "enum",
           "const");
@@ -176,6 +177,64 @@ final class OfficialJsonSchemaTestSuiteConformanceTest {
                   }
                   """,
                   "{\"known\":\"ok\",\"extra\":\"a\"}",
+                  false),
+              allowedProjected(
+                  "allOf",
+                  "tests/draft2020-12/allOf.json",
+                  "allOf",
+                  "allOf with two object schemas is valid",
+                  """
+                  {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "$comment": "Projected JSON Schema Test Suite case pinned at __COMMIT__.",
+                    "type": "object",
+                    "properties": {
+                      "id": {"type": "string", "minLength": 2},
+                      "count": {"type": "integer"}
+                    },
+                    "additionalProperties": false,
+                    "allOf": [
+                      {
+                        "type": "object",
+                        "required": ["id"]
+                      },
+                      {
+                        "type": "object",
+                        "required": ["count"]
+                      }
+                    ]
+                  }
+                  """,
+                  "{\"id\":\"ok\",\"count\":1}",
+                  true),
+              allowedProjected(
+                  "allOf",
+                  "tests/draft2020-12/allOf.json",
+                  "allOf",
+                  "allOf branch validation failure is invalid",
+                  """
+                  {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "$comment": "Projected JSON Schema Test Suite case pinned at __COMMIT__.",
+                    "type": "object",
+                    "properties": {
+                      "id": {"type": "string", "minLength": 2},
+                      "count": {"type": "integer"}
+                    },
+                    "additionalProperties": false,
+                    "allOf": [
+                      {
+                        "type": "object",
+                        "required": ["id"]
+                      },
+                      {
+                        "type": "object",
+                        "required": ["count"]
+                      }
+                    ]
+                  }
+                  """,
+                  "{\"id\":\"x\",\"count\":1}",
                   false),
               allowed(
                   "ref",
@@ -399,9 +458,9 @@ final class OfficialJsonSchemaTestSuiteConformanceTest {
                   "untyped property schema",
                   SkipReason.UNTYPED_PROPERTY_SCHEMA),
               skipped(
-                  "tests/draft2020-12/allOf.json",
-                  "allOf",
-                  "allOf with one schema",
+                  "tests/draft2020-12/anyOf.json",
+                  "anyOf",
+                  "anyOf with one schema",
                   SkipReason.UNSUPPORTED_KEYWORD),
               skipped(
                   "tests/draft2020-12/additionalProperties.json",

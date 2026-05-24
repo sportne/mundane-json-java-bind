@@ -599,13 +599,13 @@ final class CoreGeneratorTest {
   @Test
   void reportsUnsupportedKeywordInsideArrayWithPointer() throws IOException {
     Path schema = tempDir.resolve("schema.json");
-    Files.writeString(schema, "{\"items\":{\"allOf\":[]}}");
+    Files.writeString(schema, "{\"items\":{\"anyOf\":[]}}");
 
     GeneratorResult result =
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
     assertFalse(result.successful());
-    assertEquals("/items/allOf", result.diagnostics().getFirst().schemaPointer());
+    assertEquals("/items/anyOf", result.diagnostics().getFirst().schemaPointer());
     assertEquals("MJJBG-SCHEMA-UNSUPPORTED-KEYWORD", result.diagnostics().getFirst().code());
   }
 
@@ -777,13 +777,13 @@ final class CoreGeneratorTest {
   void reportsProfileDiagnosticsInDeterministicOrder() throws IOException {
     Path schema = tempDir.resolve("schema.json");
     Files.writeString(
-        schema, "{\"properties\":{\"b\":{\"$dynamicRef\":\"#x\"},\"a\":{\"allOf\":[]}}}");
+        schema, "{\"properties\":{\"b\":{\"$dynamicRef\":\"#x\"},\"a\":{\"anyOf\":[]}}}");
 
     GeneratorResult result =
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
     assertFalse(result.successful());
-    assertEquals("/properties/a/allOf", result.diagnostics().get(0).schemaPointer());
+    assertEquals("/properties/a/anyOf", result.diagnostics().get(0).schemaPointer());
     assertEquals("/properties/b/$dynamicRef", result.diagnostics().get(1).schemaPointer());
   }
 

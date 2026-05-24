@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -92,17 +93,23 @@ public final class BindingModelBuilder {
       return buildTaggedUnion(rootObject, oneOfMember.get(), packageName, rootTypeName);
     }
 
-    validateRootType(rootObject, diagnostics);
-    validateRootLiteralConstraints(rootObject, diagnostics);
-    ObjectValue properties = propertiesObject(rootObject);
-    RequiredNames requiredNames = requiredNames(rootObject);
+    Optional<ObjectValue> flattenedRoot = flattenedObjectSchema(rootObject, diagnostics);
+    if (flattenedRoot.isEmpty()) {
+      return BindingBuildResult.failure(sorted(diagnostics));
+    }
+    ObjectValue bindingRoot = flattenedRoot.get();
+    validateRootType(bindingRoot, diagnostics);
+    validateRootLiteralConstraints(bindingRoot, diagnostics);
+    ObjectValue properties = propertiesObject(bindingRoot);
+    RequiredNames requiredNames = requiredNames(bindingRoot);
     diagnostics.addAll(requiredNames.diagnostics());
     HashSet<String> objectTypeNames = new HashSet<>();
     objectTypeNames.add(rootTypeName);
     List<FieldBinding> fields =
         objectFields(properties, requiredNames, null, rootTypeName, objectTypeNames, diagnostics);
     Optional<MapBinding> additionalProperties =
-        additionalPropertiesBinding(rootObject, rootTypeName, objectTypeNames, fields, diagnostics);
+        additionalPropertiesBinding(
+            bindingRoot, rootTypeName, objectTypeNames, fields, diagnostics);
 
     List<BindingDiagnostic> sortedDiagnostics = sorted(diagnostics);
     if (!sortedDiagnostics.isEmpty()) {
@@ -110,7 +117,7 @@ public final class BindingModelBuilder {
     }
     ObjectBinding rootBinding =
         new ObjectBinding(
-            rootTypeName, root.pointer(), fields, additionalProperties, annotations(rootObject));
+            rootTypeName, root.pointer(), fields, additionalProperties, annotations(bindingRoot));
     return BindingBuildResult.success(new BindingModel(packageName, rootTypeName, rootBinding));
   }
 
@@ -144,15 +151,20 @@ public final class BindingModelBuilder {
             unsupportedOneOf("Tagged oneOf branches must be object schemas.", item.pointer()));
         continue;
       }
-      validateRootType(branchSchema, diagnostics);
-      validateRootLiteralConstraints(branchSchema, diagnostics);
-      ObjectValue properties = propertiesObject(branchSchema);
-      RequiredNames requiredNames = requiredNames(branchSchema);
+      Optional<ObjectValue> flattenedBranch = flattenedObjectSchema(branchSchema, diagnostics);
+      if (flattenedBranch.isEmpty()) {
+        continue;
+      }
+      ObjectValue bindingBranch = flattenedBranch.get();
+      validateRootType(bindingBranch, diagnostics);
+      validateRootLiteralConstraints(bindingBranch, diagnostics);
+      ObjectValue properties = propertiesObject(bindingBranch);
+      RequiredNames requiredNames = requiredNames(bindingBranch);
       diagnostics.addAll(requiredNames.diagnostics());
       if (properties == null) {
         diagnostics.add(
             unsupportedOneOf(
-                "Tagged oneOf branches must declare object properties.", branchSchema.pointer()));
+                "Tagged oneOf branches must declare object properties.", bindingBranch.pointer()));
         continue;
       }
       Optional<TagProperty> tagProperty = tagProperty(properties, requiredNames, diagnostics);
@@ -200,7 +212,7 @@ public final class BindingModelBuilder {
               diagnostics);
       Optional<MapBinding> additionalProperties =
           additionalPropertiesBinding(
-              branchSchema, branchTypeName, objectTypeNames, fields, diagnostics);
+              bindingBranch, branchTypeName, objectTypeNames, fields, diagnostics);
       branches.add(
           new TaggedUnionBranch(
               tagProperty.get().value(),
@@ -210,7 +222,7 @@ public final class BindingModelBuilder {
                   fields,
                   List.of(tagProperty.get().name()),
                   additionalProperties,
-                  annotations(branchSchema))));
+                  annotations(bindingBranch))));
     }
     List<BindingDiagnostic> sortedDiagnostics = sorted(diagnostics);
     if (!sortedDiagnostics.isEmpty()) {
@@ -326,7 +338,13 @@ public final class BindingModelBuilder {
     if (value instanceof BooleanValue booleanValue && !booleanValue.value()) {
       return Optional.empty();
     }
-    if (value instanceof ObjectValue valueSchema) {
+    if (value instanceof ObjectValue rawValueSchema) {
+      Optional<ObjectValue> flattenedValueSchema =
+          flattenedObjectSchema(rawValueSchema, diagnostics);
+      if (flattenedValueSchema.isEmpty()) {
+        return Optional.empty();
+      }
+      ObjectValue valueSchema = flattenedValueSchema.get();
       Optional<Member> typeMember = member(valueSchema, "type");
       if (typeMember.isEmpty()) {
         diagnostics.add(
@@ -360,6 +378,155 @@ public final class BindingModelBuilder {
             "The object schema must declare 'additionalProperties' as false or a supported schema object.",
             value.pointer()));
     return Optional.empty();
+  }
+
+  private static Optional<ObjectValue> flattenedObjectSchema(
+      ObjectValue schema, List<BindingDiagnostic> diagnostics) {
+    Optional<Member> allOfMember = member(schema, "allOf");
+    if (allOfMember.isEmpty()) {
+      return Optional.of(schema);
+    }
+    if (!(allOfMember.get().value() instanceof ArrayValue allOf) || allOf.items().isEmpty()) {
+      diagnostics.add(
+          unsupportedAllOf(
+              "Constrained allOf flattening requires a non-empty array of object schemas.",
+              allOfMember.get().pointer()));
+      return Optional.empty();
+    }
+    FlattenedObjectMembers flattened = new FlattenedObjectMembers(schema.pointer());
+    mergeObjectSchema(schema, flattened, diagnostics);
+    for (SchemaSyntaxValue item : allOf.items()) {
+      if (!(item instanceof ObjectValue branch)) {
+        diagnostics.add(
+            unsupportedAllOf(
+                "Constrained allOf flattening supports only object schema branches.",
+                item.pointer()));
+        continue;
+      }
+      Optional<ObjectValue> flattenedBranch = flattenedObjectSchema(branch, diagnostics);
+      flattenedBranch.ifPresent(value -> mergeObjectSchema(value, flattened, diagnostics));
+    }
+    validateAllOfAdditionalProperties(flattened, diagnostics);
+    if (diagnostics.stream()
+        .anyMatch(
+            diagnostic -> BindingDiagnostic.UNSUPPORTED_ALL_OF_CODE.equals(diagnostic.code()))) {
+      return Optional.empty();
+    }
+    return Optional.of(flattened.toObjectValue());
+  }
+
+  private static void mergeObjectSchema(
+      ObjectValue schema, FlattenedObjectMembers flattened, List<BindingDiagnostic> diagnostics) {
+    Optional<Member> additionalProperties = member(schema, "additionalProperties");
+    additionalProperties
+        .filter(member -> !isBooleanTrue(member.value()))
+        .ifPresent(
+            member ->
+                flattened.additionalPropertiesScopes.add(
+                    new AdditionalPropertiesScope(member, declaredPropertyNames(schema))));
+    for (Member member : schema.members()) {
+      switch (member.name()) {
+        case "allOf", "$schema", "$defs" -> {
+          // These keywords have already been applied or are compile-time-only for binding.
+        }
+        case "properties" -> mergeProperties(member, flattened, diagnostics);
+        case "required" -> mergeRequired(member, flattened);
+        case "additionalProperties" ->
+            mergeCompatibleMember(
+                member,
+                flattened.objectMembers,
+                "allOf branches must use compatible additionalProperties schemas.",
+                diagnostics);
+        default ->
+            mergeCompatibleMember(
+                member,
+                flattened.objectMembers,
+                "allOf branches must not declare conflicting '" + member.name() + "' values.",
+                diagnostics);
+      }
+    }
+  }
+
+  private static void mergeProperties(
+      Member propertiesMember,
+      FlattenedObjectMembers flattened,
+      List<BindingDiagnostic> diagnostics) {
+    if (!(propertiesMember.value() instanceof ObjectValue properties)) {
+      mergeCompatibleMember(
+          propertiesMember,
+          flattened.objectMembers,
+          "allOf properties values must be compatible objects.",
+          diagnostics);
+      return;
+    }
+    for (Member property : properties.members()) {
+      Member existing = flattened.properties.get(property.name());
+      if (existing != null && !sameJsonValue(existing.value(), property.value())) {
+        diagnostics.add(
+            unsupportedAllOf(
+                "allOf property '" + property.name() + "' has conflicting schema definitions.",
+                property.pointer()));
+        continue;
+      }
+      flattened.properties.putIfAbsent(property.name(), property);
+    }
+  }
+
+  private static Set<String> declaredPropertyNames(ObjectValue schema) {
+    Optional<Member> propertiesMember = member(schema, "properties");
+    if (propertiesMember.isEmpty()
+        || !(propertiesMember.get().value() instanceof ObjectValue properties)) {
+      return Set.of();
+    }
+    HashSet<String> names = new HashSet<>();
+    for (Member property : properties.members()) {
+      names.add(property.name());
+    }
+    return Set.copyOf(names);
+  }
+
+  private static boolean isBooleanTrue(SchemaSyntaxValue value) {
+    return value instanceof BooleanValue booleanValue && booleanValue.value();
+  }
+
+  private static void validateAllOfAdditionalProperties(
+      FlattenedObjectMembers flattened, List<BindingDiagnostic> diagnostics) {
+    for (AdditionalPropertiesScope scope : flattened.additionalPropertiesScopes) {
+      for (String propertyName : flattened.properties.keySet()) {
+        if (!scope.declaredProperties().contains(propertyName)) {
+          diagnostics.add(
+              unsupportedAllOf(
+                  "allOf schemas that constrain additionalProperties must declare every merged property in the same schema object.",
+                  scope.member().pointer()));
+          break;
+        }
+      }
+    }
+  }
+
+  private static void mergeRequired(Member requiredMember, FlattenedObjectMembers flattened) {
+    if (!(requiredMember.value() instanceof ArrayValue required)) {
+      flattened.objectMembers.putIfAbsent(requiredMember.name(), requiredMember);
+      return;
+    }
+    for (SchemaSyntaxValue item : required.items()) {
+      if (item instanceof StringValue stringValue) {
+        flattened.required.putIfAbsent(stringValue.value(), stringValue);
+      }
+    }
+  }
+
+  private static void mergeCompatibleMember(
+      Member member,
+      Map<String, Member> members,
+      String conflictMessage,
+      List<BindingDiagnostic> diagnostics) {
+    Member existing = members.get(member.name());
+    if (existing != null && !sameJsonValue(existing.value(), member.value())) {
+      diagnostics.add(unsupportedAllOf(conflictMessage, member.pointer()));
+      return;
+    }
+    members.putIfAbsent(member.name(), member);
   }
 
   private static void validateRootLiteralConstraints(
@@ -444,6 +611,54 @@ public final class BindingModelBuilder {
     StringBuilder builder = new StringBuilder();
     appendCompactJson(builder, value);
     return builder.toString();
+  }
+
+  private static boolean sameJsonValue(SchemaSyntaxValue left, SchemaSyntaxValue right) {
+    return canonicalJson(left).equals(canonicalJson(right));
+  }
+
+  private static String canonicalJson(SchemaSyntaxValue value) {
+    StringBuilder builder = new StringBuilder();
+    appendCanonicalJson(builder, value);
+    return builder.toString();
+  }
+
+  private static void appendCanonicalJson(StringBuilder builder, SchemaSyntaxValue value) {
+    switch (value) {
+      case ObjectValue objectValue -> {
+        builder.append('{');
+        List<Member> members =
+            objectValue.members().stream()
+                .sorted(
+                    Comparator.comparing(Member::name)
+                        .thenComparing(member -> canonicalJson(member.value())))
+                .toList();
+        for (int index = 0; index < members.size(); index++) {
+          if (index > 0) {
+            builder.append(',');
+          }
+          Member member = members.get(index);
+          appendJsonString(builder, member.name());
+          builder.append(':');
+          appendCanonicalJson(builder, member.value());
+        }
+        builder.append('}');
+      }
+      case ArrayValue arrayValue -> {
+        builder.append('[');
+        for (int index = 0; index < arrayValue.items().size(); index++) {
+          if (index > 0) {
+            builder.append(',');
+          }
+          appendCanonicalJson(builder, arrayValue.items().get(index));
+        }
+        builder.append(']');
+      }
+      case StringValue stringValue -> appendJsonString(builder, stringValue.value());
+      case NumberValue numberValue -> builder.append(numberValue.literal());
+      case BooleanValue booleanValue -> builder.append(booleanValue.value());
+      case NullValue ignored -> builder.append("null");
+    }
   }
 
   private static void appendCompactJson(StringBuilder builder, SchemaSyntaxValue value) {
@@ -599,17 +814,22 @@ public final class BindingModelBuilder {
       String parentTypeName,
       Set<String> objectTypeNames,
       List<BindingDiagnostic> diagnostics) {
-    validateRootType(propertySchema, diagnostics);
-    validateRootLiteralConstraints(propertySchema, diagnostics);
-    ObjectValue properties = propertiesObject(propertySchema);
-    RequiredNames requiredNames = requiredNames(propertySchema);
+    Optional<ObjectValue> flattenedSchema = flattenedObjectSchema(propertySchema, diagnostics);
+    if (flattenedSchema.isEmpty()) {
+      return Optional.empty();
+    }
+    ObjectValue bindingSchema = flattenedSchema.get();
+    validateRootType(bindingSchema, diagnostics);
+    validateRootLiteralConstraints(bindingSchema, diagnostics);
+    ObjectValue properties = propertiesObject(bindingSchema);
+    RequiredNames requiredNames = requiredNames(bindingSchema);
     diagnostics.addAll(requiredNames.diagnostics());
     String javaTypeName = uniqueJavaTypeName(parentTypeName, propertyName, objectTypeNames);
     List<FieldBinding> fields =
         objectFields(properties, requiredNames, null, javaTypeName, objectTypeNames, diagnostics);
     Optional<MapBinding> additionalProperties =
         additionalPropertiesBinding(
-            propertySchema, javaTypeName, objectTypeNames, fields, diagnostics);
+            bindingSchema, javaTypeName, objectTypeNames, fields, diagnostics);
     return Optional.of(
         FieldValueType.object(
             new ObjectBinding(
@@ -617,7 +837,7 @@ public final class BindingModelBuilder {
                 propertySchema.pointer(),
                 fields,
                 additionalProperties,
-                annotations(propertySchema))));
+                annotations(bindingSchema))));
   }
 
   private static Optional<FieldValueType> arrayType(
@@ -1035,6 +1255,38 @@ public final class BindingModelBuilder {
         || (character >= '0' && character <= '9');
   }
 
+  private static final class FlattenedObjectMembers {
+    private final JsonPointer pointer;
+    private final LinkedHashMap<String, Member> objectMembers = new LinkedHashMap<>();
+    private final LinkedHashMap<String, Member> properties = new LinkedHashMap<>();
+    private final LinkedHashMap<String, StringValue> required = new LinkedHashMap<>();
+    private final List<AdditionalPropertiesScope> additionalPropertiesScopes = new ArrayList<>();
+
+    private FlattenedObjectMembers(JsonPointer pointer) {
+      this.pointer = Objects.requireNonNull(pointer, "pointer");
+    }
+
+    private ObjectValue toObjectValue() {
+      ArrayList<Member> members = new ArrayList<>();
+      members.addAll(objectMembers.values());
+      if (!properties.isEmpty()) {
+        members.add(
+            new Member(
+                "properties",
+                new ObjectValue(pointer.property("properties"), List.copyOf(properties.values()))));
+      }
+      if (!required.isEmpty()) {
+        members.add(
+            new Member(
+                "required",
+                new ArrayValue(pointer.property("required"), List.copyOf(required.values()))));
+      }
+      return new ObjectValue(pointer, members);
+    }
+  }
+
+  private record AdditionalPropertiesScope(Member member, Set<String> declaredProperties) {}
+
   private static BindingDiagnostic rootTypeDiagnostic(String message, JsonPointer pointer) {
     return new BindingDiagnostic(BindingDiagnostic.ROOT_TYPE_CODE, message, pointer);
   }
@@ -1078,6 +1330,10 @@ public final class BindingModelBuilder {
 
   private static BindingDiagnostic unsupportedOneOf(String message, JsonPointer pointer) {
     return new BindingDiagnostic(BindingDiagnostic.UNSUPPORTED_ONE_OF_CODE, message, pointer);
+  }
+
+  private static BindingDiagnostic unsupportedAllOf(String message, JsonPointer pointer) {
+    return new BindingDiagnostic(BindingDiagnostic.UNSUPPORTED_ALL_OF_CODE, message, pointer);
   }
 
   private static BindingDiagnostic unknownRequired(String message, JsonPointer pointer) {

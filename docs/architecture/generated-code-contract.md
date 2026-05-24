@@ -66,6 +66,14 @@ the map and reject keys that duplicate declared property names. Generated
 writers emit declared properties first in schema order, then additional map
 entries sorted by key.
 
+Constrained object `allOf` schemas are flattened during binding construction.
+Generated records contain the merged properties in deterministic branch order,
+with required names unioned across accepted branches. Conflicting property
+schemas, object annotations, or incompatible `additionalProperties` constraints
+are rejected before source generation. Any `allOf` schema object that constrains
+`additionalProperties` must declare every merged property in that same schema
+object, preserving Draft 2020-12 branch-local `additionalProperties` semantics.
+
 ## Basic Object Model Shape
 
 Generated basic object models are Java records. Record components are emitted in
@@ -109,6 +117,10 @@ Local `$ref` and `$defs` support is a generator-time normalization step. The
 binding model sees only the resolved schema shape; generated model, reader,
 writer, validator, and metadata helper sources contain no reference resolver,
 schema registry, remote loader, or runtime schema lookup.
+
+Local `$ref` resolution runs before constrained `allOf` flattening, so
+same-document referenced branches participate in the same deterministic object
+merge as inline branches.
 
 The JSON Schema `default` keyword is an annotation in generated code. It does
 not affect constructors, readers, writers, or validation. For supported scalar

@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "id": {"type": "string", "minLength": 2},
+    "count": {"type": "integer"}
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "type": "object",
+      "title": "Flattened",
+      "required": ["id"]
+    },
+    {
+      "type": "object",
+      "required": ["count"]
+    }
+  ]
+}
