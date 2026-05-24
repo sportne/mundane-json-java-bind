@@ -32,6 +32,7 @@ The project is complete when it can:
 | Object shape expansion | `TASK-0019` to `TASK-0021` | Object diagnostics, tagged `oneOf`, and optional metadata helpers are supported without runtime reflection. |
 | Completion hardening | `TASK-0022` to `TASK-0029` | Conformance allowlists, architecture rules, Native Image smoke tests, external corpus evidence, evidence docs, and release checks pass. |
 | Post-v1 profile expansion | `TASK-0030` to `TASK-0036` | Recommended JSON Schema features are added in usefulness/commonness order without changing the no-reflection generated-binding model. |
+| Post-v1 hardening and simplification | `TASK-0037` to `TASK-0042` | The expanded profile has documented simplification opportunities, current performance evidence, mined external-risk probes, fresh corpus evidence, generated-code ergonomics review, and an explicit numeric semantics decision. |
 
 ## Task Order
 
@@ -74,6 +75,12 @@ The project is complete when it can:
 | [TASK-0034](roadmap/tasks/TASK-0034-pattern-properties-map-bindings.md) | `patternProperties` map bindings | Post-v1 profile expansion |
 | [TASK-0035](roadmap/tasks/TASK-0035-object-validation-keywords.md) | Object validation keywords | Post-v1 profile expansion |
 | [TASK-0036](roadmap/tasks/TASK-0036-multipleof-uniqueitems.md) | `multipleOf` and `uniqueItems` | Post-v1 profile expansion |
+| [TASK-0037](roadmap/tasks/TASK-0037-generator-simplification-audit.md) | Generator architecture simplification audit | Post-v1 hardening and simplification |
+| [TASK-0038](roadmap/tasks/TASK-0038-performance-baseline-v2.md) | Performance baseline v2 | Post-v1 hardening and simplification |
+| [TASK-0039](roadmap/tasks/TASK-0039-external-issue-mining.md) | External issue mining | Post-v1 hardening and simplification |
+| [TASK-0040](roadmap/tasks/TASK-0040-schemastore-evidence-freshness.md) | SchemaStore evidence freshness | Post-v1 hardening and simplification |
+| [TASK-0041](roadmap/tasks/TASK-0041-generated-code-ergonomics-review.md) | Generated-code ergonomics review | Post-v1 hardening and simplification |
+| [TASK-0042](roadmap/tasks/TASK-0042-numeric-semantics-decision.md) | Numeric semantics decision | Post-v1 hardening and simplification |
 
 ## Policy
 
