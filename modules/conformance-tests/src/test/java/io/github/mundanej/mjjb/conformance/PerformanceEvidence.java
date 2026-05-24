@@ -6,7 +6,6 @@ import io.github.mundanej.mjjb.generator.api.GeneratorResult;
 import io.github.mundanej.mjjb.generator.core.CoreGenerator;
 import io.github.mundanej.mjjb.parser.JsonStreamReader;
 import io.github.mundanej.mjjb.runtime.JsonReadException;
-import io.github.mundanej.mjjb.runtime.JsonWriteException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -29,28 +28,30 @@ import java.util.stream.Collectors;
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
 
-/** Writes non-threshold performance evidence for parser and generated binding paths. */
+/** Writes non-threshold performance evidence for parser, generator, and generated binding paths. */
 public final class PerformanceEvidence {
-  private static final int WARMUP_BATCHES = 5;
-  private static final int MEASURED_BATCHES = 25;
-  private static final int BATCH_ITERATIONS = 50;
+  private static final MeasurementPlan RUNTIME_PLAN = new MeasurementPlan(5, 25, 50);
+  private static final MeasurementPlan GENERATOR_PLAN = new MeasurementPlan(2, 10, 2);
+  private static final MeasurementPlan COMPILE_PLAN = new MeasurementPlan(1, 5, 1);
+  private static final MeasurementPlan QUICK_PLAN = new MeasurementPlan(0, 1, 1);
   private static final String GENERATED_PACKAGE = "io.github.mundanej.mjjb.performance.generated";
   private static final String ROOT_TYPE = "PerformanceBinding";
   private static final AtomicLong SINK = new AtomicLong();
+  private static final AtomicLong WORKSPACE_COUNTER = new AtomicLong();
 
   private PerformanceEvidence() {}
 
   public static void main(String[] args)
-      throws IOException,
-          ClassNotFoundException,
-          NoSuchMethodException,
-          JsonReadException,
-          JsonWriteException {
+      throws IOException, ClassNotFoundException, NoSuchMethodException, JsonReadException {
     Path reportDirectory =
         args.length > 0 ? Path.of(args[0]) : Path.of("build/reports/performance").toAbsolutePath();
     Path workspace =
         args.length > 1 ? Path.of(args[1]) : Path.of("build/performance-evidence").toAbsolutePath();
     List<Path> classpath = args.length > 2 ? classpathFrom(args[2]) : currentProcessClasspath();
+    boolean quick = args.length > 3 && "--quick".equals(args[3]);
+    MeasurementPlan runtimePlan = quick ? QUICK_PLAN : RUNTIME_PLAN;
+    MeasurementPlan generatorPlan = quick ? QUICK_PLAN : GENERATOR_PLAN;
+    MeasurementPlan compilePlan = quick ? QUICK_PLAN : COMPILE_PLAN;
 
     Files.createDirectories(reportDirectory);
     Files.createDirectories(workspace);
@@ -59,49 +60,82 @@ public final class PerformanceEvidence {
     String parserMedium = parserMediumJson(160);
     String bindingSmall = generatedBindingJson(2);
     String bindingMedium = generatedBindingJson(160);
+    String bindingRich = generatedRichBindingJson(160, 25);
+    String schemaSource = bindingSchema();
 
     ArrayList<Measurement> measurements = new ArrayList<>();
     measurements.add(
         measure(
             "parser-small-read",
             parserSmall.length(),
+            runtimePlan,
             iterations -> parseSmallDocument(parserSmall, iterations)));
     measurements.add(
         measure(
             "parser-medium-read",
             parserMedium.length(),
+            runtimePlan,
             iterations -> parseMediumDocument(parserMedium, iterations)));
+    measurements.add(
+        measure(
+            "generator-rich-generate",
+            schemaSource.length(),
+            generatorPlan,
+            iterations ->
+                generateBindingSources(
+                    workspace.resolve("generation-measure"), schemaSource, iterations)));
 
     try (GeneratedBindingHarness generated =
-        GeneratedBindingHarness.compile(workspace, classpath, bindingSmall, bindingMedium)) {
+        GeneratedBindingHarness.compile(
+            workspace, classpath, schemaSource, bindingSmall, bindingMedium, bindingRich)) {
+      ArtifactSummary artifactSummary = generated.artifactSummary();
+      measurements.add(
+          measure(
+              "generated-rich-compile",
+              artifactSummary.generatedSourceBytes(),
+              compilePlan,
+              iterations ->
+                  compileGeneratedSources(
+                      workspace.resolve("compile-measure"),
+                      generated.generatedSources(),
+                      classpath,
+                      iterations)));
       measurements.add(
           measure(
               "generated-small-read-validate-write",
               bindingSmall.length(),
+              runtimePlan,
               generated.operation("readValidateWriteSmall")));
       measurements.add(
           measure(
               "generated-medium-read-validate-write",
               bindingMedium.length(),
+              runtimePlan,
               generated.operation("readValidateWriteMedium")));
+      measurements.add(
+          measure(
+              "generated-rich-read-validate-write",
+              bindingRich.length(),
+              runtimePlan,
+              generated.operation("readValidateWriteRich")));
+      Path report = reportDirectory.resolve("performance-evidence.md");
+      Files.writeString(report, report(measurements, artifactSummary), StandardCharsets.UTF_8);
+      System.out.println("Performance evidence written to " + report.toAbsolutePath());
     }
-
-    Path report = reportDirectory.resolve("performance-evidence.md");
-    Files.writeString(report, report(measurements), StandardCharsets.UTF_8);
-    System.out.println("Performance evidence written to " + report.toAbsolutePath());
   }
 
-  private static Measurement measure(String name, int fixtureBytes, MeasuredOperation operation)
-      throws JsonReadException, JsonWriteException {
-    for (int batch = 0; batch < WARMUP_BATCHES; batch++) {
-      SINK.addAndGet(operation.run(BATCH_ITERATIONS));
+  private static Measurement measure(
+      String name, long fixtureBytes, MeasurementPlan plan, MeasuredOperation operation)
+      throws IOException, JsonReadException {
+    for (int batch = 0; batch < plan.warmupBatches(); batch++) {
+      SINK.addAndGet(operation.run(plan.batchIterations()));
     }
     long memoryBefore = usedMemory();
-    long[] elapsedNanos = new long[MEASURED_BATCHES];
+    long[] elapsedNanos = new long[plan.measuredBatches()];
     long checksum = 0L;
-    for (int batch = 0; batch < MEASURED_BATCHES; batch++) {
+    for (int batch = 0; batch < plan.measuredBatches(); batch++) {
       long start = System.nanoTime();
-      checksum += operation.run(BATCH_ITERATIONS);
+      checksum += operation.run(plan.batchIterations());
       elapsedNanos[batch] = System.nanoTime() - start;
     }
     long memoryAfter = usedMemory();
@@ -110,9 +144,9 @@ public final class PerformanceEvidence {
     return new Measurement(
         name,
         fixtureBytes,
-        WARMUP_BATCHES,
-        MEASURED_BATCHES,
-        BATCH_ITERATIONS,
+        plan.warmupBatches(),
+        plan.measuredBatches(),
+        plan.batchIterations(),
         elapsedNanos[0],
         elapsedNanos[elapsedNanos.length / 2],
         elapsedNanos[elapsedNanos.length - 1],
@@ -210,7 +244,37 @@ public final class PerformanceEvidence {
     return builder.toString();
   }
 
-  private static String report(List<Measurement> measurements) {
+  private static String generatedRichBindingJson(int itemCount, int mapEntries) {
+    StringBuilder builder = new StringBuilder();
+    builder.append("{\"id\":\"binding-rich\",\"count\":").append(itemCount).append(',');
+    builder.append("\"displayName\":\"Performance Rich\",");
+    builder.append("\"tags\":[");
+    for (int index = 0; index < itemCount; index++) {
+      if (index > 0) {
+        builder.append(',');
+      }
+      builder.append("\"tag-").append(index).append('"');
+    }
+    builder.append("],\"scores\":[");
+    for (int index = 0; index < itemCount; index++) {
+      if (index > 0) {
+        builder.append(',');
+      }
+      builder.append(index).append(".25");
+    }
+    builder.append("],\"active\":true,");
+    builder.append("\"profile\":{\"level\":7,\"label\":\"primary\"}");
+    for (int index = 0; index < mapEntries; index++) {
+      builder.append(",\"x-flag-").append(index).append("\":").append(index % 2 == 0);
+    }
+    for (int index = 0; index < mapEntries; index++) {
+      builder.append(",\"attr").append(index).append("\":\"value-").append(index).append('"');
+    }
+    builder.append('}');
+    return builder.toString();
+  }
+
+  private static String report(List<Measurement> measurements, ArtifactSummary artifactSummary) {
     String lineSeparator = System.lineSeparator();
     StringBuilder builder = new StringBuilder();
     builder.append("# Performance Evidence").append(lineSeparator).append(lineSeparator);
@@ -246,6 +310,21 @@ public final class PerformanceEvidence {
     for (Measurement measurement : measurements) {
       builder.append(measurement.toMarkdownRow()).append(lineSeparator);
     }
+    builder.append(lineSeparator).append("## Generated Binding Artifact Summary");
+    builder.append(lineSeparator).append(lineSeparator);
+    builder
+        .append("| Schema bytes | Generated source files | Generated source bytes |")
+        .append(lineSeparator);
+    builder.append("|---:|---:|---:|").append(lineSeparator);
+    builder
+        .append("| ")
+        .append(artifactSummary.schemaBytes())
+        .append(" | ")
+        .append(artifactSummary.generatedSourceCount())
+        .append(" | ")
+        .append(artifactSummary.generatedSourceBytes())
+        .append(" |")
+        .append(lineSeparator);
     builder.append(lineSeparator).append("Checksum sink: `").append(SINK.get()).append("`");
     builder.append(lineSeparator).append(lineSeparator);
     builder
@@ -281,12 +360,14 @@ public final class PerformanceEvidence {
 
   @FunctionalInterface
   private interface MeasuredOperation {
-    long run(int iterations) throws JsonReadException, JsonWriteException;
+    long run(int iterations) throws IOException, JsonReadException;
   }
+
+  private record MeasurementPlan(int warmupBatches, int measuredBatches, int batchIterations) {}
 
   private record Measurement(
       String name,
-      int fixtureBytes,
+      long fixtureBytes,
       int warmupBatches,
       int measuredBatches,
       int batchIterations,
@@ -327,20 +408,34 @@ public final class PerformanceEvidence {
   private static final class GeneratedBindingHarness implements AutoCloseable {
     private final URLClassLoader classLoader;
     private final Class<?> harnessClass;
+    private final List<Path> generatedSources;
+    private final ArtifactSummary artifactSummary;
 
-    private GeneratedBindingHarness(URLClassLoader classLoader, Class<?> harnessClass) {
+    private GeneratedBindingHarness(
+        URLClassLoader classLoader,
+        Class<?> harnessClass,
+        List<Path> generatedSources,
+        ArtifactSummary artifactSummary) {
       this.classLoader = Objects.requireNonNull(classLoader, "classLoader");
       this.harnessClass = Objects.requireNonNull(harnessClass, "harnessClass");
+      this.generatedSources =
+          List.copyOf(Objects.requireNonNull(generatedSources, "generatedSources"));
+      this.artifactSummary = Objects.requireNonNull(artifactSummary, "artifactSummary");
     }
 
     private static GeneratedBindingHarness compile(
-        Path workspace, List<Path> classpath, String smallJson, String mediumJson)
+        Path workspace,
+        List<Path> classpath,
+        String schemaSource,
+        String smallJson,
+        String mediumJson,
+        String richJson)
         throws IOException, ClassNotFoundException {
       Path schema = workspace.resolve("schema.json");
       Path generatedDirectory = workspace.resolve("generated");
       Path classesDirectory = workspace.resolve("classes");
       Files.createDirectories(workspace);
-      Files.writeString(schema, bindingSchema(), StandardCharsets.UTF_8);
+      Files.writeString(schema, schemaSource, StandardCharsets.UTF_8);
       GeneratorResult result =
           new CoreGenerator()
               .generate(
@@ -363,7 +458,9 @@ public final class PerformanceEvidence {
               .resolve(GENERATED_PACKAGE.replace('.', '/'))
               .resolve("GeneratedBindingEvidence.java");
       Files.writeString(
-          harnessSource, generatedHarnessSource(smallJson, mediumJson), StandardCharsets.UTF_8);
+          harnessSource,
+          generatedHarnessSource(smallJson, mediumJson, richJson),
+          StandardCharsets.UTF_8);
       ArrayList<Path> sources = new ArrayList<>(result.generatedSources());
       sources.add(harnessSource);
       compileJava(sources, classesDirectory, classpath);
@@ -376,7 +473,21 @@ public final class PerformanceEvidence {
       URLClassLoader classLoader =
           new URLClassLoader(urls.toArray(URL[]::new), PerformanceEvidence.class.getClassLoader());
       return new GeneratedBindingHarness(
-          classLoader, classLoader.loadClass(GENERATED_PACKAGE + ".GeneratedBindingEvidence"));
+          classLoader,
+          classLoader.loadClass(GENERATED_PACKAGE + ".GeneratedBindingEvidence"),
+          result.generatedSources(),
+          new ArtifactSummary(
+              schemaSource.length(),
+              result.generatedSources().size(),
+              sourceBytes(result.generatedSources())));
+    }
+
+    private List<Path> generatedSources() {
+      return generatedSources;
+    }
+
+    private ArtifactSummary artifactSummary() {
+      return artifactSummary;
     }
 
     private MeasuredOperation operation(String methodName) throws NoSuchMethodException {
@@ -402,6 +513,62 @@ public final class PerformanceEvidence {
     public void close() throws IOException {
       classLoader.close();
     }
+  }
+
+  private record ArtifactSummary(
+      int schemaBytes, int generatedSourceCount, long generatedSourceBytes) {}
+
+  private static long generateBindingSources(Path workspace, String schemaSource, int iterations)
+      throws IOException {
+    Files.createDirectories(workspace);
+    Path schema = workspace.resolve("schema.json");
+    Files.writeString(schema, schemaSource, StandardCharsets.UTF_8);
+    long checksum = 0L;
+    for (int iteration = 0; iteration < iterations; iteration++) {
+      Path outputDirectory =
+          workspace.resolve("generated-" + WORKSPACE_COUNTER.incrementAndGet() + "-" + iteration);
+      GeneratorResult result =
+          new CoreGenerator()
+              .generate(
+                  new GeneratorRequest(
+                      List.of(schema),
+                      outputDirectory,
+                      GeneratorProfile.JSP_DATA_2020_12,
+                      GENERATED_PACKAGE,
+                      ROOT_TYPE,
+                      Map.of()));
+      if (!result.successful()) {
+        throw new IOException(
+            "generation failed: "
+                + result.diagnostics().stream()
+                    .map(diagnostic -> diagnostic.toManifestLine())
+                    .toList());
+      }
+      checksum += result.generatedSources().size();
+      checksum += sourceBytes(result.generatedSources());
+    }
+    return checksum;
+  }
+
+  private static long compileGeneratedSources(
+      Path workspace, List<Path> sources, List<Path> classpath, int iterations) throws IOException {
+    Files.createDirectories(workspace);
+    long checksum = 0L;
+    for (int iteration = 0; iteration < iterations; iteration++) {
+      Path classesDirectory =
+          workspace.resolve("classes-" + WORKSPACE_COUNTER.incrementAndGet() + "-" + iteration);
+      compileJava(sources, classesDirectory, classpath);
+      checksum += sourceBytes(sources);
+    }
+    return checksum;
+  }
+
+  private static long sourceBytes(List<Path> sources) throws IOException {
+    long size = 0L;
+    for (Path source : sources) {
+      size += Files.size(source);
+    }
+    return size;
   }
 
   private static void compileJava(List<Path> sources, Path classesDirectory, List<Path> classpath)
@@ -443,30 +610,46 @@ public final class PerformanceEvidence {
     return """
         {
           "type": "object",
+          "minProperties": 3,
           "properties": {
             "id": {"type": "string", "minLength": 1},
-            "count": {"type": "integer", "minimum": 0},
-            "displayName": {"type": "string"},
+            "count": {"type": "integer", "minimum": 0, "maximum": 10000, "multipleOf": 1},
+            "displayName": {"type": "string", "maxLength": 128},
             "tags": {
               "type": "array",
               "items": {"type": "string", "minLength": 1},
               "minItems": 1,
-              "maxItems": 256
+              "maxItems": 256,
+              "uniqueItems": true
             },
             "scores": {
               "type": "array",
-              "items": {"type": "number", "minimum": 0},
-              "maxItems": 256
+              "items": {"type": "number", "minimum": 0, "maximum": 10000, "multipleOf": 0.25},
+              "maxItems": 256,
+              "uniqueItems": true
+            },
+            "profile": {
+              "type": "object",
+              "properties": {
+                "level": {"type": "integer", "minimum": 0},
+                "label": {"type": "string", "pattern": "^[a-z]+$"}
+              },
+              "required": ["level"],
+              "additionalProperties": false
             },
             "active": {"type": "boolean"}
           },
+          "patternProperties": {
+            "^x-": {"type": "boolean"}
+          },
           "required": ["id", "count", "tags"],
-          "additionalProperties": false
+          "additionalProperties": {"type": "string"}
         }
         """;
   }
 
-  private static String generatedHarnessSource(String smallJson, String mediumJson) {
+  private static String generatedHarnessSource(
+      String smallJson, String mediumJson, String richJson) {
     return """
         package __PACKAGE_NAME__;
 
@@ -477,6 +660,7 @@ public final class PerformanceEvidence {
         public final class GeneratedBindingEvidence {
           private static final String SMALL_JSON = __SMALL_JSON__;
           private static final String MEDIUM_JSON = __MEDIUM_JSON__;
+          private static final String RICH_JSON = __RICH_JSON__;
 
           private GeneratedBindingEvidence() {}
 
@@ -486,6 +670,10 @@ public final class PerformanceEvidence {
 
           public static long readValidateWriteMedium(int iterations) throws Exception {
             return readValidateWrite(MEDIUM_JSON, iterations);
+          }
+
+          public static long readValidateWriteRich(int iterations) throws Exception {
+            return readValidateWrite(RICH_JSON, iterations);
           }
 
           private static long readValidateWrite(String json, int iterations) throws Exception {
@@ -511,7 +699,8 @@ public final class PerformanceEvidence {
         """
         .replace("__PACKAGE_NAME__", GENERATED_PACKAGE)
         .replace("__SMALL_JSON__", javaStringLiteral(smallJson))
-        .replace("__MEDIUM_JSON__", javaStringLiteral(mediumJson));
+        .replace("__MEDIUM_JSON__", javaStringLiteral(mediumJson))
+        .replace("__RICH_JSON__", javaStringLiteral(richJson));
   }
 
   private static String javaStringLiteral(String value) {

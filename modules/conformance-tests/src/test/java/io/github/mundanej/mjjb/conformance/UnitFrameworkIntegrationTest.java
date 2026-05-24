@@ -132,6 +132,30 @@ final class UnitFrameworkIntegrationTest {
     assertEquals(List.of("/properties/a~1b/$dynamicRef", "/properties/c~0d/allOf"), pointers);
   }
 
+  @Test
+  void performanceEvidenceWritesV2ReportShape()
+      throws IOException, ClassNotFoundException, NoSuchMethodException, JsonReadException {
+    Path reportDirectory = tempDir.resolve("performance-report");
+    Path workspace = tempDir.resolve("performance-workspace");
+
+    PerformanceEvidence.main(
+        new String[] {
+          reportDirectory.toString(),
+          workspace.toString(),
+          System.getProperty("java.class.path", ""),
+          "--quick"
+        });
+
+    String report = Files.readString(reportDirectory.resolve("performance-evidence.md"));
+
+    assertTrue(report.contains("generator-rich-generate"));
+    assertTrue(report.contains("generated-rich-compile"));
+    assertTrue(report.contains("generated-rich-read-validate-write"));
+    assertTrue(report.contains("## Generated Binding Artifact Summary"));
+    assertTrue(
+        report.contains("| Schema bytes | Generated source files | Generated source bytes |"));
+  }
+
   private static Path sourceNamed(GeneratorResult result, String fileName) {
     return result.generatedSources().stream()
         .filter(path -> fileName.equals(Objects.requireNonNull(path.getFileName()).toString()))

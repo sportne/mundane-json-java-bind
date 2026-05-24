@@ -1,7 +1,7 @@
 # TASK-0038: Performance Baseline v2
 
 Task ID: `TASK-0038`
-Status: `ready-for-implementation`
+Status: `complete`
 Gate: Post-v1 hardening and simplification
 Depends on: `TASK-0037`
 Specification references: `docs/verification/performance.md`; `docs/architecture/parser-architecture.md`; `docs/architecture/generated-code-contract.md`
