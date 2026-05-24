@@ -31,6 +31,7 @@ The project is complete when it can:
 | Collections and value constraints | `TASK-0015` to `TASK-0018` | Arrays, scalar facets, enum/const/default, and nullable handling work through generated code. |
 | Object shape expansion | `TASK-0019` to `TASK-0021` | Object diagnostics, tagged `oneOf`, and optional metadata helpers are supported without runtime reflection. |
 | Completion hardening | `TASK-0022` to `TASK-0029` | Conformance allowlists, architecture rules, Native Image smoke tests, external corpus evidence, evidence docs, and release checks pass. |
+| Post-v1 profile expansion | `TASK-0030` to `TASK-0036` | Recommended JSON Schema features are added in usefulness/commonness order without changing the no-reflection generated-binding model. |
 
 ## Task Order
 
@@ -66,6 +67,13 @@ The project is complete when it can:
 | [TASK-0027](roadmap/tasks/TASK-0027-release-publication-readiness.md) | Release and publication readiness | Release |
 | [TASK-0028](roadmap/tasks/TASK-0028-v1-readiness-review.md) | v1 readiness review | Final gate |
 | [TASK-0029](roadmap/tasks/TASK-0029-schemastore-sidecar-corpus-evidence.md) | SchemaStore sidecar corpus evidence | Final gate |
+| [TASK-0030](roadmap/tasks/TASK-0030-nested-object-property-bindings.md) | Nested object property bindings | Post-v1 profile expansion |
+| [TASK-0031](roadmap/tasks/TASK-0031-local-defs-ref-resolution.md) | Local `$defs` and `$ref` resolution | Post-v1 profile expansion |
+| [TASK-0032](roadmap/tasks/TASK-0032-map-bindings-additional-properties.md) | Map bindings for object-valued `additionalProperties` | Post-v1 profile expansion |
+| [TASK-0033](roadmap/tasks/TASK-0033-constrained-allof-object-flattening.md) | Constrained `allOf` object flattening | Post-v1 profile expansion |
+| [TASK-0034](roadmap/tasks/TASK-0034-pattern-properties-map-bindings.md) | `patternProperties` map bindings | Post-v1 profile expansion |
+| [TASK-0035](roadmap/tasks/TASK-0035-object-validation-keywords.md) | Object validation keywords | Post-v1 profile expansion |
+| [TASK-0036](roadmap/tasks/TASK-0036-multipleof-uniqueitems.md) | `multipleOf` and `uniqueItems` | Post-v1 profile expansion |
 
 ## Policy
 

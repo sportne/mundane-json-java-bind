@@ -81,23 +81,143 @@ The profile accepts these annotations and dialect markers:
 Unknown non-Draft extension keywords are ignored as annotations. Known Draft
 2020-12 keywords are classified explicitly as supported or rejected.
 
-## Rejected Draft 2020-12 Features
+## Draft 2020-12 Feature Matrix
 
-The v1 profile rejects known Draft 2020-12 features that would require broader
-schema evaluation, references, open object matching, tuple validation, or
-general-purpose validator behavior. Rejected keywords include:
-
-`$id`, `$anchor`, `$dynamicAnchor`, `$vocabulary`, `$ref`, `$dynamicRef`,
-`$defs`, `allOf`, `anyOf`, `not`, `if`, `then`, `else`, `dependentSchemas`,
-`prefixItems`, `contains`, `patternProperties`, `propertyNames`,
-`unevaluatedItems`, `unevaluatedProperties`, `multipleOf`, `uniqueItems`,
-`maxContains`, `minContains`, `maxProperties`, `minProperties`,
-`dependentRequired`, `contentEncoding`, `contentMediaType`, and
-`contentSchema`.
+The table below is the profile source of truth for known JSON Schema keywords.
+`Supported` means the keyword is accepted for generated binding behavior.
+`Supported with profile limits` means the keyword is accepted only in the
+documented shape. `Accepted annotation` means the keyword can appear without
+changing binding, reader, writer, or validator behavior. `Recommended next`
+means the feature is currently rejected but has a good usefulness, commonness,
+and implementation-complexity tradeoff for post-v1 work. `Deferred - poor
+tradeoff` means the feature is currently rejected and should not be implemented
+until the project deliberately accepts the complexity. `Rejected` means the
+keyword is intentionally outside the current generated-binding profile with no
+current recommendation.
 
 Unsupported features fail before source emission. The generator reports stable
 `MJJBG-*` diagnostics with the schema file and exact schema JSON Pointer, such
 as `/properties/value/allOf`.
+
+### Core And Dialect Keywords
+
+| Keyword | Vocabulary | Status | Profile behavior |
+|---|---|---|---|
+| `$schema` | Core | Accepted annotation | Recognizes the Draft 2020-12 dialect marker. |
+| `$id` | Core | Rejected | No schema resource identifier graph is built in v1. |
+| `$anchor` | Core | Rejected | No named-anchor resolution is performed in v1. |
+| `$dynamicAnchor` | Core | Deferred - poor tradeoff | Dynamic scope support conflicts with the current static binding model. |
+| `$vocabulary` | Core | Deferred - poor tradeoff | Custom vocabulary negotiation is outside the single-profile generator contract. |
+| `$ref` | Core | Recommended next | Same-document JSON Pointer references should be resolved before binding; remote references remain out of scope. |
+| `$dynamicRef` | Core | Deferred - poor tradeoff | Dynamic reference resolution requires schema evaluation machinery not present in generated bindings. |
+| `$defs` | Core | Recommended next | Local definition storage should be supported together with local `$ref` resolution. |
+| `$comment` | Core | Accepted annotation | Exposed when metadata helpers are generated. |
+
+### Applicator And Shape Keywords
+
+| Keyword | Vocabulary | Status | Profile behavior |
+|---|---|---|---|
+| `type` | Validation | Supported with profile limits | Root objects, field scalars, arrays, and nullable pairs containing exactly `null` plus one supported non-null type are accepted. |
+| `properties` | Applicator | Supported with profile limits | Root and tagged-branch object properties are accepted when every property maps to a supported field shape. |
+| `required` | Validation | Supported | Drives required field generation and reader/validator required-property checks. |
+| `additionalProperties` | Applicator | Supported with profile limits | Currently accepted only as literal `false`; object-valued map bindings are recommended next. |
+| `items` | Applicator | Supported with profile limits | Accepted only for homogeneous scalar array items. |
+| `oneOf` | Applicator | Supported with profile limits | Accepted only for root tagged object unions with one common required string `const` tag. |
+| `allOf` | Applicator | Recommended next | Useful when branches can be flattened into one deterministic closed object binding. |
+| `anyOf` | Applicator | Deferred - poor tradeoff | Generic union matching requires broader runtime/schema evaluation than the current generator design. |
+| `not` | Applicator | Deferred - poor tradeoff | Negative schema assertions are hard to represent as static Java bindings. |
+| `if` | Applicator | Deferred - poor tradeoff | Conditional evaluation depends on generic schema matching. |
+| `then` | Applicator | Deferred - poor tradeoff | Conditional evaluation depends on generic schema matching. |
+| `else` | Applicator | Deferred - poor tradeoff | Conditional evaluation depends on generic schema matching. |
+| `dependentSchemas` | Applicator | Deferred - poor tradeoff | Low observed frequency and requires subschema evaluation after property presence checks. |
+| `prefixItems` | Applicator | Deferred - poor tradeoff | Tuple arrays are uncommon in the corpus and do not fit the homogeneous-list model. |
+| `contains` | Applicator | Deferred - poor tradeoff | Containment validation is uncommon and interacts with `minContains`, `maxContains`, and unevaluated item tracking. |
+| `patternProperties` | Applicator | Recommended next | Regex-key map fields are useful after map binding support exists. |
+| `propertyNames` | Applicator | Recommended next | Useful as generated object/map key validation without broad schema interpretation. |
+| `unevaluatedItems` | Applicator | Deferred - poor tradeoff | Requires annotation-dependent tracking across applicator evaluation. |
+| `unevaluatedProperties` | Applicator | Deferred - poor tradeoff | Requires annotation-dependent tracking across object applicator evaluation. |
+
+### Validation Keywords
+
+| Keyword | Vocabulary | Status | Profile behavior |
+|---|---|---|---|
+| `enum` | Validation | Supported with profile limits | Supported for compatible scalar values and scalar array items. |
+| `const` | Validation | Supported with profile limits | Supported for compatible scalar values, scalar array items, and tagged `oneOf` tag fields. |
+| `minItems` | Validation | Supported | Generated validators enforce homogeneous array lower bounds. |
+| `maxItems` | Validation | Supported | Generated validators enforce homogeneous array upper bounds. |
+| `minLength` | Validation | Supported | Generated validators enforce string lower bounds by Unicode code point count. |
+| `maxLength` | Validation | Supported | Generated validators enforce string upper bounds by Unicode code point count. |
+| `pattern` | Validation | Supported with profile limits | Java `Pattern` is compiled during generation and checked with JSON Schema search semantics. |
+| `format` | Validation | Supported with profile limits | Only `date`, `date-time`, and `uuid` assertions are supported. |
+| `minimum` | Validation | Supported | Generated validators compare numeric values against exact schema literals. |
+| `maximum` | Validation | Supported | Generated validators compare numeric values against exact schema literals. |
+| `exclusiveMinimum` | Validation | Supported | Generated validators compare numeric values against exact schema literals. |
+| `exclusiveMaximum` | Validation | Supported | Generated validators compare numeric values against exact schema literals. |
+| `multipleOf` | Validation | Recommended next | Numeric divisibility is a low-risk generated validator addition. |
+| `uniqueItems` | Validation | Recommended next | Scalar-array uniqueness is a low-to-medium complexity generated validator addition. |
+| `maxContains` | Validation | Deferred - poor tradeoff | Depends on deferred `contains` support. |
+| `minContains` | Validation | Deferred - poor tradeoff | Depends on deferred `contains` support. |
+| `maxProperties` | Validation | Recommended next | Useful as generated object/map size validation. |
+| `minProperties` | Validation | Recommended next | Useful as generated object/map size validation. |
+| `dependentRequired` | Validation | Recommended next | Useful as generated property-presence validation for closed object bindings. |
+
+### Metadata And Content Keywords
+
+| Keyword | Vocabulary | Status | Profile behavior |
+|---|---|---|---|
+| `title` | Metadata | Accepted annotation | Exposed when metadata helpers are generated. |
+| `description` | Metadata | Accepted annotation | Exposed when metadata helpers are generated. |
+| `default` | Metadata | Supported with profile limits | Treated as an annotation and exposed through supported metadata helpers; it does not affect construction, reading, writing, or validation. |
+| `deprecated` | Metadata | Accepted annotation | Exposed when metadata helpers are generated. |
+| `readOnly` | Metadata | Accepted annotation | Exposed when metadata helpers are generated. |
+| `writeOnly` | Metadata | Accepted annotation | Exposed when metadata helpers are generated. |
+| `examples` | Metadata | Accepted annotation | Exposed when metadata helpers are generated. |
+| `contentEncoding` | Content | Deferred - poor tradeoff | Low value for static Java binding unless encoded string helper APIs are added. |
+| `contentMediaType` | Content | Deferred - poor tradeoff | Low value for static Java binding unless media-aware string helper APIs are added. |
+| `contentSchema` | Content | Deferred - poor tradeoff | Requires content decoding plus nested schema evaluation. |
+
+### Legacy And Out-Of-Profile Keywords
+
+| Keyword | Vocabulary | Status | Profile behavior |
+|---|---|---|---|
+| `dependencies` | Legacy | Deferred - poor tradeoff | Draft-07 legacy keyword; use Draft 2020-12 `dependentRequired` or `dependentSchemas` when support is added. |
+| `definitions` | Legacy | Rejected | Draft-07 legacy keyword; `$defs` is the Draft 2020-12 replacement. |
+| `additionalItems` | Legacy | Deferred - poor tradeoff | Draft-07 tuple keyword superseded by `prefixItems` and incompatible with the homogeneous-list model. |
+
+## Post-v1 Implementation Ranking
+
+The ranking below combines the SchemaStore broader catalog scan from
+2026-05-23 with the current generated-code architecture. Frequency is
+document-level frequency among the 1,259 reachable and parseable SchemaStore
+documents from that scan.
+
+| Rank | Feature | Commonness | Usefulness | Complexity | Decision |
+|---:|---|---:|---|---|---|
+| 1 | Nested object property bindings | Very high inferred | Very high | High | Create `TASK-0030`. |
+| 2 | Internal `$defs` / local `$ref` resolution | 73.4% `$ref` | Very high | High | Create `TASK-0031`. |
+| 3 | Map bindings via object-valued `additionalProperties` | 48.2% | Very high | High | Create `TASK-0032`. |
+| 4 | Constrained object `allOf` flattening | 25.2% | High | High | Create `TASK-0033`. |
+| 5 | `patternProperties` map bindings | 22.8% | High | High | Create `TASK-0034`. |
+| 6 | Object validation keywords: `minProperties`, `maxProperties`, `propertyNames`, `dependentRequired` | 5.7% / low | Medium | Medium | Create `TASK-0035`. |
+| 7 | Low-risk scalar/array validators: `multipleOf`, `uniqueItems` | Not in scan | Medium | Low-medium | Create `TASK-0036`. |
+
+### Deferred Low-Tradeoff Features
+
+The following features are common enough to notice but do not currently have a
+good complexity tradeoff for this project:
+
+- Generic `oneOf`, `anyOf`, `not`, `if` / `then` / `else`, and broad non-null
+  `type` unions require general schema matching or ambiguous Java value shapes.
+- `prefixItems`, tuple-style array `items`, `contains`, `minContains`, and
+  `maxContains` are less common and would pull array generation away from the
+  current homogeneous-list model.
+- `unevaluatedItems`, `unevaluatedProperties`, `$dynamicRef`,
+  `$dynamicAnchor`, and `$vocabulary` require vocabulary or
+  annotation-dependent evaluation machinery that the static generator does not
+  have.
+- `contentEncoding`, `contentMediaType`, and `contentSchema` are low value for
+  generated Java records unless the project first adds encoded-content helper
+  APIs.
 
 ## Generated Behavior
 

@@ -32,10 +32,14 @@ readers.
 |---|---|
 | Supported binding keywords | `type`, `properties`, `required`, `additionalProperties`, `enum`, `const`, `default`, `items`, `minItems`, `maxItems`, `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `minLength`, `maxLength`, `pattern`, `format`, `oneOf` |
 | Accepted ignored annotations and dialect markers | `$schema`, `title`, `description`, `$comment`, `examples`, `deprecated`, `readOnly`, `writeOnly` |
-| Known rejected Draft 2020-12 keywords | `$id`, `$anchor`, `$dynamicAnchor`, `$vocabulary`, `$ref`, `$dynamicRef`, `$defs`, `allOf`, `anyOf`, `not`, `if`, `then`, `else`, `dependentSchemas`, `prefixItems`, `contains`, `patternProperties`, `propertyNames`, `unevaluatedItems`, `unevaluatedProperties`, `multipleOf`, `uniqueItems`, `maxContains`, `minContains`, `maxProperties`, `minProperties`, `dependentRequired`, `contentEncoding`, `contentMediaType`, `contentSchema` |
+| Recommended post-v1 keywords | `$ref`, `$defs`, `allOf`, `patternProperties`, `propertyNames`, `multipleOf`, `uniqueItems`, `maxProperties`, `minProperties`, `dependentRequired` |
+| Known rejected or deferred Draft 2020-12 keywords | `$id`, `$anchor`, `$dynamicAnchor`, `$vocabulary`, `$dynamicRef`, `anyOf`, `not`, `if`, `then`, `else`, `dependentSchemas`, `prefixItems`, `contains`, `unevaluatedItems`, `unevaluatedProperties`, `maxContains`, `minContains`, `contentEncoding`, `contentMediaType`, `contentSchema` |
 
 Unknown non-Draft extension keywords are ignored as annotations. Known Draft
-2020-12 keywords are always classified explicitly by the profile matrix.
+2020-12 keywords are always classified explicitly by the profile matrix in
+[`supported-profile.md`](supported-profile.md). The recommended post-v1 list is
+planning guidance only; those keywords still reject under `JSP-DATA-2020-12`
+until their implementation tasks are complete.
 
 ## Facet Notes
 

@@ -4,8 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class SchemaSupportProfileTest {
@@ -22,6 +29,20 @@ final class SchemaSupportProfileTest {
     for (JsonSchemaKeyword keyword : JsonSchemaKeyword.unsupportedKeywords()) {
       assertFalse(SchemaSupportProfile.supportsKeyword(keyword.keyword()), keyword.keyword());
       assertFalse(SchemaSupportProfile.acceptsKeyword(keyword.keyword()), keyword.keyword());
+    }
+  }
+
+  @Test
+  void supportedProfileMatrixDocumentsKnownKeywordStatuses() throws IOException {
+    Map<String, String> matrix =
+        documentedKeywordStatuses(
+            Files.readString(repositoryRoot().resolve("docs/supported-profile.md")));
+
+    for (JsonSchemaKeyword keyword : JsonSchemaKeyword.values()) {
+      String status = matrix.get(keyword.keyword());
+
+      assertFalse(status == null || status.isBlank(), keyword.keyword());
+      assertTrue(allowedDocumentedStatuses(keyword.support()).contains(status), keyword.keyword());
     }
   }
 
@@ -286,5 +307,55 @@ final class SchemaSupportProfileTest {
 
     assertTrue(parseResult.successful());
     return SchemaSupportProfile.validate(parseResult.root());
+  }
+
+  private static Set<String> allowedDocumentedStatuses(JsonSchemaKeywordSupport support) {
+    return switch (support) {
+      case SUPPORTED_BINDING -> Set.of("Supported", "Supported with profile limits");
+      case IGNORED_ANNOTATION -> Set.of("Accepted annotation");
+      case UNSUPPORTED -> Set.of("Rejected", "Recommended next", "Deferred - poor tradeoff");
+    };
+  }
+
+  private static Map<String, String> documentedKeywordStatuses(String markdown) {
+    HashMap<String, String> statuses = new HashMap<>();
+    for (String line : markdown.lines().toList()) {
+      if (!line.startsWith("| `")) {
+        continue;
+      }
+      List<String> cells = markdownTableCells(line);
+      if (cells.size() < 4) {
+        continue;
+      }
+      String keywordCell = cells.get(0);
+      String status = cells.get(2);
+      if (keywordCell.startsWith("`") && keywordCell.endsWith("`")) {
+        statuses.put(keywordCell.substring(1, keywordCell.length() - 1), status);
+      }
+    }
+    return Map.copyOf(statuses);
+  }
+
+  private static List<String> markdownTableCells(String line) {
+    ArrayList<String> cells = new ArrayList<>();
+    int cellStart = 1;
+    int separator = line.indexOf('|', cellStart);
+    while (separator >= 0) {
+      cells.add(line.substring(cellStart, separator).trim());
+      cellStart = separator + 1;
+      separator = line.indexOf('|', cellStart);
+    }
+    return List.copyOf(cells);
+  }
+
+  private static Path repositoryRoot() {
+    Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+    while (current != null) {
+      if (Files.isRegularFile(current.resolve("docs/supported-profile.md"))) {
+        return current;
+      }
+      current = current.getParent();
+    }
+    throw new IllegalStateException("Unable to locate repository root");
   }
 }
