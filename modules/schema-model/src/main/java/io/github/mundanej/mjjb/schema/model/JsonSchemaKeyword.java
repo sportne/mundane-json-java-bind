@@ -51,7 +51,7 @@ public enum JsonSchemaKeyword {
   DEPENDENT_SCHEMAS("dependentSchemas", JsonSchemaKeywordSupport.UNSUPPORTED),
   PREFIX_ITEMS("prefixItems", JsonSchemaKeywordSupport.UNSUPPORTED),
   CONTAINS("contains", JsonSchemaKeywordSupport.UNSUPPORTED),
-  PATTERN_PROPERTIES("patternProperties", JsonSchemaKeywordSupport.UNSUPPORTED),
+  PATTERN_PROPERTIES("patternProperties", JsonSchemaKeywordSupport.SUPPORTED_BINDING),
   PROPERTY_NAMES("propertyNames", JsonSchemaKeywordSupport.UNSUPPORTED),
   UNEVALUATED_ITEMS("unevaluatedItems", JsonSchemaKeywordSupport.UNSUPPORTED),
   UNEVALUATED_PROPERTIES("unevaluatedProperties", JsonSchemaKeywordSupport.UNSUPPORTED),

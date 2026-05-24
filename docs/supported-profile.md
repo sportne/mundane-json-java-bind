@@ -60,13 +60,20 @@ array, or closed nested object schema. Declared `properties` stay as normal
 record components; additional map keys must not duplicate declared property
 names.
 
+`patternProperties` supports one regex entry per object. The regex is compiled
+during generation and uses JSON Schema search semantics. Matching unknown
+properties are routed to a deterministic `Map<String, T>` field using the same
+value-shape limits as `additionalProperties`; exact declared `properties` retain
+precedence, and nonmatching unknown names reject unless a supported
+`additionalProperties` map is also present.
+
 ## Supported Keywords
 
 The profile supports these binding and validation keywords:
 
 | Category | Keywords |
 |---|---|
-| Shape | `type`, `properties`, `required`, `additionalProperties`, `items`, `oneOf`, `$ref`, `$defs` |
+| Shape | `type`, `properties`, `required`, `additionalProperties`, `patternProperties`, `items`, `oneOf`, `$ref`, `$defs` |
 | Collections | `minItems`, `maxItems` |
 | String facets | `minLength`, `maxLength`, `pattern`, `format` |
 | Numeric facets | `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum` |
@@ -143,6 +150,7 @@ as `/properties/value/allOf`.
 | `properties` | Applicator | Supported with profile limits | Root, tagged-branch, and nested object properties are accepted when every property maps to a supported field shape. |
 | `required` | Validation | Supported | Drives required field generation and reader/validator required-property checks. |
 | `additionalProperties` | Applicator | Supported with profile limits | Accepted as literal `false` for closed objects or as a supported object-valued schema for `Map<String, T>` catch-all bindings. |
+| `patternProperties` | Applicator | Supported with profile limits | Supports exactly one regex entry per object, with supported map value schemas and generation-time regex compilation. |
 | `items` | Applicator | Supported with profile limits | Accepted only for homogeneous scalar array items. |
 | `oneOf` | Applicator | Supported with profile limits | Accepted only for root tagged object unions with one common required string `const` tag. |
 | `allOf` | Applicator | Supported with profile limits | Supported only for constrained object schemas whose branches flatten into one deterministic object binding; conflicting properties and annotations are rejected, and schema objects that constrain `additionalProperties` must declare every merged property locally. |
@@ -154,7 +162,6 @@ as `/properties/value/allOf`.
 | `dependentSchemas` | Applicator | Deferred - poor tradeoff | Low observed frequency and requires subschema evaluation after property presence checks. |
 | `prefixItems` | Applicator | Deferred - poor tradeoff | Tuple arrays are uncommon in the corpus and do not fit the homogeneous-list model. |
 | `contains` | Applicator | Deferred - poor tradeoff | Containment validation is uncommon and interacts with `minContains`, `maxContains`, and unevaluated item tracking. |
-| `patternProperties` | Applicator | Recommended next | Regex-key map fields are useful after map binding support exists. |
 | `propertyNames` | Applicator | Recommended next | Useful as generated object/map key validation without broad schema interpretation. |
 | `unevaluatedItems` | Applicator | Deferred - poor tradeoff | Requires annotation-dependent tracking across applicator evaluation. |
 | `unevaluatedProperties` | Applicator | Deferred - poor tradeoff | Requires annotation-dependent tracking across object applicator evaluation. |
@@ -219,7 +226,7 @@ documents from that scan.
 | 2 | Internal `$defs` / local `$ref` resolution | 73.4% `$ref` | Very high | High | Implemented in `TASK-0031`. |
 | 3 | Map bindings via object-valued `additionalProperties` | 48.2% | Very high | High | Implemented in `TASK-0032`. |
 | 4 | Constrained object `allOf` flattening | 25.2% | High | High | Implemented in `TASK-0033`. |
-| 5 | `patternProperties` map bindings | 22.8% | High | High | Create `TASK-0034`. |
+| 5 | `patternProperties` map bindings | 22.8% | High | High | Implemented in `TASK-0034`. |
 | 6 | Object validation keywords: `minProperties`, `maxProperties`, `propertyNames`, `dependentRequired` | 5.7% / low | Medium | Medium | Create `TASK-0035`. |
 | 7 | Low-risk scalar/array validators: `multipleOf`, `uniqueItems` | Not in scan | Medium | Low-medium | Create `TASK-0036`. |
 

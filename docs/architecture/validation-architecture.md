@@ -39,9 +39,9 @@ Validators therefore operate on the merged generated record shape and preserve
 the original property-level schema locations in generated diagnostics where a
 merged branch contributed the property.
 
-Map validators apply the `additionalProperties` value schema to every generated
-map entry. Entry failures are reported at the JSON property path for that key,
-for example `$.customName` or `$["custom.name"]`.
+Map validators apply the `additionalProperties` or `patternProperties` value
+schema to every generated map entry. Entry failures are reported at the JSON
+property path for that key, for example `$.customName` or `$["custom.name"]`.
 
 Tagged `oneOf` validators validate the generated sealed root interface. The
 generated validator checks root null first, then dispatches by concrete nested

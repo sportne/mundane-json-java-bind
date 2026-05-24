@@ -54,10 +54,13 @@ public final class ModelSourceEmitter {
         imports.add("java.util.Optional");
       }
     }
-    if (allObjects(model).stream().anyMatch(object -> object.additionalProperties().isPresent())) {
+    if (!allMaps(model).isEmpty()) {
       imports.add("java.util.Map");
       imports.add("java.util.Set");
       imports.add("java.util.Objects");
+    }
+    if (allMaps(model).stream().anyMatch(MapBinding::patternProperties)) {
+      imports.add("java.util.regex.Pattern");
     }
     for (MapBinding map : allMaps(model)) {
       if (map.valueType().nullable()) {
@@ -116,7 +119,7 @@ public final class ModelSourceEmitter {
     }
     List<FieldBinding> checkedFields =
         fields.stream().filter(ModelSourceEmitter::requiresNullCheck).toList();
-    if (checkedFields.isEmpty() && branch.object().additionalProperties().isEmpty()) {
+    if (checkedFields.isEmpty() && objectMaps(branch.object()).isEmpty()) {
       lines.add("  }");
       return lines;
     }
@@ -129,13 +132,9 @@ public final class ModelSourceEmitter {
         lines.add("      " + assignmentLine);
       }
     }
-    branch
-        .object()
-        .additionalProperties()
-        .ifPresent(
-            map ->
-                mapConstructorLines(map, branch.object())
-                    .forEach(line -> lines.add("      " + line)));
+    for (MapBinding map : objectMaps(branch.object())) {
+      mapConstructorLines(map, branch.object()).forEach(line -> lines.add("      " + line));
+    }
     lines.add("    }");
     lines.add("  }");
     return lines;
@@ -159,23 +158,13 @@ public final class ModelSourceEmitter {
       field.valueType().objectBinding().ifPresent(nested -> collectFields(nested, fields));
     }
     object
+        .patternProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(nested -> collectFields(nested, fields));
+    object
         .additionalProperties()
         .flatMap(map -> map.valueType().objectBinding())
         .ifPresent(nested -> collectFields(nested, fields));
-  }
-
-  private static List<ObjectBinding> allObjects(BindingModel model) {
-    ArrayList<ObjectBinding> objects = new ArrayList<>();
-    if (model.taggedUnion().isEmpty()) {
-      objects.add(model.rootObject());
-      collectNestedObjects(model.rootObject(), objects);
-      return List.copyOf(objects);
-    }
-    for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
-      objects.add(branch.object());
-      collectNestedObjects(branch.object(), objects);
-    }
-    return List.copyOf(objects);
   }
 
   private static List<String> indent(List<String> lines, String indent) {
@@ -205,7 +194,7 @@ public final class ModelSourceEmitter {
     }
     List<FieldBinding> checkedFields =
         fields.stream().filter(ModelSourceEmitter::requiresNullCheck).toList();
-    if (checkedFields.isEmpty() && model.rootObject().additionalProperties().isEmpty()) {
+    if (checkedFields.isEmpty() && objectMaps(model.rootObject()).isEmpty()) {
       lines.add("}");
       return lines;
     }
@@ -218,13 +207,9 @@ public final class ModelSourceEmitter {
         lines.add("    " + assignmentLine);
       }
     }
-    model
-        .rootObject()
-        .additionalProperties()
-        .ifPresent(
-            map ->
-                mapConstructorLines(map, model.rootObject())
-                    .forEach(line -> lines.add("    " + line)));
+    for (MapBinding map : objectMaps(model.rootObject())) {
+      mapConstructorLines(map, model.rootObject()).forEach(line -> lines.add("    " + line));
+    }
     lines.add("  }");
     lines.add("}");
     return lines;
@@ -244,7 +229,7 @@ public final class ModelSourceEmitter {
     }
     List<FieldBinding> checkedFields =
         fields.stream().filter(ModelSourceEmitter::requiresNullCheck).toList();
-    if (checkedFields.isEmpty() && object.additionalProperties().isEmpty()) {
+    if (checkedFields.isEmpty() && objectMaps(object).isEmpty()) {
       lines.add("}");
       return lines;
     }
@@ -254,10 +239,9 @@ public final class ModelSourceEmitter {
         lines.add("    " + assignmentLine);
       }
     }
-    object
-        .additionalProperties()
-        .ifPresent(
-            map -> mapConstructorLines(map, object).forEach(line -> lines.add("    " + line)));
+    for (MapBinding map : objectMaps(object)) {
+      mapConstructorLines(map, object).forEach(line -> lines.add("    " + line));
+    }
     lines.add("  }");
     lines.add("}");
     return lines;
@@ -276,13 +260,23 @@ public final class ModelSourceEmitter {
       components.add(javaType(field) + " " + field.javaFieldName());
     }
     object
+        .patternProperties()
+        .ifPresent(map -> components.add(mapJavaType(map) + " " + map.javaFieldName()));
+    object
         .additionalProperties()
         .ifPresent(map -> components.add(mapJavaType(map) + " " + map.javaFieldName()));
     return List.copyOf(components);
   }
 
   private static String mapJavaType(MapBinding map) {
-    return "Map<String, " + map.valueType().requiredJavaType() + ">";
+    return "Map<String, " + mapValueType(map) + ">";
+  }
+
+  private static String mapValueType(MapBinding map) {
+    if (map.valueType().nullable() || map.array() || map.object()) {
+      return map.valueType().requiredJavaType();
+    }
+    return map.scalarType().boxedJavaType();
   }
 
   private static boolean requiresNullCheck(FieldBinding field) {
@@ -331,11 +325,11 @@ public final class ModelSourceEmitter {
           "var "
               + copyName
               + " = new java.util.LinkedHashMap<String, "
-              + map.valueType().requiredJavaType()
+              + mapValueType(map)
               + ">();");
       lines.add(
           "for (Map.Entry<String, "
-              + map.valueType().requiredJavaType()
+              + mapValueType(map)
               + "> entry : Objects.requireNonNull("
               + name
               + ", \""
@@ -343,7 +337,7 @@ public final class ModelSourceEmitter {
               + "\").entrySet()) {");
       lines.add(
           "  "
-              + map.valueType().requiredJavaType()
+              + mapValueType(map)
               + " entryValue = Objects.requireNonNull(entry.getValue(), \""
               + name
               + " value\");");
@@ -372,11 +366,11 @@ public final class ModelSourceEmitter {
           "var "
               + copyName
               + " = new java.util.LinkedHashMap<String, "
-              + map.valueType().requiredJavaType()
+              + mapValueType(map)
               + ">();");
       lines.add(
           "for (Map.Entry<String, "
-              + map.valueType().requiredJavaType()
+              + mapValueType(map)
               + "> entry : Objects.requireNonNull("
               + name
               + ", \""
@@ -403,8 +397,36 @@ public final class ModelSourceEmitter {
         lines.add("    " + javaStringLiteral(reservedNames.get(index)) + suffix);
       }
       lines.add(
-          "  throw new IllegalArgumentException(\"additionalProperties must not contain declared property names\");");
+          "  throw new IllegalArgumentException(\""
+              + map.sourceKeyword()
+              + " must not contain declared property names\");");
       lines.add("}");
+    }
+    if (map.patternProperties()) {
+      lines.add(
+          "if (!"
+              + name
+              + ".keySet().stream().allMatch(key -> Pattern.compile("
+              + javaStringLiteral(map.pattern())
+              + ").matcher(key).find())) {");
+      lines.add(
+          "  throw new IllegalArgumentException(\"patternProperties keys must match the configured pattern\");");
+      lines.add("}");
+    } else {
+      object
+          .patternProperties()
+          .ifPresent(
+              patternMap -> {
+                lines.add(
+                    "if ("
+                        + name
+                        + ".keySet().stream().anyMatch(key -> Pattern.compile("
+                        + javaStringLiteral(patternMap.pattern())
+                        + ").matcher(key).find())) {");
+                lines.add(
+                    "  throw new IllegalArgumentException(\"additionalProperties must not contain patternProperties keys\");");
+                lines.add("}");
+              });
     }
     return lines;
   }
@@ -429,14 +451,26 @@ public final class ModelSourceEmitter {
   }
 
   private static void collectMaps(ObjectBinding object, List<MapBinding> maps) {
+    object.patternProperties().ifPresent(maps::add);
     object.additionalProperties().ifPresent(maps::add);
     for (FieldBinding field : object.fields()) {
       field.valueType().objectBinding().ifPresent(nested -> collectMaps(nested, maps));
     }
     object
+        .patternProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(nested -> collectMaps(nested, maps));
+    object
         .additionalProperties()
         .flatMap(map -> map.valueType().objectBinding())
         .ifPresent(nested -> collectMaps(nested, maps));
+  }
+
+  private static List<MapBinding> objectMaps(ObjectBinding object) {
+    ArrayList<MapBinding> maps = new ArrayList<>();
+    object.patternProperties().ifPresent(maps::add);
+    object.additionalProperties().ifPresent(maps::add);
+    return List.copyOf(maps);
   }
 
   private static List<ObjectBinding> nestedObjects(BindingModel model) {
@@ -462,6 +496,14 @@ public final class ModelSourceEmitter {
                 collectNestedObjects(nested, objects);
               });
     }
+    object
+        .patternProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(
+            nested -> {
+              objects.add(nested);
+              collectNestedObjects(nested, objects);
+            });
     object
         .additionalProperties()
         .flatMap(map -> map.valueType().objectBinding())

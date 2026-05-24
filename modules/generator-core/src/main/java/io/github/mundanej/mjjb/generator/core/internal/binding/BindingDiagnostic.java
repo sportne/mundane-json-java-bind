@@ -7,6 +7,7 @@ import java.util.Objects;
 public record BindingDiagnostic(String code, String message, JsonPointer pointer) {
   public static final String ROOT_TYPE_CODE = "MJJBG-BINDING-ROOT-TYPE";
   public static final String ADDITIONAL_PROPERTIES_CODE = "MJJBG-BINDING-ADDITIONAL-PROPERTIES";
+  public static final String PATTERN_PROPERTIES_CODE = "MJJBG-BINDING-PATTERN-PROPERTIES";
   public static final String MISSING_PROPERTY_TYPE_CODE = "MJJBG-BINDING-MISSING-PROPERTY-TYPE";
   public static final String UNSUPPORTED_PROPERTY_TYPE_CODE =
       "MJJBG-BINDING-UNSUPPORTED-PROPERTY-TYPE";

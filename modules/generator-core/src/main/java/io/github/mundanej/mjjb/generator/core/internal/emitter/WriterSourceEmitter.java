@@ -42,6 +42,10 @@ public final class WriterSourceEmitter {
       }
       model
           .rootObject()
+          .patternProperties()
+          .ifPresent(map -> lines.addAll(writeMapLines(model.rootTypeName(), map)));
+      model
+          .rootObject()
           .additionalProperties()
           .ifPresent(map -> lines.addAll(writeMapLines(model.rootTypeName(), map)));
       lines.add("    writer.endObject();");
@@ -192,6 +196,10 @@ public final class WriterSourceEmitter {
     }
     branch
         .object()
+        .patternProperties()
+        .ifPresent(map -> lines.addAll(writeMapLines(model.rootTypeName(), map)));
+    branch
+        .object()
         .additionalProperties()
         .ifPresent(map -> lines.addAll(writeMapLines(model.rootTypeName(), map)));
     lines.add("    writer.endObject();");
@@ -244,6 +252,7 @@ public final class WriterSourceEmitter {
     for (FieldBinding field : object.fields()) {
       lines.addAll(writeFieldLines(field));
     }
+    object.patternProperties().ifPresent(map -> lines.addAll(writeMapLines(rootTypeName, map)));
     object.additionalProperties().ifPresent(map -> lines.addAll(writeMapLines(rootTypeName, map)));
     lines.add("    writer.endObject();");
     lines.add("  }");
@@ -319,7 +328,10 @@ public final class WriterSourceEmitter {
     if (map.object()) {
       return rootTypeName + "." + map.valueType().objectBinding().orElseThrow().javaTypeName();
     }
-    return map.valueType().requiredJavaType();
+    if (map.valueType().nullable() || map.array()) {
+      return map.valueType().requiredJavaType();
+    }
+    return map.scalarType().boxedJavaType();
   }
 
   private static List<String> writeMapValueLines(
@@ -422,8 +434,7 @@ public final class WriterSourceEmitter {
 
   private static boolean hasNumberField(BindingModel model) {
     return allFields(model).stream().anyMatch(field -> field.scalarType() == JavaScalarType.NUMBER)
-        || allObjects(model).stream()
-            .flatMap(object -> object.additionalProperties().stream())
+        || allMaps(model).stream()
             .anyMatch(map -> !map.object() && map.scalarType() == JavaScalarType.NUMBER);
   }
 
@@ -445,23 +456,13 @@ public final class WriterSourceEmitter {
       field.valueType().objectBinding().ifPresent(nested -> collectFields(nested, fields));
     }
     object
+        .patternProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(nested -> collectFields(nested, fields));
+    object
         .additionalProperties()
         .flatMap(map -> map.valueType().objectBinding())
         .ifPresent(nested -> collectFields(nested, fields));
-  }
-
-  private static List<ObjectBinding> allObjects(BindingModel model) {
-    ArrayList<ObjectBinding> objects = new ArrayList<>();
-    if (model.taggedUnion().isEmpty()) {
-      objects.add(model.rootObject());
-      collectNestedObjects(model.rootObject(), objects);
-      return List.copyOf(objects);
-    }
-    for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
-      objects.add(branch.object());
-      collectNestedObjects(branch.object(), objects);
-    }
-    return List.copyOf(objects);
   }
 
   private static List<MapBinding> allMaps(BindingModel model) {
@@ -477,10 +478,15 @@ public final class WriterSourceEmitter {
   }
 
   private static void collectMaps(ObjectBinding object, List<MapBinding> maps) {
+    object.patternProperties().ifPresent(maps::add);
     object.additionalProperties().ifPresent(maps::add);
     for (FieldBinding field : object.fields()) {
       field.valueType().objectBinding().ifPresent(nested -> collectMaps(nested, maps));
     }
+    object
+        .patternProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(nested -> collectMaps(nested, maps));
     object
         .additionalProperties()
         .flatMap(map -> map.valueType().objectBinding())
@@ -510,6 +516,14 @@ public final class WriterSourceEmitter {
                 collectNestedObjects(nested, objects);
               });
     }
+    object
+        .patternProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(
+            nested -> {
+              objects.add(nested);
+              collectNestedObjects(nested, objects);
+            });
     object
         .additionalProperties()
         .flatMap(map -> map.valueType().objectBinding())

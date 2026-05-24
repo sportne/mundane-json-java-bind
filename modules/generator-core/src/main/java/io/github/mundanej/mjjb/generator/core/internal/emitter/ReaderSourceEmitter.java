@@ -78,9 +78,12 @@ public final class ReaderSourceEmitter {
       imports.add("java.util.ArrayList");
       imports.add("java.util.List");
     }
-    if (allObjects(model).stream().anyMatch(object -> object.additionalProperties().isPresent())) {
+    if (!allMaps(model).isEmpty()) {
       imports.add("java.util.LinkedHashMap");
       imports.add("java.util.Map");
+    }
+    if (allMaps(model).stream().anyMatch(MapBinding::patternProperties)) {
+      imports.add("java.util.regex.Pattern");
     }
     if (allFields(model).stream()
         .anyMatch(field -> !field.required() && !field.valueType().nullable())) {
@@ -104,6 +107,16 @@ public final class ReaderSourceEmitter {
     List<FieldBinding> fields = object.fields();
     lines.addAll(fieldInitializers(fields, rootTypeName));
     object
+        .patternProperties()
+        .ifPresent(
+            map ->
+                lines.add(
+                    "    Map<String, "
+                        + mapLocalValueType(map, rootTypeName)
+                        + "> "
+                        + map.javaFieldName()
+                        + " = new LinkedHashMap<>();"));
+    object
         .additionalProperties()
         .ifPresent(
             map ->
@@ -120,26 +133,31 @@ public final class ReaderSourceEmitter {
     for (FieldBinding field : fields) {
       lines.addAll(fieldCase(field, basePath));
     }
-    if (object.additionalProperties().isPresent()) {
-      MapBinding map = object.additionalProperties().orElseThrow();
+    if (object.patternProperties().isPresent() || object.additionalProperties().isPresent()) {
       lines.add("        default -> {");
-      lines.add(
-          "          if (" + map.javaFieldName() + ".containsKey(" + propertyNameLocal + ")) {");
-      lines.add(
-          "            throw error(\"MJJBR-003\", \"Duplicate JSON property '\" + "
-              + propertyNameLocal
-              + " + \"'.\", "
-              + propertyPathExpression(basePath, propertyNameLocal)
-              + ", reader.location());");
-      lines.add("          }");
-      lines.add(
-          "          "
-              + map.javaFieldName()
-              + ".put("
-              + propertyNameLocal
-              + ", "
-              + readMapExpression(map, propertyPathExpression(basePath, propertyNameLocal))
-              + ");");
+      object
+          .patternProperties()
+          .ifPresent(
+              map -> {
+                lines.add(
+                    "          if (" + patternMatchExpression(map, propertyNameLocal) + ") {");
+                lines.addAll(readMapPutLines(map, propertyNameLocal, basePath, "            "));
+                lines.add("          } else {");
+              });
+      String mapIndent = object.patternProperties().isPresent() ? "            " : "          ";
+      object
+          .additionalProperties()
+          .ifPresentOrElse(
+              map -> lines.addAll(readMapPutLines(map, propertyNameLocal, basePath, mapIndent)),
+              () ->
+                  lines.add(
+                      "            throw error("
+                          + "\"MJJBR-004\", \"Unknown JSON property '\" + "
+                          + propertyNameLocal
+                          + " + \"'.\", "
+                          + propertyPathExpression(basePath, propertyNameLocal)
+                          + ", reader.location());"));
+      object.patternProperties().ifPresent(map -> lines.add("          }"));
       lines.add("        }");
     } else {
       lines.add("        default ->");
@@ -231,6 +249,16 @@ public final class ReaderSourceEmitter {
             + "(JsonReader reader) throws JsonReadException {");
     lines.addAll(fieldInitializers(fields, model.rootTypeName()));
     object
+        .patternProperties()
+        .ifPresent(
+            map ->
+                lines.add(
+                    "    Map<String, "
+                        + mapLocalValueType(map, model.rootTypeName())
+                        + "> "
+                        + map.javaFieldName()
+                        + " = new LinkedHashMap<>();"));
+    object
         .additionalProperties()
         .ifPresent(
             map ->
@@ -253,26 +281,33 @@ public final class ReaderSourceEmitter {
     for (FieldBinding field : fields) {
       lines.addAll(fieldCase(field, "JsonPath.ROOT"));
     }
-    if (object.additionalProperties().isPresent()) {
-      MapBinding map = object.additionalProperties().orElseThrow();
+    if (object.patternProperties().isPresent() || object.additionalProperties().isPresent()) {
       lines.add("        default -> {");
-      lines.add(
-          "          if (" + map.javaFieldName() + ".containsKey(" + propertyNameLocal + ")) {");
-      lines.add(
-          "            throw error(\"MJJBR-003\", \"Duplicate JSON property '\" + "
-              + propertyNameLocal
-              + " + \"'.\", "
-              + propertyPathExpression("JsonPath.ROOT", propertyNameLocal)
-              + ", reader.location());");
-      lines.add("          }");
-      lines.add(
-          "          "
-              + map.javaFieldName()
-              + ".put("
-              + propertyNameLocal
-              + ", "
-              + readMapExpression(map, propertyPathExpression("JsonPath.ROOT", propertyNameLocal))
-              + ");");
+      object
+          .patternProperties()
+          .ifPresent(
+              map -> {
+                lines.add(
+                    "          if (" + patternMatchExpression(map, propertyNameLocal) + ") {");
+                lines.addAll(
+                    readMapPutLines(map, propertyNameLocal, "JsonPath.ROOT", "            "));
+                lines.add("          } else {");
+              });
+      String mapIndent = object.patternProperties().isPresent() ? "            " : "          ";
+      object
+          .additionalProperties()
+          .ifPresentOrElse(
+              map ->
+                  lines.addAll(readMapPutLines(map, propertyNameLocal, "JsonPath.ROOT", mapIndent)),
+              () ->
+                  lines.add(
+                      "            throw error("
+                          + "\"MJJBR-004\", \"Unknown JSON property '\" + "
+                          + propertyNameLocal
+                          + " + \"'.\", "
+                          + propertyPathExpression("JsonPath.ROOT", propertyNameLocal)
+                          + ", reader.location());"));
+      object.patternProperties().ifPresent(map -> lines.add("          }"));
       lines.add("        }");
     } else {
       lines.add("        default ->");
@@ -720,6 +755,7 @@ public final class ReaderSourceEmitter {
     for (FieldBinding field : object.fields()) {
       arguments.add(field.javaFieldName());
     }
+    object.patternProperties().ifPresent(map -> arguments.add(map.javaFieldName()));
     object.additionalProperties().ifPresent(map -> arguments.add(map.javaFieldName()));
     if (arguments.isEmpty()) {
       return "";
@@ -774,6 +810,37 @@ public final class ReaderSourceEmitter {
     return readScalarExpression(map.scalarType(), pathExpression);
   }
 
+  private static List<String> readMapPutLines(
+      MapBinding map, String propertyNameLocal, String basePath, String indent) {
+    ArrayList<String> lines = new ArrayList<>();
+    lines.add(indent + "if (" + map.javaFieldName() + ".containsKey(" + propertyNameLocal + ")) {");
+    lines.add(
+        indent
+            + "  throw error(\"MJJBR-003\", \"Duplicate JSON property '\" + "
+            + propertyNameLocal
+            + " + \"'.\", "
+            + propertyPathExpression(basePath, propertyNameLocal)
+            + ", reader.location());");
+    lines.add(indent + "}");
+    lines.add(
+        indent
+            + map.javaFieldName()
+            + ".put("
+            + propertyNameLocal
+            + ", "
+            + readMapExpression(map, propertyPathExpression(basePath, propertyNameLocal))
+            + ");");
+    return lines;
+  }
+
+  private static String patternMatchExpression(MapBinding map, String propertyNameLocal) {
+    return "Pattern.compile("
+        + javaStringLiteral(map.pattern())
+        + ").matcher("
+        + propertyNameLocal
+        + ").find()";
+  }
+
   private static String readScalarExpression(JavaScalarType scalarType, String pathExpression) {
     return switch (scalarType) {
       case STRING -> "readString(reader, " + pathExpression + ")";
@@ -813,7 +880,10 @@ public final class ReaderSourceEmitter {
     if (map.object()) {
       return rootTypeName + "." + map.valueType().objectBinding().orElseThrow().javaTypeName();
     }
-    return map.valueType().requiredJavaType();
+    if (map.valueType().nullable() || map.array()) {
+      return map.valueType().requiredJavaType();
+    }
+    return map.scalarType().boxedJavaType();
   }
 
   private static String requiredDefault(FieldBinding field) {
@@ -904,6 +974,10 @@ public final class ReaderSourceEmitter {
       field.valueType().objectBinding().ifPresent(nested -> collectFields(nested, fields));
     }
     object
+        .patternProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(nested -> collectFields(nested, fields));
+    object
         .additionalProperties()
         .flatMap(map -> map.valueType().objectBinding())
         .ifPresent(nested -> collectFields(nested, fields));
@@ -922,28 +996,19 @@ public final class ReaderSourceEmitter {
   }
 
   private static void collectMaps(ObjectBinding object, List<MapBinding> maps) {
+    object.patternProperties().ifPresent(maps::add);
     object.additionalProperties().ifPresent(maps::add);
     for (FieldBinding field : object.fields()) {
       field.valueType().objectBinding().ifPresent(nested -> collectMaps(nested, maps));
     }
     object
+        .patternProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(nested -> collectMaps(nested, maps));
+    object
         .additionalProperties()
         .flatMap(map -> map.valueType().objectBinding())
         .ifPresent(nested -> collectMaps(nested, maps));
-  }
-
-  private static List<ObjectBinding> allObjects(BindingModel model) {
-    ArrayList<ObjectBinding> objects = new ArrayList<>();
-    if (model.taggedUnion().isEmpty()) {
-      objects.add(model.rootObject());
-      collectNestedObjects(model.rootObject(), objects);
-      return List.copyOf(objects);
-    }
-    for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
-      objects.add(branch.object());
-      collectNestedObjects(branch.object(), objects);
-    }
-    return List.copyOf(objects);
   }
 
   private static List<ObjectBinding> nestedObjects(BindingModel model) {
@@ -969,6 +1034,14 @@ public final class ReaderSourceEmitter {
                 collectNestedObjects(nested, objects);
               });
     }
+    object
+        .patternProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(
+            nested -> {
+              objects.add(nested);
+              collectNestedObjects(nested, objects);
+            });
     object
         .additionalProperties()
         .flatMap(map -> map.valueType().objectBinding())

@@ -1,7 +1,7 @@
 # TASK-0034: `patternProperties` Map Bindings
 
 Task ID: `TASK-0034`
-Status: `draft`
+Status: `complete`
 Gate: Post-v1 profile expansion
 Depends on: `TASK-0032`
 Specification references: JSON Schema Draft 2020-12 Applicator keyword `patternProperties`

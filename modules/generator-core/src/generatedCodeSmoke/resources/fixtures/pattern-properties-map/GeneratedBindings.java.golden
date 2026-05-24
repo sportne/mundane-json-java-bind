@@ -1,0 +1,31 @@
+package io.github.mundanej.mjjb.generated;
+
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.regex.Pattern;
+
+public record GeneratedBindings(
+    String id,
+    Map<String, Long> patternProperties,
+    Map<String, String> additionalProperties) {
+  public GeneratedBindings {
+    id = Objects.requireNonNull(id, "id");
+    patternProperties = Map.copyOf(Objects.requireNonNull(patternProperties, "patternProperties"));
+    if (!java.util.Collections.disjoint(patternProperties.keySet(), Set.of(
+        "id"))) {
+      throw new IllegalArgumentException("patternProperties must not contain declared property names");
+    }
+    if (!patternProperties.keySet().stream().allMatch(key -> Pattern.compile("^x-").matcher(key).find())) {
+      throw new IllegalArgumentException("patternProperties keys must match the configured pattern");
+    }
+    additionalProperties = Map.copyOf(Objects.requireNonNull(additionalProperties, "additionalProperties"));
+    if (!java.util.Collections.disjoint(additionalProperties.keySet(), Set.of(
+        "id"))) {
+      throw new IllegalArgumentException("additionalProperties must not contain declared property names");
+    }
+    if (additionalProperties.keySet().stream().anyMatch(key -> Pattern.compile("^x-").matcher(key).find())) {
+      throw new IllegalArgumentException("additionalProperties must not contain patternProperties keys");
+    }
+  }
+}

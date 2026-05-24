@@ -1,0 +1,83 @@
+package io.github.mundanej.mjjb.generated;
+
+import io.github.mundanej.mjjb.runtime.JsonPath;
+import io.github.mundanej.mjjb.runtime.ValidationError;
+import io.github.mundanej.mjjb.runtime.ValidationErrors;
+import io.github.mundanej.mjjb.runtime.ValidationMode;
+import io.github.mundanej.mjjb.runtime.ValidationResult;
+import java.math.BigDecimal;
+import java.util.Map;
+import java.util.Objects;
+
+public final class GeneratedBindingsJsonValidator {
+  private GeneratedBindingsJsonValidator() {}
+
+  public static ValidationResult validate(GeneratedBindings value) {
+    return validate(value, ValidationMode.ACCUMULATE);
+  }
+
+  public static ValidationResult validate(GeneratedBindings value, ValidationMode mode) {
+    Objects.requireNonNull(mode, "mode");
+    ValidationErrors errors = ValidationErrors.create(mode);
+    if (value == null) {
+      errors.add(ValidationError.of("MJJBV-001", "Expected generated object value.", JsonPath.ROOT));
+      return errors.toResult();
+    }
+    if (value.id() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-002", "Required property 'id' must not be null.", JsonPath.ROOT.property("id")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.patternProperties() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-002", "patternProperties map must not be null.", JsonPath.ROOT))) {
+        return errors.toResult();
+      }
+    }
+    if (value.patternProperties() != null) {
+      for (Map.Entry<String, Long> entry : value.patternProperties().entrySet()) {
+        if (true) {
+          if (!validateMinimum(errors, BigDecimal.valueOf(entry.getValue()), "1", JsonPath.ROOT.property(entry.getKey()))) {
+            return errors.toResult();
+          }
+        }
+      }
+    }
+    if (value.additionalProperties() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-002", "additionalProperties map must not be null.", JsonPath.ROOT))) {
+        return errors.toResult();
+      }
+    }
+    if (value.additionalProperties() != null) {
+      for (Map.Entry<String, String> entry : value.additionalProperties().entrySet()) {
+        if (true) {
+          if (!validateMinLength(errors, entry.getValue(), 2L, JsonPath.ROOT.property(entry.getKey()))) {
+            return errors.toResult();
+          }
+        }
+      }
+    }
+    return errors.toResult();
+  }
+
+  private static boolean validateMinLength(
+      ValidationErrors errors, String value, long minLength, JsonPath path) {
+    if (value.codePointCount(0, value.length()) >= minLength) {
+      return true;
+    }
+    return errors.add(
+        ValidationError.of(
+            "MJJBV-007",
+            "Expected at least " + minLength + " string code points.",
+            path));
+  }
+
+  private static boolean validateMinimum(
+      ValidationErrors errors, BigDecimal value, String minimum, JsonPath path) {
+    if (value.compareTo(new BigDecimal(minimum)) >= 0) {
+      return true;
+    }
+    return errors.add(
+        ValidationError.of(
+            "MJJBV-011", "Expected number to be at least " + minimum + ".", path));
+  }
+}

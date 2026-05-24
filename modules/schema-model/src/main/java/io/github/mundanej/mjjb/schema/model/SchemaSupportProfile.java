@@ -106,6 +106,7 @@ public final class SchemaSupportProfile {
     switch (keyword) {
       case TYPE -> validateType(member.value(), diagnostics);
       case PROPERTIES -> validateProperties(member.value(), diagnostics);
+      case PATTERN_PROPERTIES -> validatePatternProperties(member.value(), diagnostics);
       case REQUIRED -> validateRequired(member.value(), diagnostics);
       case ADDITIONAL_PROPERTIES -> validateAdditionalProperties(member.value(), diagnostics);
       case ENUM -> validateEnum(member.value(), diagnostics);
@@ -191,6 +192,37 @@ public final class SchemaSupportProfile {
       validateSchemaObjectOnly(
           property.value(), "Property schemas must be schema objects.", diagnostics);
     }
+  }
+
+  private static void validatePatternProperties(
+      SchemaSyntaxValue value, List<SchemaSupportDiagnostic> diagnostics) {
+    if (!(value instanceof ObjectValue patternProperties)) {
+      diagnostics.add(
+          invalidValue(
+              "The 'patternProperties' keyword value must be an object.", value.pointer()));
+      return;
+    }
+    if (patternProperties.members().size() != 1) {
+      diagnostics.add(
+          unsupportedValue(
+              "JSP-DATA-2020-12 supports exactly one patternProperties entry per object.",
+              value.pointer()));
+      return;
+    }
+    Member patternMember = patternProperties.members().getFirst();
+    try {
+      Pattern.compile(patternMember.name());
+    } catch (PatternSyntaxException exception) {
+      diagnostics.add(
+          invalidValue(
+              "Every 'patternProperties' member name must be a valid regular expression.",
+              patternMember.pointer()));
+      return;
+    }
+    validateSchemaObjectOnly(
+        patternMember.value(),
+        "patternProperties value schemas must be schema objects.",
+        diagnostics);
   }
 
   private static void validateRequired(

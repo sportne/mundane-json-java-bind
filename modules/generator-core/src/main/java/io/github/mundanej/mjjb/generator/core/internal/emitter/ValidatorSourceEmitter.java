@@ -53,6 +53,13 @@ public final class ValidatorSourceEmitter {
       }
       model
           .rootObject()
+          .patternProperties()
+          .ifPresent(
+              map ->
+                  lines.addAll(
+                      validateMapLines(model.rootTypeName(), map, "value", "JsonPath.ROOT")));
+      model
+          .rootObject()
           .additionalProperties()
           .ifPresent(
               map ->
@@ -177,6 +184,13 @@ public final class ValidatorSourceEmitter {
     }
     branch
         .object()
+        .patternProperties()
+        .ifPresent(
+            map ->
+                lines.addAll(
+                    validateMapLines(model.rootTypeName(), map, "value", "JsonPath.ROOT")));
+    branch
+        .object()
         .additionalProperties()
         .ifPresent(
             map ->
@@ -201,6 +215,9 @@ public final class ValidatorSourceEmitter {
     for (FieldBinding field : object.fields()) {
       lines.addAll(validateFieldLines(field, "value", "basePath"));
     }
+    object
+        .patternProperties()
+        .ifPresent(map -> lines.addAll(validateMapLines(rootTypeName, map, "value", "basePath")));
     object
         .additionalProperties()
         .ifPresent(map -> lines.addAll(validateMapLines(rootTypeName, map, "value", "basePath")));
@@ -248,7 +265,9 @@ public final class ValidatorSourceEmitter {
     String accessor = ownerExpression + "." + map.javaFieldName() + "()";
     lines.add("    if (" + accessor + " == null) {");
     lines.add(
-        "      if (!errors.add(ValidationError.of(\"MJJBV-002\", \"additionalProperties map must not be null.\", "
+        "      if (!errors.add(ValidationError.of(\"MJJBV-002\", \""
+            + map.sourceKeyword()
+            + " map must not be null.\", "
             + basePathExpression
             + "))) {");
     lines.add("        return errors.toResult();");
@@ -275,7 +294,9 @@ public final class ValidatorSourceEmitter {
     } else if (map.valueType().nullable()) {
       lines.add("        if (entry.getValue() == null) {");
       lines.add(
-          "          if (!errors.add(ValidationError.of(\"MJJBV-002\", \"additionalProperties value must not be null.\", "
+          "          if (!errors.add(ValidationError.of(\"MJJBV-002\", \""
+              + map.sourceKeyword()
+              + " value must not be null.\", "
               + pathExpression
               + "))) {");
       lines.add("            return errors.toResult();");
@@ -283,7 +304,9 @@ public final class ValidatorSourceEmitter {
       lines.add("        }");
       lines.add("        if (entry.getValue() != null && entry.getValue().isAbsent()) {");
       lines.add(
-          "          if (!errors.add(ValidationError.of(\"MJJBV-017\", \"additionalProperties nullable value must be present or explicit null.\", "
+          "          if (!errors.add(ValidationError.of(\"MJJBV-017\", \""
+              + map.sourceKeyword()
+              + " nullable value must be present or explicit null.\", "
               + pathExpression
               + "))) {");
       lines.add("            return errors.toResult();");
@@ -326,7 +349,10 @@ public final class ValidatorSourceEmitter {
     if (map.object()) {
       return rootTypeName + "." + map.valueType().objectBinding().orElseThrow().javaTypeName();
     }
-    return map.valueType().requiredJavaType();
+    if (map.valueType().nullable() || map.array()) {
+      return map.valueType().requiredJavaType();
+    }
+    return map.scalarType().boxedJavaType();
   }
 
   private static List<String> validateFieldLines(
@@ -1243,10 +1269,15 @@ public final class ValidatorSourceEmitter {
   }
 
   private static void collectMaps(ObjectBinding object, List<MapBinding> maps) {
+    object.patternProperties().ifPresent(maps::add);
     object.additionalProperties().ifPresent(maps::add);
     for (FieldBinding field : object.fields()) {
       field.valueType().objectBinding().ifPresent(nested -> collectMaps(nested, maps));
     }
+    object
+        .patternProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(nested -> collectMaps(nested, maps));
     object
         .additionalProperties()
         .flatMap(map -> map.valueType().objectBinding())
@@ -1258,6 +1289,10 @@ public final class ValidatorSourceEmitter {
       fields.add(field);
       field.valueType().objectBinding().ifPresent(nested -> collectFields(nested, fields));
     }
+    object
+        .patternProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(nested -> collectFields(nested, fields));
     object
         .additionalProperties()
         .flatMap(map -> map.valueType().objectBinding())
@@ -1287,6 +1322,14 @@ public final class ValidatorSourceEmitter {
                 collectNestedObjects(nested, objects);
               });
     }
+    object
+        .patternProperties()
+        .flatMap(map -> map.valueType().objectBinding())
+        .ifPresent(
+            nested -> {
+              objects.add(nested);
+              collectNestedObjects(nested, objects);
+            });
     object
         .additionalProperties()
         .flatMap(map -> map.valueType().objectBinding())

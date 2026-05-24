@@ -66,6 +66,14 @@ the map and reject keys that duplicate declared property names. Generated
 writers emit declared properties first in schema order, then additional map
 entries sorted by key.
 
+`patternProperties` supports one regex entry per generated object. It generates
+a non-null `Map<String, T>` component before any `additionalProperties` map.
+Constructors require every pattern-map key to match the compiled regex and
+require additional-property map keys not to match the pattern. Readers route
+exact declared properties first, then regex matches, then supported additional
+properties. Writers emit declared fields first, then pattern-map entries sorted
+by key, then additional-map entries sorted by key.
+
 Constrained object `allOf` schemas are flattened during binding construction.
 Generated records contain the merged properties in deterministic branch order,
 with required names unioned across accepted branches. Conflicting property

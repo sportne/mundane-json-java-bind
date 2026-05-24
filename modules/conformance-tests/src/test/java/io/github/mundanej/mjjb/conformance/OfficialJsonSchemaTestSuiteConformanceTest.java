@@ -51,6 +51,7 @@ final class OfficialJsonSchemaTestSuiteConformanceTest {
           "maxItems",
           "properties",
           "additionalProperties",
+          "patternProperties",
           "allOf",
           "ref",
           "enum",
@@ -177,6 +178,50 @@ final class OfficialJsonSchemaTestSuiteConformanceTest {
                   }
                   """,
                   "{\"known\":\"ok\",\"extra\":\"a\"}",
+                  false),
+              allowedProjected(
+                  "patternProperties",
+                  "tests/draft2020-12/patternProperties.json",
+                  "patternProperties validates properties matching a regex",
+                  "a matching property is valid",
+                  """
+                  {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "$comment": "Projected JSON Schema Test Suite case pinned at __COMMIT__.",
+                    "type": "object",
+                    "properties": {
+                      "id": {"type": "string"}
+                    },
+                    "required": ["id"],
+                    "patternProperties": {
+                      "^x-": {"type": "integer", "minimum": 1}
+                    },
+                    "additionalProperties": false
+                  }
+                  """,
+                  "{\"id\":\"root\",\"x-a\":1}",
+                  true),
+              allowedProjected(
+                  "patternProperties",
+                  "tests/draft2020-12/patternProperties.json",
+                  "patternProperties validates properties matching a regex",
+                  "a matching property with invalid value is invalid",
+                  """
+                  {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "$comment": "Projected JSON Schema Test Suite case pinned at __COMMIT__.",
+                    "type": "object",
+                    "properties": {
+                      "id": {"type": "string"}
+                    },
+                    "required": ["id"],
+                    "patternProperties": {
+                      "^x-": {"type": "integer", "minimum": 1}
+                    },
+                    "additionalProperties": false
+                  }
+                  """,
+                  "{\"id\":\"root\",\"x-a\":0}",
                   false),
               allowedProjected(
                   "allOf",

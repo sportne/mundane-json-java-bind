@@ -391,6 +391,71 @@ final class BindingModelBuilderTest {
   }
 
   @Test
+  void buildsPatternPropertiesMapBinding() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "id": {"type": "string"}
+              },
+              "required": ["id"],
+              "patternProperties": {
+                "^x-": {"type": "integer", "minimum": 1}
+              },
+              "additionalProperties": false
+            }
+            """);
+
+    assertTrue(result.diagnostics().isEmpty());
+    ObjectBinding root = result.model().orElseThrow().rootObject();
+    MapBinding map = root.patternProperties().orElseThrow();
+
+    assertEquals("patternProperties", map.javaFieldName());
+    assertEquals("^x-", map.pattern());
+    assertEquals(JavaScalarType.INTEGER, map.scalarType());
+    assertEquals("1", map.valueType().facets().minimum().orElseThrow());
+  }
+
+  @Test
+  void rejectsMultiplePatternPropertiesEntries() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "patternProperties": {
+                "^x-": {"type": "string"},
+                "^y-": {"type": "string"}
+              },
+              "additionalProperties": false
+            }
+            """);
+
+    assertEquals(BindingDiagnostic.PATTERN_PROPERTIES_CODE, result.diagnostics().getFirst().code());
+    assertEquals("/patternProperties", result.diagnostics().getFirst().pointer().value());
+  }
+
+  @Test
+  void rejectsInvalidPatternPropertiesRegex() {
+    BindingBuildResult result =
+        build(
+            """
+            {
+              "type": "object",
+              "patternProperties": {
+                "[": {"type": "string"}
+              },
+              "additionalProperties": false
+            }
+            """);
+
+    assertEquals(BindingDiagnostic.PATTERN_PROPERTIES_CODE, result.diagnostics().getFirst().code());
+    assertEquals("/patternProperties/[", result.diagnostics().getFirst().pointer().value());
+  }
+
+  @Test
   void disambiguatesAdditionalPropertiesMapFieldName() {
     BindingBuildResult result =
         build(

@@ -100,6 +100,9 @@ final class SchemaSupportProfileTest {
             "tags": {"type": "array", "items": {"type": "string"}, "minItems": 0, "maxItems": 3},
             "nullable": {"type": ["null", "string"], "enum": ["x", null], "const": null, "default": null}
           },
+          "patternProperties": {
+            "^x-": {"type": "string"}
+          },
           "required": ["id"],
           "additionalProperties": false,
           "enum": [{"id": "abc"}],
@@ -334,6 +337,9 @@ final class SchemaSupportProfileTest {
     assertInvalid("{\"required\": [\"id\", \"id\"]}", "/required/1");
     assertInvalid("{\"properties\": []}", "/properties");
     assertInvalid("{\"properties\": {\"id\": \"bad\"}}", "/properties/id");
+    assertInvalid("{\"patternProperties\": []}", "/patternProperties");
+    assertInvalid(
+        "{\"patternProperties\": {\"[\": {\"type\": \"string\"}}}", "/patternProperties/[");
     assertInvalid("{\"items\": 1}", "/items");
     assertInvalid("{\"items\": [{\"type\": \"string\"}]}", "/items");
     assertInvalid("{\"minItems\": -1}", "/minItems");
@@ -357,6 +363,10 @@ final class SchemaSupportProfileTest {
     assertUnsupportedValue("{\"type\": [\"null\"]}", "/type");
     assertUnsupportedValue("{\"format\": \"email\"}", "/format");
     assertUnsupportedValue("{\"properties\": {\"id\": true}}", "/properties/id");
+    assertUnsupportedValue(
+        "{\"patternProperties\": {\"^x-\": {\"type\":\"string\"}, \"^y-\": {\"type\":\"string\"}}}",
+        "/patternProperties");
+    assertUnsupportedValue("{\"patternProperties\": {\"^x-\": false}}", "/patternProperties/^x-");
     assertUnsupportedValue("{\"items\": false}", "/items");
     assertUnsupportedKeyword("{\"prefixItems\": [{\"type\":\"string\"}]}", "/prefixItems");
     assertUnsupportedValue("{\"oneOf\": [{\"type\":\"string\"}, {\"type\":\"number\"}]}", "/oneOf");

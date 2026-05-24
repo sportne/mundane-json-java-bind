@@ -21,6 +21,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /** Builds the first-slice binding IR from profile-validated schema syntax. */
 public final class BindingModelBuilder {
@@ -107,9 +109,11 @@ public final class BindingModelBuilder {
     objectTypeNames.add(rootTypeName);
     List<FieldBinding> fields =
         objectFields(properties, requiredNames, null, rootTypeName, objectTypeNames, diagnostics);
+    Optional<MapBinding> patternProperties =
+        patternPropertiesBinding(bindingRoot, rootTypeName, objectTypeNames, fields, diagnostics);
     Optional<MapBinding> additionalProperties =
         additionalPropertiesBinding(
-            bindingRoot, rootTypeName, objectTypeNames, fields, diagnostics);
+            bindingRoot, rootTypeName, objectTypeNames, fields, patternProperties, diagnostics);
 
     List<BindingDiagnostic> sortedDiagnostics = sorted(diagnostics);
     if (!sortedDiagnostics.isEmpty()) {
@@ -117,7 +121,12 @@ public final class BindingModelBuilder {
     }
     ObjectBinding rootBinding =
         new ObjectBinding(
-            rootTypeName, root.pointer(), fields, additionalProperties, annotations(bindingRoot));
+            rootTypeName,
+            root.pointer(),
+            fields,
+            patternProperties,
+            additionalProperties,
+            annotations(bindingRoot));
     return BindingBuildResult.success(new BindingModel(packageName, rootTypeName, rootBinding));
   }
 
@@ -210,9 +219,17 @@ public final class BindingModelBuilder {
               branchTypeName,
               objectTypeNames,
               diagnostics);
+      Optional<MapBinding> patternProperties =
+          patternPropertiesBinding(
+              bindingBranch, branchTypeName, objectTypeNames, fields, diagnostics);
       Optional<MapBinding> additionalProperties =
           additionalPropertiesBinding(
-              bindingBranch, branchTypeName, objectTypeNames, fields, diagnostics);
+              bindingBranch,
+              branchTypeName,
+              objectTypeNames,
+              fields,
+              patternProperties,
+              diagnostics);
       branches.add(
           new TaggedUnionBranch(
               tagProperty.get().value(),
@@ -221,6 +238,7 @@ public final class BindingModelBuilder {
                   branchSchema.pointer(),
                   fields,
                   List.of(tagProperty.get().name()),
+                  patternProperties,
                   additionalProperties,
                   annotations(bindingBranch))));
     }
@@ -325,6 +343,7 @@ public final class BindingModelBuilder {
       String parentTypeName,
       Set<String> objectTypeNames,
       List<FieldBinding> fields,
+      Optional<MapBinding> patternProperties,
       List<BindingDiagnostic> diagnostics) {
     Optional<Member> additionalProperties = member(rootObject, "additionalProperties");
     if (additionalProperties.isEmpty()) {
@@ -339,25 +358,12 @@ public final class BindingModelBuilder {
       return Optional.empty();
     }
     if (value instanceof ObjectValue rawValueSchema) {
-      Optional<ObjectValue> flattenedValueSchema =
-          flattenedObjectSchema(rawValueSchema, diagnostics);
-      if (flattenedValueSchema.isEmpty()) {
-        return Optional.empty();
-      }
-      ObjectValue valueSchema = flattenedValueSchema.get();
-      Optional<Member> typeMember = member(valueSchema, "type");
-      if (typeMember.isEmpty()) {
-        diagnostics.add(
-            missingPropertyType(
-                "additionalProperties schema must declare a supported 'type'.",
-                additionalProperties.get().pointer()));
-        return Optional.empty();
-      }
       Optional<FieldValueType> valueType =
-          valueType(
+          mapValueType(
+              "additionalProperties",
               "additionalProperty",
-              valueSchema,
-              typeMember.get(),
+              rawValueSchema,
+              additionalProperties.get().pointer(),
               parentTypeName,
               objectTypeNames,
               diagnostics);
@@ -368,16 +374,105 @@ public final class BindingModelBuilder {
       for (FieldBinding field : fields) {
         javaNames.put(field.javaFieldName(), field.schemaPointer());
       }
+      patternProperties.ifPresent(map -> javaNames.put(map.javaFieldName(), map.schemaPointer()));
       String javaFieldName =
           uniqueJavaFieldName(
               "additionalProperties", javaNames, additionalProperties.get().pointer());
-      return Optional.of(new MapBinding(javaFieldName, valueType.get(), value.pointer()));
+      return Optional.of(
+          MapBinding.additionalProperties(javaFieldName, valueType.get(), value.pointer()));
     }
     diagnostics.add(
         additionalPropertiesDiagnostic(
             "The object schema must declare 'additionalProperties' as false or a supported schema object.",
             value.pointer()));
     return Optional.empty();
+  }
+
+  private static Optional<MapBinding> patternPropertiesBinding(
+      ObjectValue rootObject,
+      String parentTypeName,
+      Set<String> objectTypeNames,
+      List<FieldBinding> fields,
+      List<BindingDiagnostic> diagnostics) {
+    Optional<Member> patternProperties = member(rootObject, "patternProperties");
+    if (patternProperties.isEmpty()) {
+      return Optional.empty();
+    }
+    if (!(patternProperties.get().value() instanceof ObjectValue patterns)) {
+      diagnostics.add(
+          patternPropertiesDiagnostic(
+              "The 'patternProperties' keyword value must be an object.",
+              patternProperties.get().pointer()));
+      return Optional.empty();
+    }
+    if (patterns.members().size() != 1) {
+      diagnostics.add(
+          patternPropertiesDiagnostic(
+              "JSP-DATA-2020-12 supports exactly one patternProperties entry per object.",
+              patternProperties.get().pointer()));
+      return Optional.empty();
+    }
+    Member patternMember = patterns.members().getFirst();
+    try {
+      Pattern.compile(patternMember.name());
+    } catch (PatternSyntaxException exception) {
+      diagnostics.add(
+          patternPropertiesDiagnostic(
+              "The patternProperties member name must be a valid regular expression.",
+              patternMember.pointer()));
+      return Optional.empty();
+    }
+    if (!(patternMember.value() instanceof ObjectValue valueSchema)) {
+      diagnostics.add(
+          patternPropertiesDiagnostic(
+              "patternProperties value schemas must be schema objects.", patternMember.pointer()));
+      return Optional.empty();
+    }
+    Optional<FieldValueType> valueType =
+        mapValueType(
+            "patternProperties",
+            "patternProperty",
+            valueSchema,
+            patternMember.pointer(),
+            parentTypeName,
+            objectTypeNames,
+            diagnostics);
+    if (valueType.isEmpty()) {
+      return Optional.empty();
+    }
+    HashMap<String, JsonPointer> javaNames = new HashMap<>();
+    for (FieldBinding field : fields) {
+      javaNames.put(field.javaFieldName(), field.schemaPointer());
+    }
+    String javaFieldName =
+        uniqueJavaFieldName("patternProperties", javaNames, patternMember.pointer());
+    return Optional.of(
+        MapBinding.patternProperties(
+            javaFieldName, valueType.get(), valueSchema.pointer(), patternMember.name()));
+  }
+
+  private static Optional<FieldValueType> mapValueType(
+      String keyword,
+      String propertyName,
+      ObjectValue rawValueSchema,
+      JsonPointer diagnosticPointer,
+      String parentTypeName,
+      Set<String> objectTypeNames,
+      List<BindingDiagnostic> diagnostics) {
+    Optional<ObjectValue> flattenedValueSchema = flattenedObjectSchema(rawValueSchema, diagnostics);
+    if (flattenedValueSchema.isEmpty()) {
+      return Optional.empty();
+    }
+    ObjectValue valueSchema = flattenedValueSchema.get();
+    Optional<Member> typeMember = member(valueSchema, "type");
+    if (typeMember.isEmpty()) {
+      diagnostics.add(
+          missingPropertyType(
+              keyword + " schema must declare a supported 'type'.", diagnosticPointer));
+      return Optional.empty();
+    }
+    return valueType(
+        propertyName, valueSchema, typeMember.get(), parentTypeName, objectTypeNames, diagnostics);
   }
 
   private static Optional<ObjectValue> flattenedObjectSchema(
@@ -827,15 +922,18 @@ public final class BindingModelBuilder {
     String javaTypeName = uniqueJavaTypeName(parentTypeName, propertyName, objectTypeNames);
     List<FieldBinding> fields =
         objectFields(properties, requiredNames, null, javaTypeName, objectTypeNames, diagnostics);
+    Optional<MapBinding> patternProperties =
+        patternPropertiesBinding(bindingSchema, javaTypeName, objectTypeNames, fields, diagnostics);
     Optional<MapBinding> additionalProperties =
         additionalPropertiesBinding(
-            bindingSchema, javaTypeName, objectTypeNames, fields, diagnostics);
+            bindingSchema, javaTypeName, objectTypeNames, fields, patternProperties, diagnostics);
     return Optional.of(
         FieldValueType.object(
             new ObjectBinding(
                 javaTypeName,
                 propertySchema.pointer(),
                 fields,
+                patternProperties,
                 additionalProperties,
                 annotations(bindingSchema))));
   }
@@ -1294,6 +1392,11 @@ public final class BindingModelBuilder {
   private static BindingDiagnostic additionalPropertiesDiagnostic(
       String message, JsonPointer pointer) {
     return new BindingDiagnostic(BindingDiagnostic.ADDITIONAL_PROPERTIES_CODE, message, pointer);
+  }
+
+  private static BindingDiagnostic patternPropertiesDiagnostic(
+      String message, JsonPointer pointer) {
+    return new BindingDiagnostic(BindingDiagnostic.PATTERN_PROPERTIES_CODE, message, pointer);
   }
 
   private static BindingDiagnostic missingPropertyType(String message, JsonPointer pointer) {

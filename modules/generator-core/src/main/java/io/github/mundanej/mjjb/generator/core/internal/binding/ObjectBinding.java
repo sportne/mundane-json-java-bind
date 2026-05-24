@@ -11,6 +11,7 @@ public record ObjectBinding(
     JsonPointer schemaPointer,
     List<FieldBinding> fields,
     List<String> reservedJsonPropertyNames,
+    Optional<MapBinding> patternProperties,
     Optional<MapBinding> additionalProperties,
     SchemaAnnotationsBinding annotations) {
   public ObjectBinding(String javaTypeName, JsonPointer schemaPointer, List<FieldBinding> fields) {
@@ -20,6 +21,7 @@ public record ObjectBinding(
         fields,
         List.of(),
         Optional.empty(),
+        Optional.empty(),
         SchemaAnnotationsBinding.EMPTY);
   }
 
@@ -28,7 +30,14 @@ public record ObjectBinding(
       JsonPointer schemaPointer,
       List<FieldBinding> fields,
       SchemaAnnotationsBinding annotations) {
-    this(javaTypeName, schemaPointer, fields, List.of(), Optional.empty(), annotations);
+    this(
+        javaTypeName,
+        schemaPointer,
+        fields,
+        List.of(),
+        Optional.empty(),
+        Optional.empty(),
+        annotations);
   }
 
   public ObjectBinding(
@@ -37,7 +46,31 @@ public record ObjectBinding(
       List<FieldBinding> fields,
       Optional<MapBinding> additionalProperties,
       SchemaAnnotationsBinding annotations) {
-    this(javaTypeName, schemaPointer, fields, List.of(), additionalProperties, annotations);
+    this(
+        javaTypeName,
+        schemaPointer,
+        fields,
+        List.of(),
+        Optional.empty(),
+        additionalProperties,
+        annotations);
+  }
+
+  public ObjectBinding(
+      String javaTypeName,
+      JsonPointer schemaPointer,
+      List<FieldBinding> fields,
+      Optional<MapBinding> patternProperties,
+      Optional<MapBinding> additionalProperties,
+      SchemaAnnotationsBinding annotations) {
+    this(
+        javaTypeName,
+        schemaPointer,
+        fields,
+        List.of(),
+        patternProperties,
+        additionalProperties,
+        annotations);
   }
 
   public ObjectBinding {
@@ -46,6 +79,7 @@ public record ObjectBinding(
     fields = List.copyOf(Objects.requireNonNull(fields, "fields"));
     reservedJsonPropertyNames =
         List.copyOf(Objects.requireNonNull(reservedJsonPropertyNames, "reservedJsonPropertyNames"));
+    Objects.requireNonNull(patternProperties, "patternProperties");
     Objects.requireNonNull(additionalProperties, "additionalProperties");
     Objects.requireNonNull(annotations, "annotations");
     if (javaTypeName.isBlank()) {
