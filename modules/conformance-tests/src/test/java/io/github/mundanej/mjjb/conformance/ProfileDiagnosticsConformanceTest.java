@@ -232,7 +232,7 @@ final class ProfileDiagnosticsConformanceTest {
     GeneratorResult result = generate("{\"$ref\":\"schema.json\"}");
 
     assertFalse(result.successful());
-    assertEquals("MJJBG-SCHEMA-UNSUPPORTED-KEYWORD", result.diagnostics().getFirst().code());
+    assertEquals("MJJBG-SCHEMA-REMOTE-REF", result.diagnostics().getFirst().code());
     assertEquals("/$ref", result.diagnostics().getFirst().schemaPointer());
   }
 
@@ -244,7 +244,7 @@ final class ProfileDiagnosticsConformanceTest {
             {
               "type": "object",
               "properties": {
-                "z": {"$ref": "other.json"},
+                "z": {"$dynamicRef": "#other"},
                 "a": {"allOf": []}
               },
               "additionalProperties": false
@@ -254,7 +254,7 @@ final class ProfileDiagnosticsConformanceTest {
     assertFalse(result.successful());
     assertEquals(2, result.diagnostics().size());
     assertEquals("/properties/a/allOf", result.diagnostics().get(0).schemaPointer());
-    assertEquals("/properties/z/$ref", result.diagnostics().get(1).schemaPointer());
+    assertEquals("/properties/z/$dynamicRef", result.diagnostics().get(1).schemaPointer());
     assertTrue(
         result
             .diagnostics()

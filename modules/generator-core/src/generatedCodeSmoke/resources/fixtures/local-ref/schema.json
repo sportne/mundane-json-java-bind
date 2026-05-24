@@ -1,0 +1,31 @@
+{
+  "type": "object",
+  "properties": {
+    "id": {"$ref": "#/$defs/id"},
+    "profile": {"$ref": "#/$defs/profile"}
+  },
+  "required": ["id", "profile"],
+  "additionalProperties": false,
+  "$defs": {
+    "id": {"type": "string", "minLength": 1},
+    "profile": {
+      "type": "object",
+      "properties": {
+        "name": {"$ref": "#/$defs/name"},
+        "address": {"$ref": "#/$defs/address"}
+      },
+      "required": ["name", "address"],
+      "additionalProperties": false
+    },
+    "name": {"type": "string"},
+    "address": {
+      "type": "object",
+      "properties": {
+        "city": {"$ref": "#/$defs/city"}
+      },
+      "required": ["city"],
+      "additionalProperties": false
+    },
+    "city": {"type": "string", "minLength": 1}
+  }
+}

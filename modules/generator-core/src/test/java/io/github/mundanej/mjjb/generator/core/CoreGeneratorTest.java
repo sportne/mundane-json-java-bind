@@ -8,6 +8,7 @@ import io.github.mundanej.mjjb.generator.api.GeneratorProfile;
 import io.github.mundanej.mjjb.generator.api.GeneratorRequest;
 import io.github.mundanej.mjjb.generator.api.GeneratorResult;
 import io.github.mundanej.mjjb.generator.core.generated.GeneratedSourceVerifier;
+import io.github.mundanej.mjjb.schema.model.SchemaReferenceResolver;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -661,16 +662,129 @@ final class CoreGeneratorTest {
   }
 
   @Test
+  void generatesEquivalentBindingsForLocalReferences() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(
+        schema,
+        """
+        {
+          "type": "object",
+          "properties": {
+            "id": {"$ref": "#/$defs/id"},
+            "profile": {"$ref": "#/$defs/profile"}
+          },
+          "required": ["id", "profile"],
+          "additionalProperties": false,
+          "$defs": {
+            "id": {"type": "string", "minLength": 1},
+            "profile": {
+              "type": "object",
+              "properties": {
+                "name": {"$ref": "#/$defs/name"}
+              },
+              "required": ["name"],
+              "additionalProperties": false
+            },
+            "name": {"type": "string"}
+          }
+        }
+        """);
+
+    GeneratorResult result =
+        new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
+
+    assertTrue(result.successful());
+    String modelSource = Files.readString(sourceNamed(result, "GeneratedBindings.java"));
+    assertTrue(modelSource.contains("GeneratedBindingsProfile profile"));
+    assertTrue(modelSource.contains("record GeneratedBindingsProfile("));
+  }
+
+  @Test
+  void resolvesTaggedOneOfBranchesBeforeProfileValidation() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(
+        schema,
+        """
+        {
+          "oneOf": [
+            {"$ref": "#/$defs/card"},
+            {"$ref": "#/$defs/bank"}
+          ],
+          "$defs": {
+            "card": {
+              "type": "object",
+              "properties": {
+                "kind": {"type": "string", "const": "card"},
+                "last4": {"type": "string"}
+              },
+              "required": ["kind", "last4"],
+              "additionalProperties": false
+            },
+            "bank": {
+              "type": "object",
+              "properties": {
+                "kind": {"type": "string", "const": "bank"},
+                "iban": {"type": "string"}
+              },
+              "required": ["kind", "iban"],
+              "additionalProperties": false
+            }
+          }
+        }
+        """);
+
+    GeneratorResult result =
+        new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
+
+    assertTrue(result.successful());
+    String modelSource = Files.readString(sourceNamed(result, "GeneratedBindings.java"));
+    assertTrue(modelSource.contains("sealed interface GeneratedBindings"));
+    assertTrue(modelSource.contains("record Card("));
+    assertTrue(modelSource.contains("record Bank("));
+  }
+
+  @Test
+  void reportsReferenceResolutionDiagnosticsBeforeEmission() throws IOException {
+    Path remote = tempDir.resolve("remote.json");
+    Files.writeString(remote, "{\"$ref\":\"https://example.com/schema.json\"}");
+    Path missing = tempDir.resolve("missing.json");
+    Files.writeString(missing, "{\"$ref\":\"#/$defs/missing\",\"$defs\":{}}");
+    Path cycle = tempDir.resolve("cycle.json");
+    Files.writeString(
+        cycle,
+        "{\"$ref\":\"#/$defs/a\",\"$defs\":{\"a\":{\"$ref\":\"#/$defs/b\"},\"b\":{\"$ref\":\"#/$defs/a\"}}}");
+
+    GeneratorResult remoteResult =
+        new CoreGenerator().generate(GeneratorRequest.of(List.of(remote), tempDir.resolve("out1")));
+    GeneratorResult missingResult =
+        new CoreGenerator()
+            .generate(GeneratorRequest.of(List.of(missing), tempDir.resolve("out2")));
+    GeneratorResult cycleResult =
+        new CoreGenerator().generate(GeneratorRequest.of(List.of(cycle), tempDir.resolve("out3")));
+
+    assertEquals(
+        SchemaReferenceResolver.REMOTE_REF_CODE, remoteResult.diagnostics().getFirst().code());
+    assertEquals("/$ref", remoteResult.diagnostics().getFirst().schemaPointer());
+    assertEquals(
+        SchemaReferenceResolver.MISSING_REF_CODE, missingResult.diagnostics().getFirst().code());
+    assertEquals("/$ref", missingResult.diagnostics().getFirst().schemaPointer());
+    assertEquals(
+        SchemaReferenceResolver.CYCLIC_REF_CODE, cycleResult.diagnostics().getFirst().code());
+    assertEquals("/$defs/a/$ref", cycleResult.diagnostics().getFirst().schemaPointer());
+  }
+
+  @Test
   void reportsProfileDiagnosticsInDeterministicOrder() throws IOException {
     Path schema = tempDir.resolve("schema.json");
-    Files.writeString(schema, "{\"properties\":{\"b\":{\"$ref\":\"x\"},\"a\":{\"allOf\":[]}}}");
+    Files.writeString(
+        schema, "{\"properties\":{\"b\":{\"$dynamicRef\":\"#x\"},\"a\":{\"allOf\":[]}}}");
 
     GeneratorResult result =
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
     assertFalse(result.successful());
     assertEquals("/properties/a/allOf", result.diagnostics().get(0).schemaPointer());
-    assertEquals("/properties/b/$ref", result.diagnostics().get(1).schemaPointer());
+    assertEquals("/properties/b/$dynamicRef", result.diagnostics().get(1).schemaPointer());
   }
 
   @Test

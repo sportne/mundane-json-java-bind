@@ -77,7 +77,7 @@ final class SchemaSupportProfileTest {
     assertTrue(JsonSchemaKeyword.fromKeyword("notAKeyword").isEmpty());
     assertTrue(JsonSchemaKeyword.ONE_OF.supportedInV1());
     assertTrue(JsonSchemaKeyword.DESCRIPTION.acceptedInV1());
-    assertFalse(JsonSchemaKeyword.REF.supportedInV1());
+    assertTrue(JsonSchemaKeyword.REF.supportedInV1());
   }
 
   @Test
@@ -149,6 +149,28 @@ final class SchemaSupportProfileTest {
           },
           "required": ["profile"],
           "additionalProperties": false
+        }
+        """);
+  }
+
+  @Test
+  void acceptsLocalReferenceKeywordShapes() {
+    assertValid(
+        """
+        {
+          "type": "object",
+          "properties": {
+            "id": {"$ref": "#/$defs/id"},
+            "escaped": {"$ref": "#/$defs/a~1b/c~0d"}
+          },
+          "required": ["id"],
+          "additionalProperties": false,
+          "$defs": {
+            "id": {"type": "string"},
+            "a/b": {
+              "c~d": {"type": "integer"}
+            }
+          }
         }
         """);
   }
@@ -241,11 +263,11 @@ final class SchemaSupportProfileTest {
   @Test
   void reportsUnsupportedKeywordsWithExactPointersAndDeterministicOrdering() {
     List<SchemaSupportDiagnostic> diagnostics =
-        validate("{\"properties\":{\"b\":{\"$ref\":\"x\"},\"a\":{\"allOf\":[]}}}");
+        validate("{\"properties\":{\"b\":{\"$dynamicRef\":\"#x\"},\"a\":{\"allOf\":[]}}}");
 
     assertEquals(2, diagnostics.size());
     assertEquals("/properties/a/allOf", diagnostics.get(0).pointer().value());
-    assertEquals("/properties/b/$ref", diagnostics.get(1).pointer().value());
+    assertEquals("/properties/b/$dynamicRef", diagnostics.get(1).pointer().value());
     assertEquals(SchemaSupportProfile.UNSUPPORTED_KEYWORD_CODE, diagnostics.get(0).code());
   }
 

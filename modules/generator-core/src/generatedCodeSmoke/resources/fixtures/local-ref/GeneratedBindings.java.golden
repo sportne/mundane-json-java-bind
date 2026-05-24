@@ -1,0 +1,28 @@
+package io.github.mundanej.mjjb.generated;
+
+import java.util.Objects;
+
+public record GeneratedBindings(
+    String id,
+    GeneratedBindingsProfile profile) {
+
+  public record GeneratedBindingsProfile(
+      String name,
+      GeneratedBindingsProfileAddress address) {
+    public GeneratedBindingsProfile {
+      name = Objects.requireNonNull(name, "name");
+      address = Objects.requireNonNull(address, "address");
+    }
+  }
+
+  public record GeneratedBindingsProfileAddress(
+      String city) {
+    public GeneratedBindingsProfileAddress {
+      city = Objects.requireNonNull(city, "city");
+    }
+  }
+  public GeneratedBindings {
+    id = Objects.requireNonNull(id, "id");
+    profile = Objects.requireNonNull(profile, "profile");
+  }
+}

@@ -1,7 +1,7 @@
 # TASK-0031: Local `$defs` and `$ref` Resolution
 
 Task ID: `TASK-0031`
-Status: `draft`
+Status: `complete`
 Gate: Post-v1 profile expansion
 Depends on: `TASK-0030`
 Specification references: JSON Schema Draft 2020-12 Core schema resources, `$defs`, `$ref`, and JSON Pointer fragments

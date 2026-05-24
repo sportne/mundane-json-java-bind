@@ -183,7 +183,8 @@ final class MjjbCliTest {
   @Test
   void unsupportedKeywordIsGenerationError() throws IOException {
     Path schema = tempDir.resolve("schema.json");
-    Files.writeString(schema, "{\"type\":\"object\",\"properties\":{\"id\":{\"$ref\":\"x\"}}}");
+    Files.writeString(
+        schema, "{\"type\":\"object\",\"properties\":{\"id\":{\"$dynamicRef\":\"#x\"}}}");
 
     RunResult result =
         runCli(

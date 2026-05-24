@@ -13,6 +13,9 @@ import io.github.mundanej.mjjb.generator.core.internal.emitter.ModelSourceEmitte
 import io.github.mundanej.mjjb.generator.core.internal.emitter.ReaderSourceEmitter;
 import io.github.mundanej.mjjb.generator.core.internal.emitter.ValidatorSourceEmitter;
 import io.github.mundanej.mjjb.generator.core.internal.emitter.WriterSourceEmitter;
+import io.github.mundanej.mjjb.schema.model.SchemaReferenceDiagnostic;
+import io.github.mundanej.mjjb.schema.model.SchemaReferenceResolutionResult;
+import io.github.mundanej.mjjb.schema.model.SchemaReferenceResolver;
 import io.github.mundanej.mjjb.schema.model.SchemaSupportDiagnostic;
 import io.github.mundanej.mjjb.schema.model.SchemaSupportProfile;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxDiagnostic;
@@ -92,8 +95,22 @@ public final class CoreGenerator implements Generator {
       if (!diagnostics.isEmpty()) {
         return ValidatedSchema.failure(diagnostics);
       }
+      SchemaReferenceResolutionResult referenceResult =
+          SchemaReferenceResolver.resolve(parseResult.root());
+      diagnostics.addAll(
+          toGeneratorReferenceDiagnostics(referenceResult.diagnostics(), schemaPath));
+      if (!diagnostics.isEmpty()) {
+        return ValidatedSchema.failure(diagnostics);
+      }
+      diagnostics.addAll(
+          toGeneratorSupportDiagnostics(
+              SchemaSupportProfile.validate(referenceResult.root().orElseThrow()), schemaPath));
+      if (!diagnostics.isEmpty()) {
+        return ValidatedSchema.failure(diagnostics);
+      }
       BindingBuildResult bindingResult =
-          new BindingModelBuilder().build(parseResult.root(), packageName, rootTypeName);
+          new BindingModelBuilder()
+              .build(referenceResult.root().orElseThrow(), packageName, rootTypeName);
       diagnostics.addAll(toGeneratorBindingDiagnostics(bindingResult.diagnostics(), schemaPath));
       if (diagnostics.isEmpty()) {
         return ValidatedSchema.success(bindingResult.model().orElseThrow());
@@ -118,6 +135,17 @@ public final class CoreGenerator implements Generator {
       List<BindingDiagnostic> bindingDiagnostics, Path schemaPath) {
     ArrayList<GeneratorDiagnostic> diagnostics = new ArrayList<>();
     for (BindingDiagnostic diagnostic : bindingDiagnostics) {
+      diagnostics.add(
+          new GeneratorDiagnostic(
+              diagnostic.code(), diagnostic.message(), schemaPath, diagnostic.pointer().value()));
+    }
+    return diagnostics;
+  }
+
+  private List<GeneratorDiagnostic> toGeneratorReferenceDiagnostics(
+      List<SchemaReferenceDiagnostic> referenceDiagnostics, Path schemaPath) {
+    ArrayList<GeneratorDiagnostic> diagnostics = new ArrayList<>();
+    for (SchemaReferenceDiagnostic diagnostic : referenceDiagnostics) {
       diagnostics.add(
           new GeneratorDiagnostic(
               diagnostic.code(), diagnostic.message(), schemaPath, diagnostic.pointer().value()));

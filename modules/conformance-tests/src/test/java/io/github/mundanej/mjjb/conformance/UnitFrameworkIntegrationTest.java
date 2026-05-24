@@ -122,14 +122,14 @@ final class UnitFrameworkIntegrationTest {
   void schemaParserSupportProfilePropagatesEscapedUnsupportedPointers() {
     SchemaSyntaxParseResult parseResult =
         SchemaSyntaxParser.parse(
-            "{\"properties\":{\"a/b\":{\"$ref\":\"x\"},\"c~d\":{\"allOf\":[]}}}");
+            "{\"properties\":{\"a/b\":{\"$dynamicRef\":\"#x\"},\"c~d\":{\"allOf\":[]}}}");
 
     List<String> pointers =
         SchemaSupportProfile.validate(parseResult.root()).stream()
             .map(diagnostic -> diagnostic.pointer().value())
             .toList();
 
-    assertEquals(List.of("/properties/a~1b/$ref", "/properties/c~0d/allOf"), pointers);
+    assertEquals(List.of("/properties/a~1b/$dynamicRef", "/properties/c~0d/allOf"), pointers);
   }
 
   private static Path sourceNamed(GeneratorResult result, String fileName) {

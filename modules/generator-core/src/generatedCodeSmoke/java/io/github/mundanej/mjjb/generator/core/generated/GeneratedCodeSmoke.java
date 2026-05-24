@@ -40,6 +40,7 @@ public final class GeneratedCodeSmoke {
         new GeneratedSourceFixture("literal-constraints"),
         new GeneratedSourceFixture("nullable-fields"),
         new GeneratedSourceFixture("nested-object"),
+        new GeneratedSourceFixture("local-ref"),
         new GeneratedSourceFixture("tagged-oneof"),
         new GeneratedSourceFixture("metadata-basic", true),
         new GeneratedSourceFixture("metadata-tagged", true),

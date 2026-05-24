@@ -37,7 +37,8 @@ Allowed cases must:
 
 - have nonblank upstream path, case description, and test description;
 - be deterministic projections of official Draft 2020-12 scalar, array, or
-  closed nested object assertions;
+  closed nested object assertions, including same-document JSON Pointer
+  references that normalize to those supported shapes;
 - generate and compile Java sources with `--release 21 -Xlint:all -Werror`;
 - execute through generated code only, not a dynamic schema interpreter.
 

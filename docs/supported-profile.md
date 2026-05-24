@@ -20,8 +20,8 @@ The profile supports two root forms:
   values.
 
 The generator rejects open object bindings, generic unions, untagged `oneOf`,
-references, composition beyond the supported tagged form, and root scalar or
-root array bindings.
+remote references, dynamic references, composition beyond the supported tagged
+form, and root scalar or root array bindings.
 
 ## Field Types
 
@@ -59,7 +59,7 @@ The profile supports these binding and validation keywords:
 
 | Category | Keywords |
 |---|---|
-| Shape | `type`, `properties`, `required`, `additionalProperties`, `items`, `oneOf` |
+| Shape | `type`, `properties`, `required`, `additionalProperties`, `items`, `oneOf`, `$ref`, `$defs` |
 | Collections | `minItems`, `maxItems` |
 | String facets | `minLength`, `maxLength`, `pattern`, `format` |
 | Numeric facets | `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum` |
@@ -74,6 +74,14 @@ during generation.
 writers, or validators. Supported defaults are exposed through generated model
 metadata accessors and optional schema metadata helpers, including root-object
 metadata.
+
+Same-document `$ref` values are resolved before binding model construction.
+Supported references must be string URI fragments using JSON Pointer form, such
+as `"#/$defs/id"` or `"#"`. `$defs` is accepted as local definition storage.
+Remote references, missing targets, invalid fragments, cycles, dynamic
+references, anchors, and `$ref` objects with assertion or applicator siblings
+fail before source emission. Generated readers, writers, validators, and
+metadata helpers never perform runtime reference lookup.
 
 ## Accepted Annotations
 
@@ -115,9 +123,9 @@ as `/properties/value/allOf`.
 | `$anchor` | Core | Rejected | No named-anchor resolution is performed in v1. |
 | `$dynamicAnchor` | Core | Deferred - poor tradeoff | Dynamic scope support conflicts with the current static binding model. |
 | `$vocabulary` | Core | Deferred - poor tradeoff | Custom vocabulary negotiation is outside the single-profile generator contract. |
-| `$ref` | Core | Recommended next | Same-document JSON Pointer references should be resolved before binding; remote references remain out of scope. |
+| `$ref` | Core | Supported with profile limits | Same-document JSON Pointer fragments are resolved before binding; remote references, cycles, missing targets, invalid fragments, and assertion/applicator siblings are rejected. |
 | `$dynamicRef` | Core | Deferred - poor tradeoff | Dynamic reference resolution requires schema evaluation machinery not present in generated bindings. |
-| `$defs` | Core | Recommended next | Local definition storage should be supported together with local `$ref` resolution. |
+| `$defs` | Core | Supported with profile limits | Accepted as same-document definition storage for local `$ref`; definition schemas are validated under the same profile. |
 | `$comment` | Core | Accepted annotation | Exposed when metadata helpers are generated. |
 
 ### Applicator And Shape Keywords
@@ -201,7 +209,7 @@ documents from that scan.
 | Rank | Feature | Commonness | Usefulness | Complexity | Decision |
 |---:|---|---:|---|---|---|
 | 1 | Nested object property bindings | Very high inferred | Very high | High | Implemented in `TASK-0030`. |
-| 2 | Internal `$defs` / local `$ref` resolution | 73.4% `$ref` | Very high | High | Create `TASK-0031`. |
+| 2 | Internal `$defs` / local `$ref` resolution | 73.4% `$ref` | Very high | High | Implemented in `TASK-0031`. |
 | 3 | Map bindings via object-valued `additionalProperties` | 48.2% | Very high | High | Create `TASK-0032`. |
 | 4 | Constrained object `allOf` flattening | 25.2% | High | High | Create `TASK-0033`. |
 | 5 | `patternProperties` map bindings | 22.8% | High | High | Create `TASK-0034`. |

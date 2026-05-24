@@ -24,9 +24,10 @@ validation failures. Validators report errors in schema property order and
 array item errors in ascending index order. `FAIL_FAST` returns the first error
 from that same order.
 
-Generator diagnostics use `MJJBG-*`. They report schema syntax, profile, and
-binding-analysis failures before source generation. Generator diagnostics are
-sorted by schema pointer, code, message, and manifest line.
+Generator diagnostics use `MJJBG-*`. They report schema syntax, profile,
+same-document reference resolution, and binding-analysis failures before source
+generation. Generator diagnostics are sorted by schema pointer, code, message,
+and manifest line.
 
 ## Paths And Pointers
 
@@ -37,6 +38,8 @@ simple identifiers use deterministic bracket notation, such as `$["a.b"]` or
 
 Schema locations in generator diagnostics use JSON Pointer strings. Nested
 unsupported keywords keep exact pointers, such as `/properties/a/allOf`.
+Reference-resolution diagnostics point at the `$ref` value or unsupported
+`$ref` sibling that made normalization fail.
 
 ## Examples
 
@@ -48,6 +51,7 @@ unsupported keywords keep exact pointers, such as `/properties/a/allOf`.
 | Reader | `MJJBR-010` | `$.scores` | Expected JSON array for an array field. |
 | Validator | `MJJBV-004` | `$.scores[0]` | Non-finite generated number value. |
 | Generator | `MJJBG-SCHEMA-UNSUPPORTED-KEYWORD` | `/properties/a/allOf` | Unsupported Draft 2020-12 keyword. |
+| Generator | `MJJBG-SCHEMA-MISSING-REF` | `/properties/id/$ref` | Local `$ref` target was not present in the schema document. |
 
 Duplicate property handling is intentionally schema-aware. `parser-core` reads
 object member names in source order and exposes locations. Generated readers

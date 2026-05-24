@@ -91,7 +91,7 @@ Platform.sh services	https://raw.githubusercontent.com/platformsh/platformify/re
 Application Accelerator	https://www.schemastore.org/accelerator.json	e0447d762d4b45b2265a3d0a1ad8f24afaa7ff31ddb8b1e58653c91c2753aa82	REJECTS	PROFILE_DIAGNOSTIC
 amplify.yml	https://www.schemastore.org/amplify.json	0f618465e14d16e4cd7acd5d21e42158143191b8d2a6a4384133b6a94ea1a161	REJECTS	PROFILE_DIAGNOSTIC
 Applicant Profile Protocol	https://app-protocol.org/schema/app-1.0.json	8a8c12223091bbdced69908637d7d0ed1f169497de0d081312511307c8b84e6f	REJECTS	PROFILE_DIAGNOSTIC
-gRPC API Gateway & OpenAPI Config	https://www.schemastore.org/grpc-api-gateway.json	a081b6bb9e403d585d7a9b09e483b0dc35f8675cf104abe91c0d293ea30f3d87	REJECTS	PROFILE_DIAGNOSTIC
+gRPC API Gateway & OpenAPI Config	https://www.schemastore.org/grpc-api-gateway.json	a081b6bb9e403d585d7a9b09e483b0dc35f8675cf104abe91c0d293ea30f3d87	REJECTS	GENERATOR_DIAGNOSTIC
 .NET Aspire 8.0 Manifest	https://www.schemastore.org/aspire-8.0.json	afd3a56edfc9caf933b7670f224719cee05f223a69b9387c42c54970fd084909	REJECTS	PROFILE_DIAGNOSTIC
 AnyWork Automation Configuration	https://www.schemastore.org/anywork-ac-1.1.json	ae5e7a422810bc3ce182220ed4005338eb4a6205514b3aeeff060a1abccf6f1b	REJECTS	PROFILE_DIAGNOSTIC
 @factorial/drupal-breakpoints-css	https://www.schemastore.org/factorial-drupal-breakpoints-css-0.2.0.json	65c9083831f25c7752e9c0fd5c09c658b119c77ff0c60fe8bf28198521398b33	REJECTS	PROFILE_DIAGNOSTIC

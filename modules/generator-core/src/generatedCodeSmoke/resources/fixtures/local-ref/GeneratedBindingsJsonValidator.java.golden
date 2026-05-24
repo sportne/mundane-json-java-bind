@@ -1,0 +1,93 @@
+package io.github.mundanej.mjjb.generated;
+
+import io.github.mundanej.mjjb.runtime.JsonPath;
+import io.github.mundanej.mjjb.runtime.ValidationError;
+import io.github.mundanej.mjjb.runtime.ValidationErrors;
+import io.github.mundanej.mjjb.runtime.ValidationMode;
+import io.github.mundanej.mjjb.runtime.ValidationResult;
+import java.util.Objects;
+
+public final class GeneratedBindingsJsonValidator {
+  private GeneratedBindingsJsonValidator() {}
+
+  public static ValidationResult validate(GeneratedBindings value) {
+    return validate(value, ValidationMode.ACCUMULATE);
+  }
+
+  public static ValidationResult validate(GeneratedBindings value, ValidationMode mode) {
+    Objects.requireNonNull(mode, "mode");
+    ValidationErrors errors = ValidationErrors.create(mode);
+    if (value == null) {
+      errors.add(ValidationError.of("MJJBV-001", "Expected generated object value.", JsonPath.ROOT));
+      return errors.toResult();
+    }
+    if (value.id() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-002", "Required property 'id' must not be null.", JsonPath.ROOT.property("id")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.id() != null) {
+      if (!validateMinLength(errors, value.id(), 1L, JsonPath.ROOT.property("id"))) {
+        return errors.toResult();
+      }
+    }
+    if (value.profile() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-002", "Required property 'profile' must not be null.", JsonPath.ROOT.property("profile")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.profile() != null) {
+      validateGeneratedBindingsProfile(value.profile(), errors, JsonPath.ROOT.property("profile"), mode);
+      if (mode == ValidationMode.FAIL_FAST && !errors.errors().isEmpty()) {
+        return errors.toResult();
+      }
+    }
+    return errors.toResult();
+  }
+
+  private static ValidationResult validateGeneratedBindingsProfile(GeneratedBindings.GeneratedBindingsProfile value, ValidationErrors errors, JsonPath basePath, ValidationMode mode) {
+    if (value.name() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-002", "Required property 'name' must not be null.", basePath.property("name")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.address() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-002", "Required property 'address' must not be null.", basePath.property("address")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.address() != null) {
+      validateGeneratedBindingsProfileAddress(value.address(), errors, basePath.property("address"), mode);
+      if (mode == ValidationMode.FAIL_FAST && !errors.errors().isEmpty()) {
+        return errors.toResult();
+      }
+    }
+    return errors.toResult();
+  }
+
+  private static ValidationResult validateGeneratedBindingsProfileAddress(GeneratedBindings.GeneratedBindingsProfileAddress value, ValidationErrors errors, JsonPath basePath, ValidationMode mode) {
+    if (value.city() == null) {
+      if (!errors.add(ValidationError.of("MJJBV-002", "Required property 'city' must not be null.", basePath.property("city")))) {
+        return errors.toResult();
+      }
+    }
+    if (value.city() != null) {
+      if (!validateMinLength(errors, value.city(), 1L, basePath.property("city"))) {
+        return errors.toResult();
+      }
+    }
+    return errors.toResult();
+  }
+
+  private static boolean validateMinLength(
+      ValidationErrors errors, String value, long minLength, JsonPath path) {
+    if (value.codePointCount(0, value.length()) >= minLength) {
+      return true;
+    }
+    return errors.add(
+        ValidationError.of(
+            "MJJBV-007",
+            "Expected at least " + minLength + " string code points.",
+            path));
+  }
+}

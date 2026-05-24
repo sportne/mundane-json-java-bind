@@ -50,6 +50,7 @@ final class OfficialJsonSchemaTestSuiteConformanceTest {
           "minItems",
           "maxItems",
           "properties",
+          "ref",
           "enum",
           "const");
   private static final List<AllowedCase> ALLOWED_CASES =
@@ -136,6 +137,36 @@ final class OfficialJsonSchemaTestSuiteConformanceTest {
                   }
                   """,
                   "{\"name\":\"Ada\",\"address\":{\"city\":\"A\"}}",
+                  false),
+              allowed(
+                  "ref",
+                  "tests/draft2020-12/ref.json",
+                  "root pointer ref",
+                  "local ref valid",
+                  """
+                  {
+                    "$ref": "#/$defs/value",
+                    "$defs": {
+                      "value": {"type": "string", "minLength": 2}
+                    }
+                  }
+                  """,
+                  "\"ok\"",
+                  true),
+              allowed(
+                  "ref",
+                  "tests/draft2020-12/ref.json",
+                  "root pointer ref",
+                  "local ref invalid",
+                  """
+                  {
+                    "$ref": "#/$defs/value",
+                    "$defs": {
+                      "value": {"type": "string", "minLength": 2}
+                    }
+                  }
+                  """,
+                  "\"x\"",
                   false),
               allowed(
                   "minLength",
@@ -511,6 +542,9 @@ final class OfficialJsonSchemaTestSuiteConformanceTest {
         {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "$comment": "Projected JSON Schema Test Suite case pinned at __COMMIT__.",
+          "$defs": {
+            "value": {"type": "string", "minLength": 2}
+          },
           "type": "object",
           "properties": {
             "value": __VALUE_SCHEMA__

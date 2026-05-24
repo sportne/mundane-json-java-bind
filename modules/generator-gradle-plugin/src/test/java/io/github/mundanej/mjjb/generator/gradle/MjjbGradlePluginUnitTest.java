@@ -272,7 +272,7 @@ final class MjjbGradlePluginUnitTest {
   void generateTaskSurfacesUnsupportedKeywordDiagnostics() throws IOException {
     MjjbGenerateTask task =
         configuredTask(
-            writeSchema("{\"type\":\"object\",\"properties\":{\"id\":{\"$ref\":\"x\"}}}"));
+            writeSchema("{\"type\":\"object\",\"properties\":{\"id\":{\"$dynamicRef\":\"#x\"}}}"));
 
     GradleException exception = assertThrows(GradleException.class, task::generate);
 

@@ -99,6 +99,11 @@ numeric suffixes when normalized names collide. Nested records use the same
 record-component ordering, required/optional semantics, compact-constructor
 null checks, metadata annotations, and closed-object profile as root records.
 
+Local `$ref` and `$defs` support is a generator-time normalization step. The
+binding model sees only the resolved schema shape; generated model, reader,
+writer, validator, and metadata helper sources contain no reference resolver,
+schema registry, remote loader, or runtime schema lookup.
+
 The JSON Schema `default` keyword is an annotation in generated code. It does
 not affect constructors, readers, writers, or validation. For supported scalar
 or `null` defaults on scalar fields, the generated model exposes static metadata

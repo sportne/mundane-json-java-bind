@@ -117,6 +117,8 @@ public final class SchemaSupportProfile {
       case PATTERN -> validatePattern(member.value(), diagnostics);
       case FORMAT -> validateFormat(member.value(), diagnostics);
       case ONE_OF -> validateOneOf(member.value(), diagnostics);
+      case REF -> validateRef(member.value(), diagnostics);
+      case DEFS -> validateDefs(member.value(), diagnostics);
       case CONST, DEFAULT -> {
         // These keywords accept any JSON value.
       }
@@ -264,6 +266,26 @@ public final class SchemaSupportProfile {
     }
   }
 
+  private static void validateRef(
+      SchemaSyntaxValue value, List<SchemaSupportDiagnostic> diagnostics) {
+    if (!(value instanceof StringValue)) {
+      diagnostics.add(invalidValue("The '$ref' keyword value must be a string.", value.pointer()));
+    }
+  }
+
+  private static void validateDefs(
+      SchemaSyntaxValue value, List<SchemaSupportDiagnostic> diagnostics) {
+    if (!(value instanceof ObjectValue defs)) {
+      diagnostics.add(
+          invalidValue("The '$defs' keyword value must be an object.", value.pointer()));
+      return;
+    }
+    for (Member member : defs.members()) {
+      validateSchemaObjectOnly(
+          member.value(), "Every '$defs' member value must be a JSON Schema.", diagnostics);
+    }
+  }
+
   private static boolean taggedOneOfShape(
       ArrayValue oneOf, List<SchemaSupportDiagnostic> diagnostics) {
     if (oneOf.items().size() < 2) {
@@ -276,6 +298,9 @@ public final class SchemaSupportProfile {
         return false;
       }
       validateSchema(branch, diagnostics);
+      if (member(branch, "$ref").isPresent()) {
+        continue;
+      }
       Optional<TagCandidate> tagCandidate = tagCandidate(branch);
       if (tagCandidate.isEmpty()) {
         return false;
@@ -289,7 +314,13 @@ public final class SchemaSupportProfile {
         return false;
       }
     }
-    return diagnostics.isEmpty();
+    return diagnostics.isEmpty()
+        && (tagName != null
+            || oneOf.items().stream()
+                .allMatch(
+                    item ->
+                        item instanceof ObjectValue objectValue
+                            && member(objectValue, "$ref").isPresent()));
   }
 
   private static void validateSchemaObjectOnly(
