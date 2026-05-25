@@ -1,7 +1,7 @@
 # TASK-0048: Object Shape Flattener
 
 Task ID: `TASK-0048`
-Status: `ready-for-implementation`
+Status: `complete`
 Gate: Generator simplification implementation
 Depends on: `TASK-0047`
 Specification references: `docs/architecture/generator-simplification-audit.md`; `docs/supported-profile.md`; JSON Schema Draft 2020-12 `allOf`
