@@ -138,11 +138,14 @@ final class JsonStreamReaderTest {
 
   @Test
   void readsNumbersUnicodeNullsAndBooleans() throws JsonReadException {
-    JsonStreamReader reader = new JsonStreamReader("[0,-12.50e+2,\"a\\u0042\",null,false]");
+    JsonStreamReader reader =
+        new JsonStreamReader("[0,-12.50e+2,1.01,1e05,\"a\\u0042\",null,false]");
 
     reader.beginArray();
     assertEquals("0", reader.nextNumberLiteral());
     assertEquals("-12.50e+2", reader.nextNumberLiteral());
+    assertEquals("1.01", reader.nextNumberLiteral());
+    assertEquals("1e05", reader.nextNumberLiteral());
     assertEquals("aB", reader.nextString());
     reader.nextNull();
     assertFalse(reader.nextBoolean());

@@ -38,7 +38,9 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform {
-        excludeTags 'integration', 'interop', 'native-image', 'slow', 'fuzz'
+        if (name != 'fuzzTest') {
+            excludeTags 'integration', 'interop', 'native-image', 'slow', 'fuzz'
+        }
     }
     systemProperty 'file.encoding', 'UTF-8'
     testLogging {

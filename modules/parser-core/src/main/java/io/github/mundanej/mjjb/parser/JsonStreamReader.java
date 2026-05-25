@@ -170,17 +170,17 @@ public final class JsonStreamReader implements JsonReader {
     if (peekChar('-')) {
       advance();
     }
-    parseDigits();
+    parseDigits(true);
     if (peekChar('.')) {
       advance();
-      parseDigits();
+      parseDigits(false);
     }
     if (peekChar('e') || peekChar('E')) {
       advance();
       if (peekChar('+') || peekChar('-')) {
         advance();
       }
-      parseDigits();
+      parseDigits(false);
     }
     String number = input.substring(start, index);
     afterValue();
@@ -328,11 +328,11 @@ public final class JsonStreamReader implements JsonReader {
     return (char) value;
   }
 
-  private void parseDigits() throws JsonReadException {
+  private void parseDigits(boolean rejectLeadingZeroes) throws JsonReadException {
     if (!hasChar(index) || !Character.isDigit(charAt(index))) {
       throw error("MJJBP-016", "Expected digit in JSON number.");
     }
-    if (charAt(index) == '0') {
+    if (rejectLeadingZeroes && charAt(index) == '0') {
       advance();
       if (hasChar(index) && Character.isDigit(charAt(index))) {
         throw error("MJJBP-017", "Leading zeroes are not valid JSON numbers.");

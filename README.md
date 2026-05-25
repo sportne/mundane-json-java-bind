@@ -183,6 +183,7 @@ and checked-in generated sources under
 - Generated-code ergonomics review: [`docs/verification/generated-code-ergonomics.md`](docs/verification/generated-code-ergonomics.md)
 - JSON Schema Test Suite trace: [`docs/verification/json-schema-test-suite.md`](docs/verification/json-schema-test-suite.md)
 - SchemaStore sidecar corpus evidence: [`docs/verification/schemastore-corpus.md`](docs/verification/schemastore-corpus.md)
+- Deterministic fuzz testing: [`docs/verification/fuzz-testing.md`](docs/verification/fuzz-testing.md)
 - Native Image verification: [`docs/verification/native-image.md`](docs/verification/native-image.md)
 - Performance evidence: [`docs/verification/performance.md`](docs/verification/performance.md)
 - Release verification: [`docs/verification/release.md`](docs/verification/release.md)

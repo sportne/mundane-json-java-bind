@@ -18,4 +18,26 @@ publishing {
 
 dependencies {
     api project(':modules:runtime-core')
+    testImplementation project(':modules:testing-support')
+}
+
+tasks.register('fuzzTest', Test) {
+    group = 'verification'
+    description = 'Runs parser deterministic fuzz tests.'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    shouldRunAfter tasks.named('test')
+    dependsOn tasks.named('testClasses')
+    useJUnitPlatform {
+        includeTags 'fuzz'
+    }
+    systemProperty 'mjjb.fuzz.seed',
+            providers.gradleProperty('mjjb.fuzz.seed').getOrElse('3405691582')
+    systemProperty 'mjjb.fuzz.iterations',
+            providers.gradleProperty('mjjb.fuzz.iterations').getOrElse('96')
+    systemProperty 'mjjb.fuzz.maxDepth',
+            providers.gradleProperty('mjjb.fuzz.maxDepth').getOrElse('5')
+    systemProperty 'mjjb.fuzz.maxStringLength',
+            providers.gradleProperty('mjjb.fuzz.maxStringLength').getOrElse('24')
+    setFinalizedBy([])
 }

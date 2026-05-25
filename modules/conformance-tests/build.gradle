@@ -60,3 +60,24 @@ tasks.register('schemaStoreCorpus') {
     description = 'Runs the explicit SchemaStore sidecar corpus evidence lane.'
     dependsOn tasks.named('schemaStoreCorpusTest')
 }
+
+tasks.register('fuzzTest', Test) {
+    group = 'verification'
+    description = 'Runs generated-binding deterministic fuzz tests.'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    shouldRunAfter tasks.named('test')
+    dependsOn tasks.named('testClasses')
+    useJUnitPlatform {
+        includeTags 'fuzz'
+    }
+    systemProperty 'mjjb.fuzz.seed',
+            providers.gradleProperty('mjjb.fuzz.seed').getOrElse('3405691582')
+    systemProperty 'mjjb.fuzz.iterations',
+            providers.gradleProperty('mjjb.fuzz.iterations').getOrElse('24')
+    systemProperty 'mjjb.fuzz.maxDepth',
+            providers.gradleProperty('mjjb.fuzz.maxDepth').getOrElse('5')
+    systemProperty 'mjjb.fuzz.maxStringLength',
+            providers.gradleProperty('mjjb.fuzz.maxStringLength').getOrElse('24')
+    setFinalizedBy([])
+}

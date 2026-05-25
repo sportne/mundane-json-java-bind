@@ -69,6 +69,13 @@ tasks.register('schemaStoreCorpus') {
     dependsOn ':modules:conformance-tests:schemaStoreCorpus'
 }
 
+tasks.register('fuzzTest') {
+    group = 'verification'
+    description = 'Runs the optional deterministic fuzz test lane.'
+    dependsOn ':modules:parser-core:fuzzTest'
+    dependsOn ':modules:conformance-tests:fuzzTest'
+}
+
 tasks.register('cleanReleaseDryRun', Delete) {
     group = 'verification'
     description = 'Deletes the local release dry-run Maven repository.'
