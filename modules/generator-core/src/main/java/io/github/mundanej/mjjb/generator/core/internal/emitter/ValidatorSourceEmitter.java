@@ -4,6 +4,8 @@ import static io.github.mundanej.mjjb.generator.core.internal.emitter.BindingTra
 import static io.github.mundanej.mjjb.generator.core.internal.emitter.BindingTraversal.allMaps;
 import static io.github.mundanej.mjjb.generator.core.internal.emitter.BindingTraversal.allObjects;
 import static io.github.mundanej.mjjb.generator.core.internal.emitter.BindingTraversal.nestedObjects;
+import static io.github.mundanej.mjjb.generator.core.internal.emitter.JavaSourceText.indentAll;
+import static io.github.mundanej.mjjb.generator.core.internal.emitter.JavaSourceText.stringLiteral;
 
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModel;
 import io.github.mundanej.mjjb.generator.core.internal.binding.DependentRequired;
@@ -442,7 +444,7 @@ public final class ValidatorSourceEmitter {
                 + ") {");
         lines.add(
             "      if (!errors.add(ValidationError.of(\"MJJBV-020\", "
-                + javaStringLiteral(
+                + stringLiteral(
                     "Property '"
                         + dependency.propertyName()
                         + "' requires property '"
@@ -451,7 +453,7 @@ public final class ValidatorSourceEmitter {
                 + ", "
                 + basePathExpression
                 + ".property("
-                + javaStringLiteral(requiredProperty)
+                + stringLiteral(requiredProperty)
                 + ")))) {");
         lines.add("        return errors.toResult();");
         lines.add("      }");
@@ -471,21 +473,18 @@ public final class ValidatorSourceEmitter {
       lines.addAll(
           validateStringFacetLines(
               facets,
-              javaStringLiteral(reservedName),
+              stringLiteral(reservedName),
               "true",
-              basePathExpression + ".property(" + javaStringLiteral(reservedName) + ")"));
+              basePathExpression + ".property(" + stringLiteral(reservedName) + ")"));
     }
     for (FieldBinding field : object.fields()) {
       String presentExpression = fieldPresentExpression(field, ownerExpression);
       lines.addAll(
           validateStringFacetLines(
               facets,
-              javaStringLiteral(field.jsonPropertyName()),
+              stringLiteral(field.jsonPropertyName()),
               presentExpression,
-              basePathExpression
-                  + ".property("
-                  + javaStringLiteral(field.jsonPropertyName())
-                  + ")"));
+              basePathExpression + ".property(" + stringLiteral(field.jsonPropertyName()) + ")"));
     }
     return lines;
   }
@@ -566,7 +565,7 @@ public final class ValidatorSourceEmitter {
         + " != null && "
         + accessor
         + ".containsKey("
-        + javaStringLiteral(propertyName)
+        + stringLiteral(propertyName)
         + "))";
   }
 
@@ -1098,7 +1097,7 @@ public final class ValidatorSourceEmitter {
           "      if (!validatePattern(errors, "
               + valueExpression
               + ", "
-              + javaStringLiteral(facets.pattern().orElseThrow())
+              + stringLiteral(facets.pattern().orElseThrow())
               + ", "
               + pathExpression
               + ")) {");
@@ -1110,7 +1109,7 @@ public final class ValidatorSourceEmitter {
           "      if (!validateFormat(errors, "
               + valueExpression
               + ", "
-              + javaStringLiteral(facets.format().orElseThrow())
+              + stringLiteral(facets.format().orElseThrow())
               + ", "
               + pathExpression
               + ")) {");
@@ -1150,7 +1149,7 @@ public final class ValidatorSourceEmitter {
           "      if (!validateMinimum(errors, "
               + numericValue
               + ", "
-              + javaStringLiteral(facets.minimum().orElseThrow())
+              + stringLiteral(facets.minimum().orElseThrow())
               + ", "
               + pathExpression
               + ")) {");
@@ -1162,7 +1161,7 @@ public final class ValidatorSourceEmitter {
           "      if (!validateMaximum(errors, "
               + numericValue
               + ", "
-              + javaStringLiteral(facets.maximum().orElseThrow())
+              + stringLiteral(facets.maximum().orElseThrow())
               + ", "
               + pathExpression
               + ")) {");
@@ -1174,7 +1173,7 @@ public final class ValidatorSourceEmitter {
           "      if (!validateExclusiveMinimum(errors, "
               + numericValue
               + ", "
-              + javaStringLiteral(facets.exclusiveMinimum().orElseThrow())
+              + stringLiteral(facets.exclusiveMinimum().orElseThrow())
               + ", "
               + pathExpression
               + ")) {");
@@ -1186,7 +1185,7 @@ public final class ValidatorSourceEmitter {
           "      if (!validateExclusiveMaximum(errors, "
               + numericValue
               + ", "
-              + javaStringLiteral(facets.exclusiveMaximum().orElseThrow())
+              + stringLiteral(facets.exclusiveMaximum().orElseThrow())
               + ", "
               + pathExpression
               + ")) {");
@@ -1198,7 +1197,7 @@ public final class ValidatorSourceEmitter {
           "      if (!validateMultipleOf(errors, "
               + numericValue
               + ", "
-              + javaStringLiteral(facets.multipleOf().orElseThrow())
+              + stringLiteral(facets.multipleOf().orElseThrow())
               + ", "
               + pathExpression
               + ")) {");
@@ -1427,7 +1426,7 @@ public final class ValidatorSourceEmitter {
   }
 
   private static String propertyPathExpression(FieldBinding field, String basePathExpression) {
-    return basePathExpression + ".property(" + javaStringLiteral(field.jsonPropertyName()) + ")";
+    return basePathExpression + ".property(" + stringLiteral(field.jsonPropertyName()) + ")";
   }
 
   private static String accessor(FieldBinding field, String ownerExpression) {
@@ -1435,7 +1434,7 @@ public final class ValidatorSourceEmitter {
   }
 
   private static List<String> indent(List<String> lines, String indent) {
-    return lines.stream().map(line -> indent + line).toList();
+    return indentAll(lines, indent);
   }
 
   private static boolean hasMinLengthFacet(BindingModel model) {
@@ -1851,13 +1850,13 @@ public final class ValidatorSourceEmitter {
       return "false";
     }
     return switch (scalarType) {
-      case STRING -> valueExpression + ".equals(" + javaStringLiteral(literal.value()) + ")";
+      case STRING -> valueExpression + ".equals(" + stringLiteral(literal.value()) + ")";
       case INTEGER -> valueExpression + " == " + literal.value() + "L";
       case NUMBER ->
           "BigDecimal.valueOf("
               + valueExpression
               + ").compareTo(new BigDecimal("
-              + javaStringLiteral(literal.value())
+              + stringLiteral(literal.value())
               + ")) == 0";
       case BOOLEAN -> valueExpression + " == " + literal.value();
     };
@@ -1895,30 +1894,5 @@ public final class ValidatorSourceEmitter {
     return fieldExpression
         + ".hasValue() && "
         + literalMatchExpression(scalarType, fieldExpression + ".requireValue()", literal);
-  }
-
-  private static String javaStringLiteral(String value) {
-    StringBuilder literal = new StringBuilder("\"");
-    for (int index = 0; index < value.length(); index++) {
-      char current = value.charAt(index);
-      switch (current) {
-        case '"' -> literal.append("\\\"");
-        case '\\' -> literal.append("\\\\");
-        case '\b' -> literal.append("\\b");
-        case '\f' -> literal.append("\\f");
-        case '\n' -> literal.append("\\n");
-        case '\r' -> literal.append("\\r");
-        case '\t' -> literal.append("\\t");
-        default -> {
-          if (current < 0x20) {
-            literal.append(String.format("\\u%04x", (int) current));
-          } else {
-            literal.append(current);
-          }
-        }
-      }
-    }
-    literal.append('"');
-    return literal.toString();
   }
 }

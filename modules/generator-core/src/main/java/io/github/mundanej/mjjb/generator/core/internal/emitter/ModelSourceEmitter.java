@@ -4,6 +4,8 @@ import static io.github.mundanej.mjjb.generator.core.internal.emitter.BindingTra
 import static io.github.mundanej.mjjb.generator.core.internal.emitter.BindingTraversal.allMaps;
 import static io.github.mundanej.mjjb.generator.core.internal.emitter.BindingTraversal.nestedObjects;
 import static io.github.mundanej.mjjb.generator.core.internal.emitter.BindingTraversal.objectMaps;
+import static io.github.mundanej.mjjb.generator.core.internal.emitter.JavaSourceText.indent;
+import static io.github.mundanej.mjjb.generator.core.internal.emitter.JavaSourceText.stringLiteral;
 
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModel;
 import io.github.mundanej.mjjb.generator.core.internal.binding.FieldBinding;
@@ -143,10 +145,6 @@ public final class ModelSourceEmitter {
     lines.add("    }");
     lines.add("  }");
     return lines;
-  }
-
-  private static List<String> indent(List<String> lines, String indent) {
-    return lines.stream().map(line -> line.isEmpty() ? line : indent + line).toList();
   }
 
   private static List<String> recordLines(BindingModel model) {
@@ -372,7 +370,7 @@ public final class ModelSourceEmitter {
       lines.add("if (!java.util.Collections.disjoint(" + name + ".keySet(), Set.of(");
       for (int index = 0; index < reservedNames.size(); index++) {
         String suffix = index == reservedNames.size() - 1 ? "))) {" : ",";
-        lines.add("    " + javaStringLiteral(reservedNames.get(index)) + suffix);
+        lines.add("    " + stringLiteral(reservedNames.get(index)) + suffix);
       }
       lines.add(
           "  throw new IllegalArgumentException(\""
@@ -385,7 +383,7 @@ public final class ModelSourceEmitter {
           "if (!"
               + name
               + ".keySet().stream().allMatch(key -> Pattern.compile("
-              + javaStringLiteral(map.pattern())
+              + stringLiteral(map.pattern())
               + ").matcher(key).find())) {");
       lines.add(
           "  throw new IllegalArgumentException(\"patternProperties keys must match the configured pattern\");");
@@ -399,7 +397,7 @@ public final class ModelSourceEmitter {
                     "if ("
                         + name
                         + ".keySet().stream().anyMatch(key -> Pattern.compile("
-                        + javaStringLiteral(patternMap.pattern())
+                        + stringLiteral(patternMap.pattern())
                         + ").matcher(key).find())) {");
                 lines.add(
                     "  throw new IllegalArgumentException(\"additionalProperties must not contain patternProperties keys\");");
@@ -431,9 +429,9 @@ public final class ModelSourceEmitter {
 
   private static String optionalLiteralExpression(LiteralValue literal) {
     return switch (literal.kind()) {
-      case STRING -> "Optional.of(" + javaStringLiteral(literal.value()) + ")";
+      case STRING -> "Optional.of(" + stringLiteral(literal.value()) + ")";
       case INTEGER -> "Optional.of(" + literal.value() + "L)";
-      case NUMBER -> "Optional.of(Double.parseDouble(" + javaStringLiteral(literal.value()) + "))";
+      case NUMBER -> "Optional.of(Double.parseDouble(" + stringLiteral(literal.value()) + "))";
       case BOOLEAN -> "Optional.of(" + literal.value() + ")";
       case NULL -> "Optional.empty()";
     };
@@ -441,30 +439,5 @@ public final class ModelSourceEmitter {
 
   private static String capitalized(String value) {
     return value.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + value.substring(1);
-  }
-
-  private static String javaStringLiteral(String value) {
-    StringBuilder literal = new StringBuilder("\"");
-    for (int index = 0; index < value.length(); index++) {
-      char current = value.charAt(index);
-      switch (current) {
-        case '"' -> literal.append("\\\"");
-        case '\\' -> literal.append("\\\\");
-        case '\b' -> literal.append("\\b");
-        case '\f' -> literal.append("\\f");
-        case '\n' -> literal.append("\\n");
-        case '\r' -> literal.append("\\r");
-        case '\t' -> literal.append("\\t");
-        default -> {
-          if (current < 0x20) {
-            literal.append(String.format("\\u%04x", (int) current));
-          } else {
-            literal.append(current);
-          }
-        }
-      }
-    }
-    literal.append('"');
-    return literal.toString();
   }
 }

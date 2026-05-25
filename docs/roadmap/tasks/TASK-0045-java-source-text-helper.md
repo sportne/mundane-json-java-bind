@@ -1,7 +1,7 @@
 # TASK-0045: Java Source Text Helper
 
 Task ID: `TASK-0045`
-Status: `ready-for-implementation`
+Status: `complete`
 Gate: Generator simplification implementation
 Depends on: `TASK-0044`
 Specification references: `docs/architecture/generator-simplification-audit.md`; `docs/architecture/generated-code-contract.md`

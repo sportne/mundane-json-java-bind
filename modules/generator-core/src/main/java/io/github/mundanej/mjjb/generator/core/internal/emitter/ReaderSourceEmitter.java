@@ -3,6 +3,7 @@ package io.github.mundanej.mjjb.generator.core.internal.emitter;
 import static io.github.mundanej.mjjb.generator.core.internal.emitter.BindingTraversal.allFields;
 import static io.github.mundanej.mjjb.generator.core.internal.emitter.BindingTraversal.allMaps;
 import static io.github.mundanej.mjjb.generator.core.internal.emitter.BindingTraversal.nestedObjects;
+import static io.github.mundanej.mjjb.generator.core.internal.emitter.JavaSourceText.stringLiteral;
 
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModel;
 import io.github.mundanej.mjjb.generator.core.internal.binding.FieldBinding;
@@ -195,37 +196,37 @@ public final class ReaderSourceEmitter {
     lines.add("    if (!reader.hasNext()) {");
     lines.add(
         "      throw missingRequired("
-            + javaStringLiteral(tagProperty)
+            + stringLiteral(tagProperty)
             + ", propertyPath("
-            + javaStringLiteral(tagProperty)
+            + stringLiteral(tagProperty)
             + "), reader.location());");
     lines.add("    }");
     lines.add("    String tagName = reader.nextName();");
-    lines.add("    if (!" + javaStringLiteral(tagProperty) + ".equals(tagName)) {");
+    lines.add("    if (!" + stringLiteral(tagProperty) + ".equals(tagName)) {");
     lines.add(
         "      throw missingRequired("
-            + javaStringLiteral(tagProperty)
+            + stringLiteral(tagProperty)
             + ", propertyPath("
-            + javaStringLiteral(tagProperty)
+            + stringLiteral(tagProperty)
             + "), reader.location());");
     lines.add("    }");
     lines.add(
         "    String tagValue = readString(reader, propertyPath("
-            + javaStringLiteral(tagProperty)
+            + stringLiteral(tagProperty)
             + "));");
     lines.add("    " + model.rootTypeName() + " value =");
     lines.add("        switch (tagValue) {");
     for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
       lines.add(
           "          case "
-              + javaStringLiteral(branch.tagValue())
+              + stringLiteral(branch.tagValue())
               + " -> read"
               + branch.object().javaTypeName()
               + "(reader);");
     }
     lines.add(
         "          default -> throw error(\"MJJBR-011\", \"Unknown tagged oneOf value '\" + tagValue + \"'.\", propertyPath("
-            + javaStringLiteral(tagProperty)
+            + stringLiteral(tagProperty)
             + "), reader.location());");
     lines.add("        };");
     lines.add("    if (reader.peek() != JsonToken.END_DOCUMENT) {");
@@ -276,10 +277,10 @@ public final class ReaderSourceEmitter {
     lines.add("    while (reader.hasNext()) {");
     lines.add("      String " + propertyNameLocal + " = reader.nextName();");
     lines.add("      switch (" + propertyNameLocal + ") {");
-    lines.add("        case " + javaStringLiteral(tagProperty) + " -> {");
+    lines.add("        case " + stringLiteral(tagProperty) + " -> {");
     lines.add(
         "          throw duplicateProperty("
-            + javaStringLiteral(tagProperty)
+            + stringLiteral(tagProperty)
             + ", reader.location());");
     lines.add("        }");
     for (FieldBinding field : fields) {
@@ -390,12 +391,12 @@ public final class ReaderSourceEmitter {
 
   private static List<String> fieldCase(FieldBinding field, String basePath) {
     ArrayList<String> lines = new ArrayList<>();
-    lines.add("        case " + javaStringLiteral(field.jsonPropertyName()) + " -> {");
+    lines.add("        case " + stringLiteral(field.jsonPropertyName()) + " -> {");
     lines.add("          if (" + seenName(field) + ") {");
     if ("JsonPath.ROOT".equals(basePath)) {
       lines.add(
           "            throw duplicateProperty("
-              + javaStringLiteral(field.jsonPropertyName())
+              + stringLiteral(field.jsonPropertyName())
               + ", reader.location());");
     } else {
       lines.add(
@@ -436,7 +437,7 @@ public final class ReaderSourceEmitter {
       lines.add("    if (!" + seenName(field) + ") {");
       lines.add(
           "      throw missingRequired("
-              + javaStringLiteral(field.jsonPropertyName())
+              + stringLiteral(field.jsonPropertyName())
               + ", "
               + propertyPathExpression(field, basePath)
               + ", reader.location());");
@@ -839,7 +840,7 @@ public final class ReaderSourceEmitter {
 
   private static String patternMatchExpression(MapBinding map, String propertyNameLocal) {
     return "Pattern.compile("
-        + javaStringLiteral(map.pattern())
+        + stringLiteral(map.pattern())
         + ").matcher("
         + propertyNameLocal
         + ").find()";
@@ -855,7 +856,7 @@ public final class ReaderSourceEmitter {
   }
 
   private static String propertyPathExpression(FieldBinding field, String basePath) {
-    return propertyPathExpression(basePath, javaStringLiteral(field.jsonPropertyName()));
+    return propertyPathExpression(basePath, stringLiteral(field.jsonPropertyName()));
   }
 
   private static String propertyPathExpression(String basePath, String nameExpression) {
@@ -985,30 +986,5 @@ public final class ReaderSourceEmitter {
       case NUMBER -> "readNullableNumberArray";
       case BOOLEAN -> "readNullableBooleanArray";
     };
-  }
-
-  private static String javaStringLiteral(String value) {
-    StringBuilder literal = new StringBuilder("\"");
-    for (int index = 0; index < value.length(); index++) {
-      char current = value.charAt(index);
-      switch (current) {
-        case '"' -> literal.append("\\\"");
-        case '\\' -> literal.append("\\\\");
-        case '\b' -> literal.append("\\b");
-        case '\f' -> literal.append("\\f");
-        case '\n' -> literal.append("\\n");
-        case '\r' -> literal.append("\\r");
-        case '\t' -> literal.append("\\t");
-        default -> {
-          if (current < 0x20) {
-            literal.append(String.format("\\u%04x", (int) current));
-          } else {
-            literal.append(current);
-          }
-        }
-      }
-    }
-    literal.append('"');
-    return literal.toString();
   }
 }

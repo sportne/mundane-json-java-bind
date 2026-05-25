@@ -1,5 +1,7 @@
 package io.github.mundanej.mjjb.generator.core.internal.emitter;
 
+import static io.github.mundanej.mjjb.generator.core.internal.emitter.JavaSourceText.stringLiteral;
+
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModel;
 import io.github.mundanej.mjjb.generator.core.internal.binding.FieldBinding;
 import io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding;
@@ -76,7 +78,7 @@ public final class MetadataSourceEmitter {
     String tagProperty =
         model
             .taggedUnion()
-            .map(union -> "Optional.of(" + javaStringLiteral(union.tagPropertyName()) + ")")
+            .map(union -> "Optional.of(" + stringLiteral(union.tagPropertyName()) + ")")
             .orElse("Optional.empty()");
     List<String> branchExpressions =
         model.taggedUnion().isPresent()
@@ -85,8 +87,8 @@ public final class MetadataSourceEmitter {
     lines.add("  private static SchemaRootMetadata rootMetadata() {");
     lines.add("    return");
     lines.add("        new SchemaRootMetadata(");
-    lines.add("            " + javaStringLiteral(DIALECT) + ",");
-    lines.add("            " + javaStringLiteral(model.rootTypeName()) + ",");
+    lines.add("            " + stringLiteral(DIALECT) + ",");
+    lines.add("            " + stringLiteral(model.rootTypeName()) + ",");
     lines.add("            rootObject(),");
     lines.add("            " + tagProperty + ",");
     lines.add("            " + listExpression(branchExpressions) + ");");
@@ -110,9 +112,9 @@ public final class MetadataSourceEmitter {
     lines.add("  private static SchemaBranchMetadata branch" + branchIndex + "() {");
     lines.add(
         "    return new SchemaBranchMetadata("
-            + javaStringLiteral(branch.tagValue())
+            + stringLiteral(branch.tagValue())
             + ", "
-            + javaStringLiteral(branch.object().javaTypeName())
+            + stringLiteral(branch.object().javaTypeName())
             + ", branch"
             + branchIndex
             + "Object());");
@@ -144,9 +146,9 @@ public final class MetadataSourceEmitter {
 
   private static String objectExpression(ObjectBinding object, String propertyPrefix) {
     return "new SchemaObjectMetadata("
-        + javaStringLiteral(object.schemaPointer().value())
+        + stringLiteral(object.schemaPointer().value())
         + ", "
-        + javaStringLiteral(object.javaTypeName())
+        + stringLiteral(object.javaTypeName())
         + ", "
         + annotationsExpression(object.annotations())
         + ", "
@@ -164,15 +166,15 @@ public final class MetadataSourceEmitter {
 
   private static String propertyExpression(FieldBinding field) {
     return "new SchemaPropertyMetadata("
-        + javaStringLiteral(field.jsonPropertyName())
+        + stringLiteral(field.jsonPropertyName())
         + ", "
-        + javaStringLiteral(field.javaFieldName())
+        + stringLiteral(field.javaFieldName())
         + ", "
-        + javaStringLiteral(field.schemaPointer().value())
+        + stringLiteral(field.schemaPointer().value())
         + ", "
         + field.required()
         + ", "
-        + javaStringLiteral(fieldJavaType(field))
+        + stringLiteral(fieldJavaType(field))
         + ", "
         + field.valueType().nullable()
         + ", "
@@ -198,9 +200,7 @@ public final class MetadataSourceEmitter {
         + optionalString(annotations.comment())
         + ", "
         + listExpression(
-            annotations.examplesJson().stream()
-                .map(MetadataSourceEmitter::javaStringLiteral)
-                .toList())
+            annotations.examplesJson().stream().map(JavaSourceText::stringLiteral).toList())
         + ", "
         + optionalBoolean(annotations.deprecated())
         + ", "
@@ -214,7 +214,7 @@ public final class MetadataSourceEmitter {
 
   private static String optionalString(Optional<String> value) {
     return value
-        .map(string -> "Optional.of(" + javaStringLiteral(string) + ")")
+        .map(string -> "Optional.of(" + stringLiteral(string) + ")")
         .orElse("Optional.empty()");
   }
 
@@ -229,30 +229,5 @@ public final class MetadataSourceEmitter {
       return "List.of()";
     }
     return "List.of(" + String.join(", ", expressions) + ")";
-  }
-
-  private static String javaStringLiteral(String value) {
-    StringBuilder literal = new StringBuilder("\"");
-    for (int index = 0; index < value.length(); index++) {
-      char current = value.charAt(index);
-      switch (current) {
-        case '"' -> literal.append("\\\"");
-        case '\\' -> literal.append("\\\\");
-        case '\b' -> literal.append("\\b");
-        case '\f' -> literal.append("\\f");
-        case '\n' -> literal.append("\\n");
-        case '\r' -> literal.append("\\r");
-        case '\t' -> literal.append("\\t");
-        default -> {
-          if (current < 0x20) {
-            literal.append(String.format("\\u%04x", (int) current));
-          } else {
-            literal.append(current);
-          }
-        }
-      }
-    }
-    literal.append('"');
-    return literal.toString();
   }
 }

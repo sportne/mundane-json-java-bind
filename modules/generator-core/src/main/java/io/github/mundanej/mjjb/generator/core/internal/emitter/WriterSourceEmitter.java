@@ -3,6 +3,7 @@ package io.github.mundanej.mjjb.generator.core.internal.emitter;
 import static io.github.mundanej.mjjb.generator.core.internal.emitter.BindingTraversal.allFields;
 import static io.github.mundanej.mjjb.generator.core.internal.emitter.BindingTraversal.allMaps;
 import static io.github.mundanej.mjjb.generator.core.internal.emitter.BindingTraversal.nestedObjects;
+import static io.github.mundanej.mjjb.generator.core.internal.emitter.JavaSourceText.stringLiteral;
 
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModel;
 import io.github.mundanej.mjjb.generator.core.internal.binding.FieldBinding;
@@ -117,8 +118,7 @@ public final class WriterSourceEmitter {
         lines.add("    if (value." + field.javaFieldName() + "().hasValue()) {");
         lines.add(
             "      for (Double item : value." + field.javaFieldName() + "().requireValue()) {");
-        lines.add(
-            "        requireFinite(item, " + javaStringLiteral(field.jsonPropertyName()) + ");");
+        lines.add("        requireFinite(item, " + stringLiteral(field.jsonPropertyName()) + ");");
         lines.add("      }");
         lines.add("    }");
       } else if (field.valueType().nullable()) {
@@ -127,20 +127,18 @@ public final class WriterSourceEmitter {
             "      requireFinite(value."
                 + field.javaFieldName()
                 + "().requireValue(), "
-                + javaStringLiteral(field.jsonPropertyName())
+                + stringLiteral(field.jsonPropertyName())
                 + ");");
         lines.add("    }");
       } else if (field.array() && field.required()) {
         lines.add("    for (Double item : value." + field.javaFieldName() + "()) {");
-        lines.add(
-            "      requireFinite(item, " + javaStringLiteral(field.jsonPropertyName()) + ");");
+        lines.add("      requireFinite(item, " + stringLiteral(field.jsonPropertyName()) + ");");
         lines.add("    }");
       } else if (field.array()) {
         lines.add("    if (value." + field.javaFieldName() + "().isPresent()) {");
         lines.add(
             "      for (Double item : value." + field.javaFieldName() + "().orElseThrow()) {");
-        lines.add(
-            "        requireFinite(item, " + javaStringLiteral(field.jsonPropertyName()) + ");");
+        lines.add("        requireFinite(item, " + stringLiteral(field.jsonPropertyName()) + ");");
         lines.add("      }");
         lines.add("    }");
       } else if (field.required()) {
@@ -148,7 +146,7 @@ public final class WriterSourceEmitter {
             "    requireFinite(value."
                 + field.javaFieldName()
                 + "(), "
-                + javaStringLiteral(field.jsonPropertyName())
+                + stringLiteral(field.jsonPropertyName())
                 + ");");
       } else {
         lines.add("    if (value." + field.javaFieldName() + "().isPresent()) {");
@@ -156,7 +154,7 @@ public final class WriterSourceEmitter {
             "      requireFinite(value."
                 + field.javaFieldName()
                 + "().orElseThrow(), "
-                + javaStringLiteral(field.jsonPropertyName())
+                + stringLiteral(field.jsonPropertyName())
                 + ");");
         lines.add("    }");
       }
@@ -192,9 +190,9 @@ public final class WriterSourceEmitter {
     lines.add("    writer.beginObject();");
     lines.add(
         "    writer.name("
-            + javaStringLiteral(model.taggedUnion().orElseThrow().tagPropertyName())
+            + stringLiteral(model.taggedUnion().orElseThrow().tagPropertyName())
             + ");");
-    lines.add("    writer.value(" + javaStringLiteral(branch.tagValue()) + ");");
+    lines.add("    writer.value(" + stringLiteral(branch.tagValue()) + ");");
     for (FieldBinding field : branch.object().fields()) {
       lines.addAll(writeFieldLines(field));
     }
@@ -228,12 +226,12 @@ public final class WriterSourceEmitter {
     ArrayList<String> lines = new ArrayList<>();
     String methodName = objectWriteMethodName(field.valueType().objectBinding().orElseThrow());
     if (field.required()) {
-      lines.add("    writer.name(" + javaStringLiteral(field.jsonPropertyName()) + ");");
+      lines.add("    writer.name(" + stringLiteral(field.jsonPropertyName()) + ");");
       lines.add("    " + methodName + "(writer, value." + field.javaFieldName() + "());");
       return lines;
     }
     lines.add("    if (value." + field.javaFieldName() + "().isPresent()) {");
-    lines.add("      writer.name(" + javaStringLiteral(field.jsonPropertyName()) + ");");
+    lines.add("      writer.name(" + stringLiteral(field.jsonPropertyName()) + ");");
     lines.add(
         "      " + methodName + "(writer, value." + field.javaFieldName() + "().orElseThrow());");
     lines.add("    }");
@@ -266,12 +264,12 @@ public final class WriterSourceEmitter {
   private static List<String> requiredFieldLines(FieldBinding field) {
     if (field.array()) {
       ArrayList<String> lines = new ArrayList<>();
-      lines.add("    writer.name(" + javaStringLiteral(field.jsonPropertyName()) + ");");
+      lines.add("    writer.name(" + stringLiteral(field.jsonPropertyName()) + ");");
       lines.addAll(writeArrayLines(field, "value." + field.javaFieldName() + "()", "    "));
       return lines;
     }
     return List.of(
-        "    writer.name(" + javaStringLiteral(field.jsonPropertyName()) + ");",
+        "    writer.name(" + stringLiteral(field.jsonPropertyName()) + ");",
         "    " + writeValueStatement(field, "value." + field.javaFieldName() + "()"));
   }
 
@@ -279,7 +277,7 @@ public final class WriterSourceEmitter {
     ArrayList<String> lines = new ArrayList<>();
     String fieldName = field.javaFieldName();
     lines.add("    if (value." + fieldName + "().isPresent()) {");
-    lines.add("      writer.name(" + javaStringLiteral(field.jsonPropertyName()) + ");");
+    lines.add("      writer.name(" + stringLiteral(field.jsonPropertyName()) + ");");
     if (field.array()) {
       lines.addAll(writeArrayLines(field, "value." + fieldName + "().orElseThrow()", "      "));
     } else {
@@ -293,7 +291,7 @@ public final class WriterSourceEmitter {
     ArrayList<String> lines = new ArrayList<>();
     String fieldName = field.javaFieldName();
     lines.add("    if (!value." + fieldName + "().isAbsent()) {");
-    lines.add("      writer.name(" + javaStringLiteral(field.jsonPropertyName()) + ");");
+    lines.add("      writer.name(" + stringLiteral(field.jsonPropertyName()) + ");");
     lines.add("      if (value." + fieldName + "().isExplicitNull()) {");
     lines.add("        writer.nullValue();");
     lines.add("      } else {");
@@ -444,30 +442,5 @@ public final class WriterSourceEmitter {
 
   private static String objectWriteMethodName(ObjectBinding object) {
     return "write" + object.javaTypeName();
-  }
-
-  private static String javaStringLiteral(String value) {
-    StringBuilder literal = new StringBuilder("\"");
-    for (int index = 0; index < value.length(); index++) {
-      char current = value.charAt(index);
-      switch (current) {
-        case '"' -> literal.append("\\\"");
-        case '\\' -> literal.append("\\\\");
-        case '\b' -> literal.append("\\b");
-        case '\f' -> literal.append("\\f");
-        case '\n' -> literal.append("\\n");
-        case '\r' -> literal.append("\\r");
-        case '\t' -> literal.append("\\t");
-        default -> {
-          if (current < 0x20) {
-            literal.append(String.format("\\u%04x", (int) current));
-          } else {
-            literal.append(current);
-          }
-        }
-      }
-    }
-    literal.append('"');
-    return literal.toString();
   }
 }
