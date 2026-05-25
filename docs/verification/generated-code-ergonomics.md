@@ -42,7 +42,7 @@ core generated-source correctness.
 | 2 | Record construction is verbose for optional, nullable, and map-heavy objects. | Java callers must manually supply `Optional.empty()`, `JsonField.absent()`, and empty maps for every optional shape. | Consider generated convenience factories or a builder as an opt-in contract decision, not a default behavior change. |
 | 3 | Keyword-derived map fields (`patternProperties`, `additionalProperties`) are precise but not domain-friendly. | Generated APIs for map-heavy schemas read like schema mechanics rather than domain model names. | Keep the current names for determinism; evaluate metadata-first docs or future naming customization before changing generated contracts. |
 | 4 | Nested type names can become long in deep object graphs. | Names remain deterministic but can reduce readability in schemas with repeated nested containers. | Keep path-derived names for now; audit actual SchemaStore depth in future corpus freshness work before adding naming knobs. |
-| 5 | Pattern map constructors compile regexes inline in generated compact constructors. | Behavior is correct, but readability and repeated construction overhead are weaker than a generated static `Pattern` constant. | Candidate small implementation task: emit private static final patterns for model/reader/writer/validator use. |
+| 5 | Generated pattern checks now use private static final `Pattern` constants. | The previous inline regex compilation overhead is removed for model constructors, readers, and validators. | Keep this covered by generated-source fixtures and behavior probes; no further action is needed unless broader regex support changes. |
 | 6 | Validation is intentionally separate from construction for most constraints. | Callers may assume a constructed record is fully schema-valid when only null/map-key invariants are constructor-enforced. | Improve examples and README wording before considering constructor-level validation hooks. |
 | 7 | Metadata default accessors are typed only for supported scalar defaults. | This is simple and safe, but users may expect object/array defaults to have typed helpers. | Keep current boundary; document raw annotation access as the fallback. |
 
@@ -51,7 +51,7 @@ core generated-source correctness.
 | Rank | Candidate | Size | Why |
 |---:|---|---|---|
 | 1 | Add an `advanced-profile` example covering nested `$ref`, map bindings, constrained `allOf`, validation, and metadata. | Medium | Highest documentation leverage; no generated-code contract change. |
-| 2 | Generate shared static `Pattern` constants for `patternProperties` key checks. | Small | Improves readability and construction performance without changing public behavior. |
+| 2 | Keep generated static `Pattern` constants covered in smoke fixtures. | Small | Protects the current readability and hot-path performance improvement from regression. |
 | 3 | Add a generated-source behavior probe for a declared property named `additionalProperties` plus an additional map. | Small | Completes the external issue-mining follow-up at generated reader/writer/validator level. |
 | 4 | Decide whether optional builder/factory generation belongs in the project. | Large | Helpful for construction ergonomics, but increases generated surface area and maintenance. |
 | 5 | Add a naming stability audit over generated smoke fixtures and SchemaStore-supported samples. | Medium | Makes path-derived name behavior explicit before any naming customization is considered. |
@@ -61,6 +61,6 @@ core generated-source correctness.
 Do not change the generated-code contract yet. The current shape is consistent
 with the project goal of simple, static, dependency-light Java bindings. The
 next best step is an advanced checked-in example because it teaches existing
-supported workflows without adding API surface. After that, the static-pattern
-cleanup and the `additionalProperties` collision behavior probe are small,
-low-risk hardening tasks.
+supported workflows without adding API surface. After that, the
+`additionalProperties` collision behavior probe and naming stability audit are
+small, low-risk hardening tasks.

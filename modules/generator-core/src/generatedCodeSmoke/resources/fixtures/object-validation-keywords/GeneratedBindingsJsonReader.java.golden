@@ -12,6 +12,8 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 public final class GeneratedBindingsJsonReader {
+  private static final Pattern PATTERN_1 = Pattern.compile("^x-");
+
   private GeneratedBindingsJsonReader() {}
 
   public static GeneratedBindings read(JsonReader reader) throws JsonReadException {
@@ -52,7 +54,7 @@ public final class GeneratedBindingsJsonReader {
           detailsSeen = true;
         }
         default -> {
-          if (Pattern.compile("^x-").matcher(name).find()) {
+          if (PATTERN_1.matcher(name).find()) {
             if (patternProperties.containsKey(name)) {
               throw error("MJJBR-003", "Duplicate JSON property '" + name + "'.", propertyPath(name), reader.location());
             }

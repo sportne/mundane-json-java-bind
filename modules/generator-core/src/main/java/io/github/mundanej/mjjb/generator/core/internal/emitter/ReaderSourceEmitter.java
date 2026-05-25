@@ -29,6 +29,11 @@ public final class ReaderSourceEmitter {
     }
     lines.add("");
     lines.add("public final class " + readerTypeName(model) + " {");
+    PatternConstantSet patternConstants = readerPatternConstants(model);
+    if (!patternConstants.empty()) {
+      lines.addAll(patternConstants.declarations("  "));
+      lines.add("");
+    }
     lines.add("  private " + readerTypeName(model) + "() {}");
     lines.add("");
     lines.add(
@@ -45,17 +50,19 @@ public final class ReaderSourceEmitter {
     if (model.taggedUnion().isPresent()) {
       lines.addAll(taggedUnionReadLines(model));
     } else {
-      lines.addAll(objectReadLines(model.rootObject(), model.rootTypeName(), model.rootTypeName()));
+      lines.addAll(
+          objectReadLines(
+              model.rootObject(), model.rootTypeName(), model.rootTypeName(), patternConstants));
     }
     lines.add("  }");
     if (model.taggedUnion().isPresent()) {
       for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
-        lines.addAll(branchReaderLines(model, branch));
+        lines.addAll(branchReaderLines(model, branch, patternConstants));
       }
     }
     for (io.github.mundanej.mjjb.generator.core.internal.binding.ObjectBinding object :
         nestedObjects(model)) {
-      lines.addAll(objectReaderLines(model.rootTypeName(), object));
+      lines.addAll(objectReaderLines(model.rootTypeName(), object, patternConstants));
     }
     lines.addAll(helperLines(model));
     lines.add("}");
@@ -98,8 +105,12 @@ public final class ReaderSourceEmitter {
   }
 
   private static List<String> objectReadLines(
-      ObjectBinding object, String constructorType, String rootTypeName) {
-    return objectReadLines(object, constructorType, rootTypeName, "JsonPath.ROOT", true);
+      ObjectBinding object,
+      String constructorType,
+      String rootTypeName,
+      PatternConstantSet patternConstants) {
+    return objectReadLines(
+        object, constructorType, rootTypeName, "JsonPath.ROOT", true, patternConstants);
   }
 
   private static List<String> objectReadLines(
@@ -107,7 +118,8 @@ public final class ReaderSourceEmitter {
       String constructorType,
       String rootTypeName,
       String basePath,
-      boolean rootObject) {
+      boolean rootObject,
+      PatternConstantSet patternConstants) {
     ArrayList<String> lines = new ArrayList<>();
     List<FieldBinding> fields = object.fields();
     lines.addAll(fieldInitializers(fields, rootTypeName));
@@ -145,7 +157,9 @@ public final class ReaderSourceEmitter {
           .ifPresent(
               map -> {
                 lines.add(
-                    "          if (" + patternMatchExpression(map, propertyNameLocal) + ") {");
+                    "          if ("
+                        + patternMatchExpression(map, propertyNameLocal, patternConstants)
+                        + ") {");
                 lines.addAll(readMapPutLines(map, propertyNameLocal, basePath, "            "));
                 lines.add("          } else {");
               });
@@ -239,7 +253,8 @@ public final class ReaderSourceEmitter {
     return lines;
   }
 
-  private static List<String> branchReaderLines(BindingModel model, TaggedUnionBranch branch) {
+  private static List<String> branchReaderLines(
+      BindingModel model, TaggedUnionBranch branch, PatternConstantSet patternConstants) {
     ArrayList<String> lines = new ArrayList<>();
     String branchTypeName = model.rootTypeName() + "." + branch.object().javaTypeName();
     String tagProperty = model.taggedUnion().orElseThrow().tagPropertyName();
@@ -293,7 +308,9 @@ public final class ReaderSourceEmitter {
           .ifPresent(
               map -> {
                 lines.add(
-                    "          if (" + patternMatchExpression(map, propertyNameLocal) + ") {");
+                    "          if ("
+                        + patternMatchExpression(map, propertyNameLocal, patternConstants)
+                        + ") {");
                 lines.addAll(
                     readMapPutLines(map, propertyNameLocal, "JsonPath.ROOT", "            "));
                 lines.add("          } else {");
@@ -333,7 +350,8 @@ public final class ReaderSourceEmitter {
     return lines;
   }
 
-  private static List<String> objectReaderLines(String rootTypeName, ObjectBinding object) {
+  private static List<String> objectReaderLines(
+      String rootTypeName, ObjectBinding object, PatternConstantSet patternConstants) {
     ArrayList<String> lines = new ArrayList<>();
     String qualifiedType = rootTypeName + "." + object.javaTypeName();
     lines.add("");
@@ -350,7 +368,8 @@ public final class ReaderSourceEmitter {
     lines.add("    } catch (JsonReadException exception) {");
     lines.add("      throw atPath(exception, path);");
     lines.add("    }");
-    lines.addAll(objectReadLines(object, qualifiedType, rootTypeName, "path", false));
+    lines.addAll(
+        objectReadLines(object, qualifiedType, rootTypeName, "path", false, patternConstants));
     lines.add("  }");
     return lines;
   }
@@ -838,12 +857,18 @@ public final class ReaderSourceEmitter {
     return lines;
   }
 
-  private static String patternMatchExpression(MapBinding map, String propertyNameLocal) {
-    return "Pattern.compile("
-        + stringLiteral(map.pattern())
-        + ").matcher("
-        + propertyNameLocal
-        + ").find()";
+  private static PatternConstantSet readerPatternConstants(BindingModel model) {
+    PatternConstantSet constants = new PatternConstantSet();
+    allMaps(model).stream()
+        .filter(MapBinding::patternProperties)
+        .map(MapBinding::pattern)
+        .forEach(constants::add);
+    return constants;
+  }
+
+  private static String patternMatchExpression(
+      MapBinding map, String propertyNameLocal, PatternConstantSet patternConstants) {
+    return patternConstants.name(map.pattern()) + ".matcher(" + propertyNameLocal + ").find()";
   }
 
   private static String readScalarExpression(JavaScalarType scalarType, String pathExpression) {

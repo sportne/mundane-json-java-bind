@@ -20,6 +20,7 @@ import io.github.mundanej.mjjb.generator.core.internal.binding.TaggedUnionBranch
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -35,6 +36,11 @@ public final class ValidatorSourceEmitter {
     }
     lines.add("");
     lines.add("public final class " + validatorTypeName(model) + " {");
+    PatternConstantSet patternConstants = validatorPatternConstants(model);
+    if (!patternConstants.empty()) {
+      lines.addAll(patternConstants.declarations("  "));
+      lines.add("");
+    }
     lines.add("  private " + validatorTypeName(model) + "() {}");
     lines.add("");
     lines.add("  public static ValidationResult validate(" + model.rootTypeName() + " value) {");
@@ -139,7 +145,7 @@ public final class ValidatorSourceEmitter {
       lines.addAll(validateMaxLengthHelper());
     }
     if (hasPatternFacet(model)) {
-      lines.addAll(validatePatternHelper());
+      lines.addAll(validatePatternHelper(patternConstants));
     }
     if (hasFormatFacet(model)) {
       lines.addAll(validateFormatHelper());
@@ -1479,6 +1485,25 @@ public final class ValidatorSourceEmitter {
                         .orElse(false));
   }
 
+  private static PatternConstantSet validatorPatternConstants(BindingModel model) {
+    PatternConstantSet constants = new PatternConstantSet();
+    allFields(model).stream()
+        .map(field -> field.valueType().facets().pattern())
+        .flatMap(Optional::stream)
+        .forEach(constants::add);
+    allMaps(model).stream()
+        .map(map -> map.valueType().facets().pattern())
+        .flatMap(Optional::stream)
+        .forEach(constants::add);
+    allObjects(model).stream()
+        .map(object -> object.validationConstraints().propertyNames())
+        .flatMap(Optional::stream)
+        .map(FacetConstraints::pattern)
+        .flatMap(Optional::stream)
+        .forEach(constants::add);
+    return constants;
+  }
+
   private static boolean hasFormatFacet(BindingModel model) {
     return allFields(model).stream()
             .anyMatch(field -> field.valueType().facets().format().isPresent())
@@ -1637,17 +1662,27 @@ public final class ValidatorSourceEmitter {
         "  }");
   }
 
-  private static List<String> validatePatternHelper() {
-    return List.of(
-        "",
-        "  private static boolean validatePattern(",
-        "      ValidationErrors errors, String value, String pattern, JsonPath path) {",
-        "    if (Pattern.compile(pattern).matcher(value).find()) {",
-        "      return true;",
-        "    }",
-        "    return errors.add(",
-        "        ValidationError.of(\"MJJBV-009\", \"Expected string to match pattern.\", path));",
-        "  }");
+  private static List<String> validatePatternHelper(PatternConstantSet patternConstants) {
+    ArrayList<String> lines = new ArrayList<>();
+    lines.add("");
+    lines.add("  private static boolean validatePattern(");
+    lines.add("      ValidationErrors errors, String value, String pattern, JsonPath path) {");
+    lines.add("    if (compiledPattern(pattern).matcher(value).find()) {");
+    lines.add("      return true;");
+    lines.add("    }");
+    lines.add("    return errors.add(");
+    lines.add(
+        "        ValidationError.of(\"MJJBV-009\", \"Expected string to match pattern.\", path));");
+    lines.add("  }");
+    lines.add("");
+    lines.add("  private static Pattern compiledPattern(String pattern) {");
+    lines.add("    return switch (pattern) {");
+    lines.addAll(patternConstants.lookupCases("      "));
+    lines.add(
+        "      default -> throw new IllegalArgumentException(\"Unknown generated pattern.\");");
+    lines.add("    };");
+    lines.add("  }");
+    return lines;
   }
 
   private static List<String> validateFormatHelper() {

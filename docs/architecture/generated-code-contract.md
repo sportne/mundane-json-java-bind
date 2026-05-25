@@ -79,7 +79,9 @@ Constructors require every pattern-map key to match the compiled regex and
 require additional-property map keys not to match the pattern. Readers route
 exact declared properties first, then regex matches, then supported additional
 properties. Writers emit declared fields first, then pattern-map entries sorted
-by key, then additional-map entries sorted by key.
+by key, then additional-map entries sorted by key. Generated model, reader, and
+validator sources emit private static final `Pattern` constants for supported
+schema regexes instead of compiling regexes in hot paths.
 
 Constrained object `allOf` schemas are flattened during binding construction.
 Generated records contain the merged properties in deterministic branch order,

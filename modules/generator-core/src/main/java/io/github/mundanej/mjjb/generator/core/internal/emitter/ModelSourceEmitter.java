@@ -121,6 +121,10 @@ public final class ModelSourceEmitter {
     }
     List<FieldBinding> defaultFields =
         fields.stream().filter(field -> field.valueType().literals().hasDefault()).toList();
+    PatternConstantSet patternConstants = constructorPatternConstants(branch.object());
+    if (!patternConstants.empty()) {
+      lines.addAll(indent(patternConstants.declarations(""), "  "));
+    }
     for (FieldBinding field : defaultFields) {
       lines.addAll(indent(defaultAccessorLines(field), "  "));
     }
@@ -140,7 +144,8 @@ public final class ModelSourceEmitter {
       }
     }
     for (MapBinding map : objectMaps(branch.object())) {
-      mapConstructorLines(map, branch.object()).forEach(line -> lines.add("      " + line));
+      mapConstructorLines(map, branch.object(), patternConstants)
+          .forEach(line -> lines.add("      " + line));
     }
     lines.add("    }");
     lines.add("  }");
@@ -161,6 +166,10 @@ public final class ModelSourceEmitter {
     }
     List<FieldBinding> defaultFields =
         fields.stream().filter(field -> field.valueType().literals().hasDefault()).toList();
+    PatternConstantSet patternConstants = constructorPatternConstants(model.rootObject());
+    if (!patternConstants.empty()) {
+      lines.addAll(patternConstants.declarations("  "));
+    }
     for (FieldBinding field : defaultFields) {
       lines.addAll(defaultAccessorLines(field));
     }
@@ -184,7 +193,8 @@ public final class ModelSourceEmitter {
       }
     }
     for (MapBinding map : objectMaps(model.rootObject())) {
-      mapConstructorLines(map, model.rootObject()).forEach(line -> lines.add("    " + line));
+      mapConstructorLines(map, model.rootObject(), patternConstants)
+          .forEach(line -> lines.add("    " + line));
     }
     lines.add("  }");
     lines.add("}");
@@ -205,6 +215,10 @@ public final class ModelSourceEmitter {
     }
     List<FieldBinding> checkedFields =
         fields.stream().filter(ModelSourceEmitter::requiresNullCheck).toList();
+    PatternConstantSet patternConstants = constructorPatternConstants(object);
+    if (!patternConstants.empty()) {
+      lines.addAll(patternConstants.declarations("  "));
+    }
     if (checkedFields.isEmpty() && objectMaps(object).isEmpty()) {
       lines.add("}");
       return lines;
@@ -216,7 +230,7 @@ public final class ModelSourceEmitter {
       }
     }
     for (MapBinding map : objectMaps(object)) {
-      mapConstructorLines(map, object).forEach(line -> lines.add("    " + line));
+      mapConstructorLines(map, object, patternConstants).forEach(line -> lines.add("    " + line));
     }
     lines.add("  }");
     lines.add("}");
@@ -292,7 +306,20 @@ public final class ModelSourceEmitter {
     return List.of(name + " = Objects.requireNonNull(" + name + ", \"" + name + "\");");
   }
 
-  private static List<String> mapConstructorLines(MapBinding map, ObjectBinding object) {
+  private static PatternConstantSet constructorPatternConstants(ObjectBinding object) {
+    PatternConstantSet constants = new PatternConstantSet();
+    for (MapBinding map : objectMaps(object)) {
+      if (map.patternProperties()) {
+        constants.add(map.pattern());
+      } else {
+        object.patternProperties().ifPresent(patternMap -> constants.add(patternMap.pattern()));
+      }
+    }
+    return constants;
+  }
+
+  private static List<String> mapConstructorLines(
+      MapBinding map, ObjectBinding object, PatternConstantSet patternConstants) {
     ArrayList<String> lines = new ArrayList<>();
     String name = map.javaFieldName();
     if (map.valueType().nullable()) {
@@ -382,9 +409,9 @@ public final class ModelSourceEmitter {
       lines.add(
           "if (!"
               + name
-              + ".keySet().stream().allMatch(key -> Pattern.compile("
-              + stringLiteral(map.pattern())
-              + ").matcher(key).find())) {");
+              + ".keySet().stream().allMatch(key -> "
+              + patternConstants.name(map.pattern())
+              + ".matcher(key).find())) {");
       lines.add(
           "  throw new IllegalArgumentException(\"patternProperties keys must match the configured pattern\");");
       lines.add("}");
@@ -396,9 +423,9 @@ public final class ModelSourceEmitter {
                 lines.add(
                     "if ("
                         + name
-                        + ".keySet().stream().anyMatch(key -> Pattern.compile("
-                        + stringLiteral(patternMap.pattern())
-                        + ").matcher(key).find())) {");
+                        + ".keySet().stream().anyMatch(key -> "
+                        + patternConstants.name(patternMap.pattern())
+                        + ".matcher(key).find())) {");
                 lines.add(
                     "  throw new IllegalArgumentException(\"additionalProperties must not contain patternProperties keys\");");
                 lines.add("}");

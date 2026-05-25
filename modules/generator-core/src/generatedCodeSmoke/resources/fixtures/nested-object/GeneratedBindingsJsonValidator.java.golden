@@ -9,6 +9,8 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 public final class GeneratedBindingsJsonValidator {
+  private static final Pattern PATTERN_1 = Pattern.compile("^[0-9]{5}$");
+
   private GeneratedBindingsJsonValidator() {}
 
   public static ValidationResult validate(GeneratedBindings value) {
@@ -124,10 +126,17 @@ public final class GeneratedBindingsJsonValidator {
 
   private static boolean validatePattern(
       ValidationErrors errors, String value, String pattern, JsonPath path) {
-    if (Pattern.compile(pattern).matcher(value).find()) {
+    if (compiledPattern(pattern).matcher(value).find()) {
       return true;
     }
     return errors.add(
         ValidationError.of("MJJBV-009", "Expected string to match pattern.", path));
+  }
+
+  private static Pattern compiledPattern(String pattern) {
+    return switch (pattern) {
+      case "^[0-9]{5}$" -> PATTERN_1;
+      default -> throw new IllegalArgumentException("Unknown generated pattern.");
+    };
   }
 }

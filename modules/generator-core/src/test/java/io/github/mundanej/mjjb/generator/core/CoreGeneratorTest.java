@@ -673,6 +673,49 @@ final class CoreGeneratorTest {
   }
 
   @Test
+  void generatedPatternChecksUseConstantsOutsideHotPaths() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(
+        schema,
+        """
+        {
+          "type": "object",
+          "properties": {
+            "id": {"type": "string", "pattern": "^[A-Z]+$"}
+          },
+          "patternProperties": {
+            "^x-": {"type": "string", "pattern": "^[a-z]+$"}
+          },
+          "propertyNames": {"pattern": "^[A-Za-z0-9_-]+$"},
+          "required": ["id"],
+          "additionalProperties": {"type": "string"}
+        }
+        """);
+
+    GeneratorResult result =
+        new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
+
+    assertTrue(result.successful());
+    String modelSource =
+        Files.readString(GeneratedFixtureAssertions.sourceNamed(result, "GeneratedBindings.java"));
+    String readerSource =
+        Files.readString(
+            GeneratedFixtureAssertions.sourceNamed(result, "GeneratedBindingsJsonReader.java"));
+    String validatorSource =
+        Files.readString(
+            GeneratedFixtureAssertions.sourceNamed(result, "GeneratedBindingsJsonValidator.java"));
+    assertTrue(modelSource.contains("private static final Pattern PATTERN_1"));
+    assertTrue(readerSource.contains("private static final Pattern PATTERN_1"));
+    assertTrue(validatorSource.contains("private static final Pattern PATTERN_1"));
+    assertTrue(validatorSource.contains("private static Pattern compiledPattern(String pattern)"));
+    assertFalse(modelSource.contains("key -> Pattern.compile("));
+    assertFalse(readerSource.contains("if (Pattern.compile("));
+    assertFalse(validatorSource.contains("Pattern.compile(pattern)"));
+    generatedSourceVerifier.compileGeneratedSources(
+        "pattern-constants", result.generatedSources(), tempDir.resolve("pattern-classes"));
+  }
+
+  @Test
   void reportsInvalidJsonNumbersInSchemaInput() throws IOException {
     assertInvalidSchema("{\"minimum\":1.}", "/minimum");
     assertInvalidSchema("{\"minimum\":1e}", "/minimum");

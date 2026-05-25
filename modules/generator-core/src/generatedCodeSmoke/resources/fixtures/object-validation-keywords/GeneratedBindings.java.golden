@@ -11,6 +11,7 @@ public record GeneratedBindings(
     Optional<String> mode,
     Optional<String> details,
     Map<String, String> patternProperties) {
+  private static final Pattern PATTERN_1 = Pattern.compile("^x-");
   public GeneratedBindings {
     id = Objects.requireNonNull(id, "id");
     mode = Objects.requireNonNull(mode, "mode");
@@ -22,7 +23,7 @@ public record GeneratedBindings(
         "details"))) {
       throw new IllegalArgumentException("patternProperties must not contain declared property names");
     }
-    if (!patternProperties.keySet().stream().allMatch(key -> Pattern.compile("^x-").matcher(key).find())) {
+    if (!patternProperties.keySet().stream().allMatch(key -> PATTERN_1.matcher(key).find())) {
       throw new IllegalArgumentException("patternProperties keys must match the configured pattern");
     }
   }

@@ -1,7 +1,7 @@
 # TASK-0051: Generated Pattern Constants
 
 Task ID: `TASK-0051`
-Status: `ready-for-implementation`
+Status: `complete`
 Gate: Performance and simplicity follow-up
 Depends on: `TASK-0050`
 Specification references: `docs/architecture/generated-code-contract.md`; `docs/architecture/validation-architecture.md`; `docs/verification/generated-code-ergonomics.md`

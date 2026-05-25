@@ -14,6 +14,9 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 public final class GeneratedBindingsJsonValidator {
+  private static final Pattern PATTERN_1 = Pattern.compile("^[A-Z]+$");
+  private static final Pattern PATTERN_2 = Pattern.compile("^[a-z]+$");
+
   private GeneratedBindingsJsonValidator() {}
 
   public static ValidationResult validate(GeneratedBindings value) {
@@ -193,11 +196,19 @@ public final class GeneratedBindingsJsonValidator {
 
   private static boolean validatePattern(
       ValidationErrors errors, String value, String pattern, JsonPath path) {
-    if (Pattern.compile(pattern).matcher(value).find()) {
+    if (compiledPattern(pattern).matcher(value).find()) {
       return true;
     }
     return errors.add(
         ValidationError.of("MJJBV-009", "Expected string to match pattern.", path));
+  }
+
+  private static Pattern compiledPattern(String pattern) {
+    return switch (pattern) {
+      case "^[A-Z]+$" -> PATTERN_1;
+      case "^[a-z]+$" -> PATTERN_2;
+      default -> throw new IllegalArgumentException("Unknown generated pattern.");
+    };
   }
 
   private static boolean validateFormat(

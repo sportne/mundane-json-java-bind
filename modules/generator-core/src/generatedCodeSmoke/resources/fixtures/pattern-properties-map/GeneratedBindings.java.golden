@@ -9,6 +9,7 @@ public record GeneratedBindings(
     String id,
     Map<String, Long> patternProperties,
     Map<String, String> additionalProperties) {
+  private static final Pattern PATTERN_1 = Pattern.compile("^x-");
   public GeneratedBindings {
     id = Objects.requireNonNull(id, "id");
     patternProperties = Map.copyOf(Objects.requireNonNull(patternProperties, "patternProperties"));
@@ -16,7 +17,7 @@ public record GeneratedBindings(
         "id"))) {
       throw new IllegalArgumentException("patternProperties must not contain declared property names");
     }
-    if (!patternProperties.keySet().stream().allMatch(key -> Pattern.compile("^x-").matcher(key).find())) {
+    if (!patternProperties.keySet().stream().allMatch(key -> PATTERN_1.matcher(key).find())) {
       throw new IllegalArgumentException("patternProperties keys must match the configured pattern");
     }
     additionalProperties = Map.copyOf(Objects.requireNonNull(additionalProperties, "additionalProperties"));
@@ -24,7 +25,7 @@ public record GeneratedBindings(
         "id"))) {
       throw new IllegalArgumentException("additionalProperties must not contain declared property names");
     }
-    if (additionalProperties.keySet().stream().anyMatch(key -> Pattern.compile("^x-").matcher(key).find())) {
+    if (additionalProperties.keySet().stream().anyMatch(key -> PATTERN_1.matcher(key).find())) {
       throw new IllegalArgumentException("additionalProperties must not contain patternProperties keys");
     }
   }
