@@ -1,13 +1,14 @@
 # TASK-0043: Generator Simplification Safety Net
 
 Task ID: `TASK-0043`
-Status: `ready-for-implementation`
+Status: `complete`
 Gate: Generator simplification implementation
 Depends on: `TASK-0042`
 Specification references: `docs/architecture/generator-simplification-audit.md`; `docs/architecture/generated-code-contract.md`
 Target modules: `generator-core`
 
 Allowed files:
+- `modules/generator-core/build.gradle`
 - `modules/generator-core/src/test/**`
 - `modules/generator-core/src/generatedCodeSmoke/**`
 - `docs/roadmap/tasks/TASK-0043-generator-simplification-safety-net.md`

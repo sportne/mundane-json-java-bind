@@ -27,6 +27,7 @@ dependencies {
     implementation project(':modules:schema-model')
     generatedCodeSmokeImplementation project(':modules:generator-api')
     generatedCodeSmokeImplementation project(':modules:parser-core')
+    testImplementation project(':modules:parser-core')
     testImplementation project(':modules:runtime-core')
     testImplementation sourceSets.generatedCodeSmoke.output
 }
