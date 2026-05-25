@@ -149,8 +149,14 @@ final class UnitFrameworkIntegrationTest {
     String report = Files.readString(reportDirectory.resolve("performance-evidence.md"));
 
     assertTrue(report.contains("generator-rich-generate"));
+    assertTrue(report.contains("parser-reader-backed-large-read"));
     assertTrue(report.contains("generated-rich-compile"));
     assertTrue(report.contains("generated-rich-read-validate-write"));
+    assertTrue(report.contains("generated-rich-read-only"));
+    assertTrue(report.contains("generated-rich-validate-only"));
+    assertTrue(report.contains("generated-rich-write-only"));
+    assertTrue(report.contains("generated-regex-heavy-read-validate-write"));
+    assertTrue(report.contains("generated-numeric-heavy-validate-only"));
     assertTrue(report.contains("## Generated Binding Artifact Summary"));
     assertTrue(
         report.contains("| Schema bytes | Generated source files | Generated source bytes |"));

@@ -1,7 +1,7 @@
 # TASK-0050: Focused Performance Evidence
 
 Task ID: `TASK-0050`
-Status: `ready-for-implementation`
+Status: `complete`
 Gate: Performance and simplicity follow-up
 Depends on: `TASK-0049`
 Specification references: `docs/verification/performance.md`; `docs/architecture/parser-architecture.md`; `docs/architecture/generated-code-contract.md`; `docs/verification/generated-code-ergonomics.md`

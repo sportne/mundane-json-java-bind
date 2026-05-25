@@ -30,17 +30,24 @@ The evidence command measures:
 
 - parser streaming reads through `JsonStreamReader` on small and medium
   fixtures;
+- Reader-backed parser reads on a larger fixture;
 - generator throughput for a representative rich object schema;
 - generated Java compilation time for the emitted binding sources;
 - emitted schema/source size for the representative generated binding;
 - generated binding read, validate, and write loops for small, medium, and rich
-  fixtures.
+  fixtures;
+- separated generated read-only, validate-only, and write-only measurements;
+- focused regex-heavy generated read/validate/write evidence for
+  `patternProperties` and `propertyNames`;
+- focused numeric-heavy generated validation evidence for numeric facets,
+  `multipleOf`, and numeric enum comparisons.
 
 The rich generated-binding fixture includes a nested object, declared arrays,
-object validation keywords, numeric validation, `uniqueItems`,
-`patternProperties`, and an object-valued `additionalProperties` map. This keeps
-the evidence lane aligned with the current post-v1 feature set without changing
-runtime behavior or adding benchmark dependencies.
+object validation keywords, numeric validation, numeric enum constraints,
+`uniqueItems`, `patternProperties`, `propertyNames`, and an object-valued
+`additionalProperties` map. This keeps the evidence lane aligned with the
+current post-v1 feature set without changing runtime behavior or adding
+benchmark dependencies.
 
 The report includes fixture or artifact size, warmup batches, measured batches,
 batch iterations, min/median/max batch time, rough heap delta, runtime details,

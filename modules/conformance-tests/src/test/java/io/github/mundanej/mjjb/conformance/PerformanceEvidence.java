@@ -9,6 +9,7 @@ import io.github.mundanej.mjjb.runtime.JsonReadException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.io.StringReader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
@@ -58,10 +59,14 @@ public final class PerformanceEvidence {
 
     String parserSmall = parserSmallJson();
     String parserMedium = parserMediumJson(160);
+    String parserLarge = parserMediumJson(640);
     String bindingSmall = generatedBindingJson(2);
     String bindingMedium = generatedBindingJson(160);
     String bindingRich = generatedRichBindingJson(160, 25);
+    String bindingRegexHeavy = generatedRichBindingJson(20, 160);
+    String bindingNumericHeavy = generatedRichBindingJson(256, 5);
     String schemaSource = bindingSchema();
+    MeasurementPlan readerLargePlan = quick ? QUICK_PLAN : new MeasurementPlan(2, 10, 10);
 
     ArrayList<Measurement> measurements = new ArrayList<>();
     measurements.add(
@@ -78,6 +83,12 @@ public final class PerformanceEvidence {
             iterations -> parseMediumDocument(parserMedium, iterations)));
     measurements.add(
         measure(
+            "parser-reader-backed-large-read",
+            parserLarge.length(),
+            readerLargePlan,
+            iterations -> parseMediumDocumentFromReader(parserLarge, iterations)));
+    measurements.add(
+        measure(
             "generator-rich-generate",
             schemaSource.length(),
             generatorPlan,
@@ -87,7 +98,14 @@ public final class PerformanceEvidence {
 
     try (GeneratedBindingHarness generated =
         GeneratedBindingHarness.compile(
-            workspace, classpath, schemaSource, bindingSmall, bindingMedium, bindingRich)) {
+            workspace,
+            classpath,
+            schemaSource,
+            bindingSmall,
+            bindingMedium,
+            bindingRich,
+            bindingRegexHeavy,
+            bindingNumericHeavy)) {
       ArtifactSummary artifactSummary = generated.artifactSummary();
       measurements.add(
           measure(
@@ -118,6 +136,36 @@ public final class PerformanceEvidence {
               bindingRich.length(),
               runtimePlan,
               generated.operation("readValidateWriteRich")));
+      measurements.add(
+          measure(
+              "generated-rich-read-only",
+              bindingRich.length(),
+              runtimePlan,
+              generated.operation("readOnlyRich")));
+      measurements.add(
+          measure(
+              "generated-rich-validate-only",
+              bindingRich.length(),
+              runtimePlan,
+              generated.operation("validateOnlyRich")));
+      measurements.add(
+          measure(
+              "generated-rich-write-only",
+              bindingRich.length(),
+              runtimePlan,
+              generated.operation("writeOnlyRich")));
+      measurements.add(
+          measure(
+              "generated-regex-heavy-read-validate-write",
+              bindingRegexHeavy.length(),
+              runtimePlan,
+              generated.operation("readValidateWriteRegexHeavy")));
+      measurements.add(
+          measure(
+              "generated-numeric-heavy-validate-only",
+              bindingNumericHeavy.length(),
+              runtimePlan,
+              generated.operation("validateOnlyNumericHeavy")));
       Path report = reportDirectory.resolve("performance-evidence.md");
       Files.writeString(report, report(measurements, artifactSummary), StandardCharsets.UTF_8);
       System.out.println("Performance evidence written to " + report.toAbsolutePath());
@@ -200,6 +248,26 @@ public final class PerformanceEvidence {
     return checksum;
   }
 
+  private static long parseMediumDocumentFromReader(String json, int iterations)
+      throws JsonReadException {
+    long checksum = 0L;
+    for (int iteration = 0; iteration < iterations; iteration++) {
+      JsonStreamReader reader =
+          JsonStreamReader.fromReader("reader-backed-large.json", new StringReader(json));
+      reader.beginObject();
+      checksum += reader.nextName().length();
+      reader.beginArray();
+      while (reader.hasNext()) {
+        reader.beginObject();
+        checksum += readSmallObject(reader);
+        reader.endObject();
+      }
+      reader.endArray();
+      reader.endObject();
+    }
+    return checksum;
+  }
+
   private static String parserSmallJson() {
     return "{\"id\":\"id-1\",\"count\":7,\"tags\":[\"red\",\"blue\"],\"active\":true}";
   }
@@ -240,7 +308,7 @@ public final class PerformanceEvidence {
       }
       builder.append(index).append(".25");
     }
-    builder.append("],\"active\":true}");
+    builder.append("],\"ratio\":2.5,\"active\":true}");
     return builder.toString();
   }
 
@@ -262,7 +330,7 @@ public final class PerformanceEvidence {
       }
       builder.append(index).append(".25");
     }
-    builder.append("],\"active\":true,");
+    builder.append("],\"ratio\":2.5,\"active\":true,");
     builder.append("\"profile\":{\"level\":7,\"label\":\"primary\"}");
     for (int index = 0; index < mapEntries; index++) {
       builder.append(",\"x-flag-").append(index).append("\":").append(index % 2 == 0);
@@ -429,7 +497,9 @@ public final class PerformanceEvidence {
         String schemaSource,
         String smallJson,
         String mediumJson,
-        String richJson)
+        String richJson,
+        String regexHeavyJson,
+        String numericHeavyJson)
         throws IOException, ClassNotFoundException {
       Path schema = workspace.resolve("schema.json");
       Path generatedDirectory = workspace.resolve("generated");
@@ -459,7 +529,7 @@ public final class PerformanceEvidence {
               .resolve("GeneratedBindingEvidence.java");
       Files.writeString(
           harnessSource,
-          generatedHarnessSource(smallJson, mediumJson, richJson),
+          generatedHarnessSource(smallJson, mediumJson, richJson, regexHeavyJson, numericHeavyJson),
           StandardCharsets.UTF_8);
       ArrayList<Path> sources = new ArrayList<>(result.generatedSources());
       sources.add(harnessSource);
@@ -615,6 +685,13 @@ public final class PerformanceEvidence {
             "id": {"type": "string", "minLength": 1},
             "count": {"type": "integer", "minimum": 0, "maximum": 10000, "multipleOf": 1},
             "displayName": {"type": "string", "maxLength": 128},
+            "ratio": {
+              "type": "number",
+              "enum": [1.25, 2.5, 3.75],
+              "minimum": 0,
+              "exclusiveMaximum": 10,
+              "multipleOf": 0.25
+            },
             "tags": {
               "type": "array",
               "items": {"type": "string", "minLength": 1},
@@ -642,6 +719,7 @@ public final class PerformanceEvidence {
           "patternProperties": {
             "^x-": {"type": "boolean"}
           },
+          "propertyNames": {"pattern": "^[A-Za-z0-9_-]+$"},
           "required": ["id", "count", "tags"],
           "additionalProperties": {"type": "string"}
         }
@@ -649,7 +727,11 @@ public final class PerformanceEvidence {
   }
 
   private static String generatedHarnessSource(
-      String smallJson, String mediumJson, String richJson) {
+      String smallJson,
+      String mediumJson,
+      String richJson,
+      String regexHeavyJson,
+      String numericHeavyJson) {
     return """
         package __PACKAGE_NAME__;
 
@@ -661,6 +743,8 @@ public final class PerformanceEvidence {
           private static final String SMALL_JSON = __SMALL_JSON__;
           private static final String MEDIUM_JSON = __MEDIUM_JSON__;
           private static final String RICH_JSON = __RICH_JSON__;
+          private static final String REGEX_HEAVY_JSON = __REGEX_HEAVY_JSON__;
+          private static final String NUMERIC_HEAVY_JSON = __NUMERIC_HEAVY_JSON__;
 
           private GeneratedBindingEvidence() {}
 
@@ -674,6 +758,62 @@ public final class PerformanceEvidence {
 
           public static long readValidateWriteRich(int iterations) throws Exception {
             return readValidateWrite(RICH_JSON, iterations);
+          }
+
+          public static long readOnlyRich(int iterations) throws Exception {
+            long checksum = 0L;
+            for (int index = 0; index < iterations; index++) {
+              PerformanceBinding value =
+                  PerformanceBindingJsonReader.read(new JsonStreamReader(RICH_JSON));
+              checksum += value.id().length();
+              checksum += value.count();
+              checksum += value.tags().size();
+              checksum += value.scores().map(java.util.List::size).orElse(0);
+            }
+            return checksum;
+          }
+
+          public static long validateOnlyRich(int iterations) throws Exception {
+            return validateOnly(RICH_JSON, iterations);
+          }
+
+          public static long writeOnlyRich(int iterations) throws Exception {
+            PerformanceBinding value =
+                PerformanceBindingJsonReader.read(new JsonStreamReader(RICH_JSON));
+            long checksum = 0L;
+            for (int index = 0; index < iterations; index++) {
+              JsonStringWriter writer = new JsonStringWriter();
+              PerformanceBindingJsonWriter.write(writer, value);
+              checksum += writer.json().length();
+              checksum += value.id().length();
+            }
+            return checksum;
+          }
+
+          public static long readValidateWriteRegexHeavy(int iterations) throws Exception {
+            return readValidateWrite(REGEX_HEAVY_JSON, iterations);
+          }
+
+          public static long validateOnlyNumericHeavy(int iterations) throws Exception {
+            return validateOnly(NUMERIC_HEAVY_JSON, iterations);
+          }
+
+          private static long validateOnly(String json, int iterations) throws Exception {
+            PerformanceBinding value =
+                PerformanceBindingJsonReader.read(new JsonStreamReader(json));
+            long checksum = 0L;
+            for (int index = 0; index < iterations; index++) {
+              ValidationResult result = PerformanceBindingJsonValidator.validate(value);
+              if (!result.isValid()) {
+                throw new AssertionError("expected valid generated binding: " + result.errors());
+              }
+              checksum += value.id().length();
+              checksum += value.count();
+              checksum += value.tags().size();
+              checksum += value.scores().map(java.util.List::size).orElse(0);
+              checksum += result.errors().size();
+            }
+            return checksum;
           }
 
           private static long readValidateWrite(String json, int iterations) throws Exception {
@@ -700,7 +840,9 @@ public final class PerformanceEvidence {
         .replace("__PACKAGE_NAME__", GENERATED_PACKAGE)
         .replace("__SMALL_JSON__", javaStringLiteral(smallJson))
         .replace("__MEDIUM_JSON__", javaStringLiteral(mediumJson))
-        .replace("__RICH_JSON__", javaStringLiteral(richJson));
+        .replace("__RICH_JSON__", javaStringLiteral(richJson))
+        .replace("__REGEX_HEAVY_JSON__", javaStringLiteral(regexHeavyJson))
+        .replace("__NUMERIC_HEAVY_JSON__", javaStringLiteral(numericHeavyJson));
   }
 
   private static String javaStringLiteral(String value) {
