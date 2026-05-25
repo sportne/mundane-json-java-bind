@@ -1,5 +1,10 @@
 package io.github.mundanej.mjjb.generator.core.internal.emitter;
 
+import static io.github.mundanej.mjjb.generator.core.internal.emitter.BindingTraversal.allFields;
+import static io.github.mundanej.mjjb.generator.core.internal.emitter.BindingTraversal.allMaps;
+import static io.github.mundanej.mjjb.generator.core.internal.emitter.BindingTraversal.allObjects;
+import static io.github.mundanej.mjjb.generator.core.internal.emitter.BindingTraversal.nestedObjects;
+
 import io.github.mundanej.mjjb.generator.core.internal.binding.BindingModel;
 import io.github.mundanej.mjjb.generator.core.internal.binding.DependentRequired;
 import io.github.mundanej.mjjb.generator.core.internal.binding.FacetConstraints;
@@ -1567,116 +1572,6 @@ public final class ValidatorSourceEmitter {
                     map.array()
                         && map.valueType().uniqueItems()
                         && map.scalarType() == JavaScalarType.NUMBER);
-  }
-
-  private static List<FieldBinding> allFields(BindingModel model) {
-    ArrayList<FieldBinding> fields = new ArrayList<>();
-    if (model.taggedUnion().isEmpty()) {
-      collectFields(model.rootObject(), fields);
-      return List.copyOf(fields);
-    }
-    for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
-      collectFields(branch.object(), fields);
-    }
-    return List.copyOf(fields);
-  }
-
-  private static List<MapBinding> allMaps(BindingModel model) {
-    ArrayList<MapBinding> maps = new ArrayList<>();
-    if (model.taggedUnion().isEmpty()) {
-      collectMaps(model.rootObject(), maps);
-      return List.copyOf(maps);
-    }
-    for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
-      collectMaps(branch.object(), maps);
-    }
-    return List.copyOf(maps);
-  }
-
-  private static void collectMaps(ObjectBinding object, List<MapBinding> maps) {
-    object.patternProperties().ifPresent(maps::add);
-    object.additionalProperties().ifPresent(maps::add);
-    for (FieldBinding field : object.fields()) {
-      field.valueType().objectBinding().ifPresent(nested -> collectMaps(nested, maps));
-    }
-    object
-        .patternProperties()
-        .flatMap(map -> map.valueType().objectBinding())
-        .ifPresent(nested -> collectMaps(nested, maps));
-    object
-        .additionalProperties()
-        .flatMap(map -> map.valueType().objectBinding())
-        .ifPresent(nested -> collectMaps(nested, maps));
-  }
-
-  private static void collectFields(ObjectBinding object, List<FieldBinding> fields) {
-    for (FieldBinding field : object.fields()) {
-      fields.add(field);
-      field.valueType().objectBinding().ifPresent(nested -> collectFields(nested, fields));
-    }
-    object
-        .patternProperties()
-        .flatMap(map -> map.valueType().objectBinding())
-        .ifPresent(nested -> collectFields(nested, fields));
-    object
-        .additionalProperties()
-        .flatMap(map -> map.valueType().objectBinding())
-        .ifPresent(nested -> collectFields(nested, fields));
-  }
-
-  private static List<ObjectBinding> nestedObjects(BindingModel model) {
-    ArrayList<ObjectBinding> objects = new ArrayList<>();
-    if (model.taggedUnion().isEmpty()) {
-      collectNestedObjects(model.rootObject(), objects);
-    } else {
-      for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
-        collectNestedObjects(branch.object(), objects);
-      }
-    }
-    return List.copyOf(objects);
-  }
-
-  private static List<ObjectBinding> allObjects(BindingModel model) {
-    ArrayList<ObjectBinding> objects = new ArrayList<>();
-    if (model.taggedUnion().isEmpty()) {
-      objects.add(model.rootObject());
-      collectNestedObjects(model.rootObject(), objects);
-    } else {
-      for (TaggedUnionBranch branch : model.taggedUnion().orElseThrow().branches()) {
-        objects.add(branch.object());
-        collectNestedObjects(branch.object(), objects);
-      }
-    }
-    return List.copyOf(objects);
-  }
-
-  private static void collectNestedObjects(ObjectBinding object, List<ObjectBinding> objects) {
-    for (FieldBinding field : object.fields()) {
-      field
-          .valueType()
-          .objectBinding()
-          .ifPresent(
-              nested -> {
-                objects.add(nested);
-                collectNestedObjects(nested, objects);
-              });
-    }
-    object
-        .patternProperties()
-        .flatMap(map -> map.valueType().objectBinding())
-        .ifPresent(
-            nested -> {
-              objects.add(nested);
-              collectNestedObjects(nested, objects);
-            });
-    object
-        .additionalProperties()
-        .flatMap(map -> map.valueType().objectBinding())
-        .ifPresent(
-            nested -> {
-              objects.add(nested);
-              collectNestedObjects(nested, objects);
-            });
   }
 
   private static List<String> validateMinLengthHelper() {
