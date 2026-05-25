@@ -34,6 +34,7 @@ The project is complete when it can:
 | Post-v1 profile expansion | `TASK-0030` to `TASK-0036` | Recommended JSON Schema features are added in usefulness/commonness order without changing the no-reflection generated-binding model. |
 | Post-v1 hardening and simplification | `TASK-0037` to `TASK-0042` | The expanded profile has documented simplification opportunities, current performance evidence, mined external-risk probes, fresh corpus evidence, generated-code ergonomics review, and an explicit numeric semantics decision. |
 | Generator simplification implementation | `TASK-0043` to `TASK-0049` | Behavior-preserving generator tests and refactors reduce repeated traversal, source text, naming, literal-reading, object-flattening, and fixture boilerplate. |
+| Performance and simplicity follow-up | `TASK-0050` to `TASK-0055` | Focused evidence and low-risk generated/runtime optimizations reduce avoidable regex, numeric, parser, and validator-selection costs without changing public contracts. |
 
 ## Task Order
 
@@ -89,6 +90,12 @@ The project is complete when it can:
 | [TASK-0047](roadmap/tasks/TASK-0047-schema-literal-annotation-reader.md) | Schema literal and annotation reader | Generator simplification implementation |
 | [TASK-0048](roadmap/tasks/TASK-0048-object-shape-flattener.md) | Object shape flattener | Generator simplification implementation |
 | [TASK-0049](roadmap/tasks/TASK-0049-generator-test-fixture-cleanup.md) | Generator test fixture cleanup | Generator simplification implementation |
+| [TASK-0050](roadmap/tasks/TASK-0050-focused-performance-evidence.md) | Focused performance evidence | Performance and simplicity follow-up |
+| [TASK-0051](roadmap/tasks/TASK-0051-generated-pattern-constants.md) | Generated pattern constants | Performance and simplicity follow-up |
+| [TASK-0052](roadmap/tasks/TASK-0052-generated-numeric-literal-constants.md) | Generated numeric literal constants | Performance and simplicity follow-up |
+| [TASK-0053](roadmap/tasks/TASK-0053-validator-feature-set-helper.md) | Validator feature set helper | Performance and simplicity follow-up |
+| [TASK-0054](roadmap/tasks/TASK-0054-jsonstreamreader-chunked-fill.md) | JsonStreamReader chunked fill | Performance and simplicity follow-up |
+| [TASK-0055](roadmap/tasks/TASK-0055-validator-plan-decision-audit.md) | Validator plan decision audit | Performance and simplicity follow-up |
 
 ## Policy
 
