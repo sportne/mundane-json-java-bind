@@ -1,7 +1,7 @@
 # TASK-0041: Generated-Code Ergonomics Review
 
 Task ID: `TASK-0041`
-Status: `ready-for-implementation`
+Status: `complete`
 Gate: Post-v1 hardening and simplification
 Depends on: `TASK-0040`
 Specification references: `docs/architecture/generated-code-contract.md`; `README.md`; examples under `examples/**`
