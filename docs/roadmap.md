@@ -33,6 +33,7 @@ The project is complete when it can:
 | Completion hardening | `TASK-0022` to `TASK-0029` | Conformance allowlists, architecture rules, Native Image smoke tests, external corpus evidence, evidence docs, and release checks pass. |
 | Post-v1 profile expansion | `TASK-0030` to `TASK-0036` | Recommended JSON Schema features are added in usefulness/commonness order without changing the no-reflection generated-binding model. |
 | Post-v1 hardening and simplification | `TASK-0037` to `TASK-0042` | The expanded profile has documented simplification opportunities, current performance evidence, mined external-risk probes, fresh corpus evidence, generated-code ergonomics review, and an explicit numeric semantics decision. |
+| Generator simplification implementation | `TASK-0043` to `TASK-0049` | Behavior-preserving generator tests and refactors reduce repeated traversal, source text, naming, literal-reading, object-flattening, and fixture boilerplate. |
 
 ## Task Order
 
@@ -81,6 +82,13 @@ The project is complete when it can:
 | [TASK-0040](roadmap/tasks/TASK-0040-schemastore-evidence-freshness.md) | SchemaStore evidence freshness | Post-v1 hardening and simplification |
 | [TASK-0041](roadmap/tasks/TASK-0041-generated-code-ergonomics-review.md) | Generated-code ergonomics review | Post-v1 hardening and simplification |
 | [TASK-0042](roadmap/tasks/TASK-0042-numeric-semantics-decision.md) | Numeric semantics decision | Post-v1 hardening and simplification |
+| [TASK-0043](roadmap/tasks/TASK-0043-generator-simplification-safety-net.md) | Generator simplification safety net | Generator simplification implementation |
+| [TASK-0044](roadmap/tasks/TASK-0044-emitter-binding-traversal-helper.md) | Emitter binding traversal helper | Generator simplification implementation |
+| [TASK-0045](roadmap/tasks/TASK-0045-java-source-text-helper.md) | Java source text helper | Generator simplification implementation |
+| [TASK-0046](roadmap/tasks/TASK-0046-java-name-allocation-helper.md) | Java name allocation helper | Generator simplification implementation |
+| [TASK-0047](roadmap/tasks/TASK-0047-schema-literal-annotation-reader.md) | Schema literal and annotation reader | Generator simplification implementation |
+| [TASK-0048](roadmap/tasks/TASK-0048-object-shape-flattener.md) | Object shape flattener | Generator simplification implementation |
+| [TASK-0049](roadmap/tasks/TASK-0049-generator-test-fixture-cleanup.md) | Generator test fixture cleanup | Generator simplification implementation |
 
 ## Policy
 
