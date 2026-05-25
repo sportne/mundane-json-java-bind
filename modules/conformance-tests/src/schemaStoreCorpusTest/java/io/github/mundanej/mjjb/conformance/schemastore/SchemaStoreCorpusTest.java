@@ -120,6 +120,9 @@ final class SchemaStoreCorpusTest {
               + "See "
               + reportDirectory.resolve("schemastore-corpus-results.md"));
     }
+    if (!refreshMode) {
+      assertDocumentationAggregateMatches(results);
+    }
   }
 
   private static CorpusResult runEntry(int index, ManifestEntry entry, Path workspace)
@@ -549,16 +552,19 @@ final class SchemaStoreCorpusTest {
   }
 
   private static String markdownReport(List<CorpusResult> results) {
-    long generated =
-        results.stream().filter(result -> result.actual() == ActualOutcome.GENERATED).count();
-    long rejected = results.size() - generated;
-    long failures = results.stream().filter(result -> !result.accepted(false)).count();
+    AggregateCounts counts = aggregateCounts(results);
     StringBuilder builder = new StringBuilder();
     builder.append("# SchemaStore Corpus Results\n\n");
-    builder.append("- Total schemas: ").append(results.size()).append('\n');
-    builder.append("- Generated and round-tripped: ").append(generated).append('\n');
-    builder.append("- Expected rejections: ").append(rejected).append('\n');
-    builder.append("- Failures without refresh mode: ").append(failures).append("\n\n");
+    builder.append("| Result | Count |\n");
+    builder.append("|---|---:|\n");
+    appendAggregateRow(builder, "Total manifest entries", counts.totalManifestEntries());
+    appendAggregateRow(builder, "Generated, compiled, and round-tripped", counts.generated());
+    appendAggregateRow(builder, "Expected profile rejections", counts.expectedProfileRejections());
+    appendAggregateRow(
+        builder, "Expected generator rejections", counts.expectedGeneratorRejections());
+    appendAggregateRow(builder, "Digest drift failures", counts.digestDriftFailures());
+    appendAggregateRow(builder, "Unexpected failures", counts.unexpectedFailures());
+    builder.append('\n');
     builder.append("| Name | Expected | Actual | Diagnostic |\n");
     builder.append("|---|---|---|---|\n");
     for (CorpusResult result : results) {
@@ -574,6 +580,10 @@ final class SchemaStoreCorpusTest {
           .append(" |\n");
     }
     return builder.toString();
+  }
+
+  private static void appendAggregateRow(StringBuilder builder, String label, long count) {
+    builder.append("| ").append(label).append(" | ").append(count).append(" |\n");
   }
 
   private static String tsvReport(List<CorpusResult> results) {
@@ -599,6 +609,87 @@ final class SchemaStoreCorpusTest {
           .append('\n');
     }
     return builder.toString();
+  }
+
+  private static AggregateCounts aggregateCounts(List<CorpusResult> results) {
+    long generated =
+        results.stream().filter(result -> result.actual() == ActualOutcome.GENERATED).count();
+    long expectedProfileRejections =
+        results.stream()
+            .filter(result -> result.entry().expectedOutcome() == ExpectedOutcome.REJECTS)
+            .filter(
+                result ->
+                    result.entry().expectedDiagnostic() == ExpectedDiagnostic.PROFILE_DIAGNOSTIC)
+            .count();
+    long expectedGeneratorRejections =
+        results.stream()
+            .filter(result -> result.entry().expectedOutcome() == ExpectedOutcome.REJECTS)
+            .filter(
+                result ->
+                    result.entry().expectedDiagnostic() == ExpectedDiagnostic.GENERATOR_DIAGNOSTIC)
+            .count();
+    long digestDriftFailures =
+        results.stream().filter(result -> result.actual() == ActualOutcome.DIGEST_MISMATCH).count();
+    long unexpectedFailures =
+        results.stream()
+            .filter(result -> !result.accepted(false))
+            .filter(result -> result.actual() != ActualOutcome.DIGEST_MISMATCH)
+            .count();
+    return new AggregateCounts(
+        results.size(),
+        generated,
+        expectedProfileRejections,
+        expectedGeneratorRejections,
+        digestDriftFailures,
+        unexpectedFailures);
+  }
+
+  private static void assertDocumentationAggregateMatches(List<CorpusResult> results)
+      throws IOException {
+    String documentation = Files.readString(corpusDocumentation());
+    AggregateCounts counts = aggregateCounts(results);
+    assertEquals(
+        counts.totalManifestEntries(),
+        documentedAggregateCount(documentation, "Total manifest entries"));
+    assertEquals(
+        counts.generated(),
+        documentedAggregateCount(documentation, "Generated, compiled, and round-tripped"));
+    assertEquals(
+        counts.expectedProfileRejections(),
+        documentedAggregateCount(documentation, "Expected profile rejections"));
+    assertEquals(
+        counts.expectedGeneratorRejections(),
+        documentedAggregateCount(documentation, "Expected generator rejections"));
+    assertEquals(
+        counts.digestDriftFailures(),
+        documentedAggregateCount(documentation, "Digest drift failures"));
+    assertEquals(
+        counts.unexpectedFailures(),
+        documentedAggregateCount(documentation, "Unexpected failures"));
+  }
+
+  private static Path corpusDocumentation() {
+    List<Path> candidates =
+        List.of(
+            Path.of("docs/verification/schemastore-corpus.md"),
+            Path.of("../../docs/verification/schemastore-corpus.md"));
+    return candidates.stream()
+        .filter(Files::exists)
+        .findFirst()
+        .orElseThrow(
+            () -> new IllegalStateException("Missing docs/verification/schemastore-corpus.md"));
+  }
+
+  private static long documentedAggregateCount(String documentation, String label) {
+    String prefix = "| " + label + " |";
+    return documentation
+        .lines()
+        .filter(line -> line.startsWith(prefix))
+        .map(line -> line.split("\\|", -1))
+        .map(parts -> parts[2].trim())
+        .mapToLong(Long::parseLong)
+        .findFirst()
+        .orElseThrow(() -> new IllegalStateException("Missing documented count for " + label));
   }
 
   private static URLClassLoader classLoaderWith(Path classes) throws IOException {
@@ -944,6 +1035,14 @@ final class SchemaStoreCorpusTest {
       Objects.requireNonNull(sha256, "sha256");
     }
   }
+
+  private record AggregateCounts(
+      long totalManifestEntries,
+      long generated,
+      long expectedProfileRejections,
+      long expectedGeneratorRejections,
+      long digestDriftFailures,
+      long unexpectedFailures) {}
 
   private record CorpusResult(
       ManifestEntry entry, ActualOutcome actual, String diagnostic, String actualSha256) {

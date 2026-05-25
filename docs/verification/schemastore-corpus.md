@@ -7,7 +7,7 @@ release-blocking for `1.0.0`, but it is not part of the default build,
 ## Source
 
 - Catalog: <https://www.schemastore.org/api/json/catalog.json>
-- Evidence date: 2026-05-23
+- Evidence date: 2026-05-24
 - Manifest:
   `../../modules/conformance-tests/src/schemaStoreCorpusTest/resources/schemastore-corpus/manifest.tsv`
 
@@ -76,9 +76,9 @@ Aggregate results:
 | Result | Count |
 |---|---:|
 | Total manifest entries | 99 |
-| Generated, compiled, and round-tripped | 78 |
-| Expected profile rejections | 21 |
-| Expected generator rejections | 0 |
+| Generated, compiled, and round-tripped | 77 |
+| Expected profile rejections | 19 |
+| Expected generator rejections | 3 |
 | Digest drift failures | 0 |
 | Unexpected failures | 0 |
 
@@ -89,6 +89,16 @@ modules/conformance-tests/build/reports/schemastore-corpus/schemastore-corpus-re
 ```
 
 The report is build output and is intentionally not committed.
+
+On 2026-05-24, refresh mode identified upstream digest drift for six Renovate
+subschema entries. The selected subschemas still fit the supported profile and
+round-trip successfully, so the committed manifest digests were updated
+explicitly rather than by an automatic rewrite.
+
+The sidecar report emits the same aggregate table as this document. A successful
+non-refresh sidecar run verifies that the committed aggregate counts above match
+the harness output, so the documentation cannot drift silently from the current
+manifest evidence.
 
 ## Broader Catalog Feature Scan
 

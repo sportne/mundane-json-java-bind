@@ -1,7 +1,7 @@
 # TASK-0040: SchemaStore Evidence Freshness
 
 Task ID: `TASK-0040`
-Status: `ready-for-implementation`
+Status: `complete`
 Gate: Post-v1 hardening and simplification
 Depends on: `TASK-0039`
 Specification references: `docs/verification/schemastore-corpus.md`; `docs/supported-profile.md`
