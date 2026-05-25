@@ -5,7 +5,6 @@ import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.ArrayValue;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.BooleanValue;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.Member;
-import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.NullValue;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.NumberValue;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.ObjectValue;
 import io.github.mundanej.mjjb.schema.model.SchemaSyntaxValue.StringValue;
@@ -504,7 +503,8 @@ public final class BindingModelBuilder {
     }
     for (Member property : properties.members()) {
       Member existing = flattened.properties.get(property.name());
-      if (existing != null && !sameJsonValue(existing.value(), property.value())) {
+      if (existing != null
+          && !SchemaLiteralReader.sameJsonValue(existing.value(), property.value())) {
         diagnostics.add(
             unsupportedAllOf(
                 "allOf property '" + property.name() + "' has conflicting schema definitions.",
@@ -565,7 +565,7 @@ public final class BindingModelBuilder {
       String conflictMessage,
       List<BindingDiagnostic> diagnostics) {
     Member existing = members.get(member.name());
-    if (existing != null && !sameJsonValue(existing.value(), member.value())) {
+    if (existing != null && !SchemaLiteralReader.sameJsonValue(existing.value(), member.value())) {
       diagnostics.add(unsupportedAllOf(conflictMessage, member.pointer()));
       return;
     }
@@ -574,7 +574,7 @@ public final class BindingModelBuilder {
 
   private static void validateRootLiteralConstraints(
       ObjectValue rootObject, List<BindingDiagnostic> diagnostics) {
-    Optional<Member> literalConstraint = firstLiteralConstraint(rootObject);
+    Optional<Member> literalConstraint = SchemaLiteralReader.firstLiteralConstraint(rootObject);
     if (literalConstraint.isPresent()) {
       diagnostics.add(
           unsupportedLiteralConstraint(
@@ -609,7 +609,7 @@ public final class BindingModelBuilder {
     return new RequiredNames(names, pointers, List.of());
   }
 
-  private static Optional<Member> member(ObjectValue objectValue, String name) {
+  static Optional<Member> member(ObjectValue objectValue, String name) {
     for (Member member : objectValue.members()) {
       if (name.equals(member.name())) {
         return Optional.of(member);
@@ -619,145 +619,7 @@ public final class BindingModelBuilder {
   }
 
   private static SchemaAnnotationsBinding annotations(ObjectValue schema) {
-    return new SchemaAnnotationsBinding(
-        stringAnnotation(schema, "title"),
-        stringAnnotation(schema, "description"),
-        stringAnnotation(schema, "$comment"),
-        examplesJson(schema),
-        booleanAnnotation(schema, "deprecated"),
-        booleanAnnotation(schema, "readOnly"),
-        booleanAnnotation(schema, "writeOnly"),
-        member(schema, "default").map(member -> compactJson(member.value())));
-  }
-
-  private static Optional<String> stringAnnotation(ObjectValue schema, String name) {
-    return member(schema, name)
-        .filter(member -> member.value() instanceof StringValue)
-        .map(member -> ((StringValue) member.value()).value());
-  }
-
-  private static Optional<Boolean> booleanAnnotation(ObjectValue schema, String name) {
-    return member(schema, name)
-        .filter(member -> member.value() instanceof BooleanValue)
-        .map(member -> ((BooleanValue) member.value()).value());
-  }
-
-  private static List<String> examplesJson(ObjectValue schema) {
-    Optional<Member> examples = member(schema, "examples");
-    if (examples.isEmpty() || !(examples.get().value() instanceof ArrayValue arrayValue)) {
-      return List.of();
-    }
-    return arrayValue.items().stream().map(BindingModelBuilder::compactJson).toList();
-  }
-
-  private static String compactJson(SchemaSyntaxValue value) {
-    StringBuilder builder = new StringBuilder();
-    appendCompactJson(builder, value);
-    return builder.toString();
-  }
-
-  private static boolean sameJsonValue(SchemaSyntaxValue left, SchemaSyntaxValue right) {
-    return canonicalJson(left).equals(canonicalJson(right));
-  }
-
-  private static String canonicalJson(SchemaSyntaxValue value) {
-    StringBuilder builder = new StringBuilder();
-    appendCanonicalJson(builder, value);
-    return builder.toString();
-  }
-
-  private static void appendCanonicalJson(StringBuilder builder, SchemaSyntaxValue value) {
-    switch (value) {
-      case ObjectValue objectValue -> {
-        builder.append('{');
-        List<Member> members =
-            objectValue.members().stream()
-                .sorted(
-                    Comparator.comparing(Member::name)
-                        .thenComparing(member -> canonicalJson(member.value())))
-                .toList();
-        for (int index = 0; index < members.size(); index++) {
-          if (index > 0) {
-            builder.append(',');
-          }
-          Member member = members.get(index);
-          appendJsonString(builder, member.name());
-          builder.append(':');
-          appendCanonicalJson(builder, member.value());
-        }
-        builder.append('}');
-      }
-      case ArrayValue arrayValue -> {
-        builder.append('[');
-        for (int index = 0; index < arrayValue.items().size(); index++) {
-          if (index > 0) {
-            builder.append(',');
-          }
-          appendCanonicalJson(builder, arrayValue.items().get(index));
-        }
-        builder.append(']');
-      }
-      case StringValue stringValue -> appendJsonString(builder, stringValue.value());
-      case NumberValue numberValue -> builder.append(numberValue.literal());
-      case BooleanValue booleanValue -> builder.append(booleanValue.value());
-      case NullValue ignored -> builder.append("null");
-    }
-  }
-
-  private static void appendCompactJson(StringBuilder builder, SchemaSyntaxValue value) {
-    switch (value) {
-      case ObjectValue objectValue -> {
-        builder.append('{');
-        for (int index = 0; index < objectValue.members().size(); index++) {
-          if (index > 0) {
-            builder.append(',');
-          }
-          Member member = objectValue.members().get(index);
-          appendJsonString(builder, member.name());
-          builder.append(':');
-          appendCompactJson(builder, member.value());
-        }
-        builder.append('}');
-      }
-      case ArrayValue arrayValue -> {
-        builder.append('[');
-        for (int index = 0; index < arrayValue.items().size(); index++) {
-          if (index > 0) {
-            builder.append(',');
-          }
-          appendCompactJson(builder, arrayValue.items().get(index));
-        }
-        builder.append(']');
-      }
-      case StringValue stringValue -> appendJsonString(builder, stringValue.value());
-      case NumberValue numberValue -> builder.append(numberValue.literal());
-      case BooleanValue booleanValue -> builder.append(booleanValue.value());
-      case NullValue ignored -> builder.append("null");
-    }
-  }
-
-  private static void appendJsonString(StringBuilder builder, String value) {
-    builder.append('"');
-    for (int index = 0; index < value.length(); index++) {
-      char current = value.charAt(index);
-      switch (current) {
-        case '"' -> builder.append("\\\"");
-        case '\\' -> builder.append("\\\\");
-        case '\b' -> builder.append("\\b");
-        case '\f' -> builder.append("\\f");
-        case '\n' -> builder.append("\\n");
-        case '\r' -> builder.append("\\r");
-        case '\t' -> builder.append("\\t");
-        default -> {
-          if (current < 0x20) {
-            builder.append(String.format("\\u%04x", (int) current));
-          } else {
-            builder.append(current);
-          }
-        }
-      }
-    }
-    builder.append('"');
+    return SchemaLiteralReader.annotations(schema);
   }
 
   private static Optional<JavaScalarType> scalarType(SchemaSyntaxValue value) {
@@ -819,7 +681,8 @@ public final class BindingModelBuilder {
     Optional<JavaScalarType> scalarType = scalarType(typeMember.value());
     if (scalarType.isPresent()) {
       Optional<LiteralConstraints> literals =
-          literalConstraints(propertySchema, scalarType.get(), propertyName, diagnostics);
+          SchemaLiteralReader.literalConstraints(
+              propertySchema, scalarType.get(), propertyName, diagnostics);
       return literals.map(
           constraints ->
               FieldValueType.scalar(scalarType.get(), facets(propertySchema), constraints));
@@ -827,7 +690,8 @@ public final class BindingModelBuilder {
     Optional<JavaScalarType> nullableScalarType = nullableScalarType(typeMember.value());
     if (nullableScalarType.isPresent()) {
       Optional<LiteralConstraints> literals =
-          literalConstraints(propertySchema, nullableScalarType.get(), propertyName, diagnostics);
+          SchemaLiteralReader.literalConstraints(
+              propertySchema, nullableScalarType.get(), propertyName, diagnostics);
       return literals.map(
           constraints ->
               FieldValueType.nullableScalar(
@@ -938,17 +802,18 @@ public final class BindingModelBuilder {
               member(propertySchema, "maxItems").orElseThrow().pointer()));
       return Optional.empty();
     }
-    if (hasLiteralConstraint(propertySchema)) {
+    if (SchemaLiteralReader.hasLiteralConstraint(propertySchema)) {
       diagnostics.add(
           unsupportedLiteralConstraint(
               "Array property '"
                   + propertyName
                   + "' does not support array-level enum, const, or default in this binding slice.",
-              firstLiteralConstraint(propertySchema).orElseThrow().pointer()));
+              SchemaLiteralReader.firstLiteralConstraint(propertySchema).orElseThrow().pointer()));
       return Optional.empty();
     }
     Optional<LiteralConstraints> literals =
-        literalConstraints(itemsSchema, itemType.get(), propertyName + "[]", diagnostics);
+        SchemaLiteralReader.literalConstraints(
+            itemsSchema, itemType.get(), propertyName + "[]", diagnostics);
     if (literals.isEmpty()) {
       return Optional.empty();
     }
@@ -1053,152 +918,6 @@ public final class BindingModelBuilder {
       return Optional.empty();
     }
     return Optional.of(numberValue.literal());
-  }
-
-  private static Optional<LiteralConstraints> literalConstraints(
-      ObjectValue schema,
-      JavaScalarType scalarType,
-      String propertyName,
-      List<BindingDiagnostic> diagnostics) {
-    Optional<Member> enumMember = member(schema, "enum");
-    Optional<Member> constMember = member(schema, "const");
-    Optional<Member> defaultMember = member(schema, "default");
-    ArrayList<LiteralValue> enumValues = new ArrayList<>();
-    HashSet<String> enumKeys = new HashSet<>();
-    if (enumMember.isPresent()) {
-      if (!(enumMember.get().value() instanceof ArrayValue arrayValue)) {
-        diagnostics.add(
-            invalidLiteralConstraint(
-                "Property '" + propertyName + "' enum constraint must be an array.",
-                enumMember.get().pointer()));
-        return Optional.empty();
-      }
-      if (arrayValue.items().isEmpty()) {
-        diagnostics.add(
-            invalidLiteralConstraint(
-                "Property '" + propertyName + "' enum constraint must not be empty.",
-                enumMember.get().pointer()));
-        return Optional.empty();
-      }
-      for (SchemaSyntaxValue item : arrayValue.items()) {
-        Optional<LiteralValue> literal =
-            literalValue(item, scalarType, "enum", propertyName, diagnostics);
-        if (literal.isEmpty()) {
-          return Optional.empty();
-        }
-        if (!enumKeys.add(literal.get().normalizedKey())) {
-          diagnostics.add(
-              invalidLiteralConstraint(
-                  "Property '"
-                      + propertyName
-                      + "' enum constraint must contain unique scalar values.",
-                  item.pointer()));
-          return Optional.empty();
-        }
-        enumValues.add(literal.get());
-      }
-    }
-    Optional<LiteralValue> constValue = Optional.empty();
-    if (constMember.isPresent()) {
-      Optional<LiteralValue> literal =
-          literalValue(constMember.get().value(), scalarType, "const", propertyName, diagnostics);
-      if (literal.isEmpty()) {
-        return Optional.empty();
-      }
-      constValue = literal;
-    }
-    Optional<LiteralValue> defaultValue = Optional.empty();
-    if (defaultMember.isPresent()) {
-      Optional<LiteralValue> literal =
-          literalValue(
-              defaultMember.get().value(), scalarType, "default", propertyName, diagnostics);
-      if (literal.isEmpty()) {
-        return Optional.empty();
-      }
-      defaultValue = literal;
-    }
-    return Optional.of(new LiteralConstraints(enumValues, constValue, defaultValue));
-  }
-
-  private static Optional<LiteralValue> literalValue(
-      SchemaSyntaxValue value,
-      JavaScalarType scalarType,
-      String keyword,
-      String propertyName,
-      List<BindingDiagnostic> diagnostics) {
-    if (value instanceof NullValue) {
-      return Optional.of(new LiteralValue(LiteralValue.Kind.NULL, ""));
-    }
-    Optional<LiteralValue> literal =
-        switch (scalarType) {
-          case STRING -> stringLiteral(value);
-          case INTEGER -> integerLiteral(value);
-          case NUMBER -> numberLiteral(value);
-          case BOOLEAN -> booleanLiteral(value);
-        };
-    if (literal.isPresent()) {
-      return literal;
-    }
-    diagnostics.add(
-        unsupportedLiteralConstraint(
-            "Property '"
-                + propertyName
-                + "' "
-                + keyword
-                + " constraint must contain only values compatible with "
-                + scalarType.schemaType()
-                + " bindings plus null.",
-            value.pointer()));
-    return Optional.empty();
-  }
-
-  private static Optional<LiteralValue> stringLiteral(SchemaSyntaxValue value) {
-    if (value instanceof StringValue stringValue) {
-      return Optional.of(new LiteralValue(LiteralValue.Kind.STRING, stringValue.value()));
-    }
-    return Optional.empty();
-  }
-
-  private static Optional<LiteralValue> integerLiteral(SchemaSyntaxValue value) {
-    if (!(value instanceof NumberValue numberValue)) {
-      return Optional.empty();
-    }
-    try {
-      return Optional.of(
-          new LiteralValue(
-              LiteralValue.Kind.INTEGER, Long.toString(Long.parseLong(numberValue.literal()))));
-    } catch (NumberFormatException exception) {
-      return Optional.empty();
-    }
-  }
-
-  private static Optional<LiteralValue> numberLiteral(SchemaSyntaxValue value) {
-    if (value instanceof NumberValue numberValue) {
-      return Optional.of(new LiteralValue(LiteralValue.Kind.NUMBER, numberValue.literal()));
-    }
-    return Optional.empty();
-  }
-
-  private static Optional<LiteralValue> booleanLiteral(SchemaSyntaxValue value) {
-    if (value instanceof BooleanValue booleanValue) {
-      return Optional.of(
-          new LiteralValue(LiteralValue.Kind.BOOLEAN, Boolean.toString(booleanValue.value())));
-    }
-    return Optional.empty();
-  }
-
-  private static boolean hasLiteralConstraint(ObjectValue schema) {
-    return firstLiteralConstraint(schema).isPresent();
-  }
-
-  private static Optional<Member> firstLiteralConstraint(ObjectValue schema) {
-    for (String name : List.of("enum", "const")) {
-      Optional<Member> member = member(schema, name);
-      if (member.isPresent()) {
-        return member;
-      }
-    }
-    return Optional.empty();
   }
 
   private static Optional<TagProperty> tagProperty(
@@ -1311,13 +1030,12 @@ public final class BindingModelBuilder {
     return new BindingDiagnostic(BindingDiagnostic.INVALID_ARRAY_BOUNDS_CODE, message, pointer);
   }
 
-  private static BindingDiagnostic unsupportedLiteralConstraint(
-      String message, JsonPointer pointer) {
+  static BindingDiagnostic unsupportedLiteralConstraint(String message, JsonPointer pointer) {
     return new BindingDiagnostic(
         BindingDiagnostic.UNSUPPORTED_LITERAL_CONSTRAINT_CODE, message, pointer);
   }
 
-  private static BindingDiagnostic invalidLiteralConstraint(String message, JsonPointer pointer) {
+  static BindingDiagnostic invalidLiteralConstraint(String message, JsonPointer pointer) {
     return new BindingDiagnostic(
         BindingDiagnostic.INVALID_LITERAL_CONSTRAINT_CODE, message, pointer);
   }
