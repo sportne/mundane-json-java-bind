@@ -53,6 +53,13 @@ states with `JsonField<T>`:
 | `["null", "boolean"]` | `JsonField<Boolean>` | `JsonField<Boolean>` |
 | `["null", "array"]` with scalar `items` | `JsonField<List<T>>` | `JsonField<List<T>>` |
 
+Numeric bindings follow
+[`ADR-0003`](../adr/ADR-0003-current-profile-number-bindings.md):
+`integer` maps to Java `long`, while `number` maps to finite Java `double`.
+Generated validators compare schema numeric literals with generated Java values
+using `BigDecimal`, but arbitrary JSON decimal precision and lexical numeric
+form are not preserved by the current `number` binding.
+
 Closed object properties map to nested records owned by the root generated
 type:
 
@@ -217,7 +224,8 @@ and `endArray`. Optional array fields are skipped when absent.
 `number` fields use `Double.toString` after an explicit `Double.isFinite` check.
 `number` array items use the same finite check before writing. `integer` fields
 and integer array items use `Long.toString`. Semantic numeric constraints remain
-validator responsibility.
+validator responsibility, and writers do not preserve the original lexical form
+of a parsed JSON number.
 
 ## Basic Object Reader Shape
 
@@ -260,8 +268,9 @@ instance path, such as `$.profile.address.city`.
 
 `integer` fields parse JSON number literals as Java `long` values and reject
 decimal, exponent, and out-of-range literals. `number` fields parse Java
-`double` values and reject non-finite results. Semantic numeric constraints
-remain validator responsibility.
+`double` values and reject non-finite results. This is the profile's numeric
+binding boundary: semantic numeric constraints remain validator responsibility,
+but arbitrary-precision decimal values are not retained after reading.
 
 Array fields are streamed with `beginArray`, `hasNext`, scalar item reads, and
 `endArray`; generated readers do not construct generic JSON value graphs. Array

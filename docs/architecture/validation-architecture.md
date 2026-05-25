@@ -66,14 +66,22 @@ Generated validators enforce scalar facets on scalar fields and homogeneous
 array items. Facet failures use the field path for scalar fields and indexed
 item paths for array items.
 
+Numeric validation follows
+[`ADR-0003`](../adr/ADR-0003-current-profile-number-bindings.md). Schema
+numeric literals are preserved as strings during generation and compared with
+generated Java model values through `BigDecimal`. For `number`, the compared
+model value is the finite Java `double` already present in the generated model;
+validators do not recover arbitrary JSON decimal precision lost during reader
+parsing or direct Java construction.
+
 | Keyword | Applies to | Code | Notes |
 |---|---|---|---|
 | `minLength` | `string` | `MJJBV-007` | Counts Unicode code points. |
 | `maxLength` | `string` | `MJJBV-008` | Counts Unicode code points. |
 | `pattern` | `string` | `MJJBV-009` | Uses deterministic generated `Pattern` checks and JSON Schema search semantics. |
 | `format` | `string` | `MJJBV-010` | Supports only `date`, `date-time`, and `uuid`. |
-| `minimum` | `integer`, `number` | `MJJBV-011` | Compares generated model values against exact schema literals with `BigDecimal`. |
-| `maximum` | `integer`, `number` | `MJJBV-012` | Compares generated model values against exact schema literals with `BigDecimal`. |
+| `minimum` | `integer`, `number` | `MJJBV-011` | Compares generated model values against schema numeric literals with `BigDecimal`. |
+| `maximum` | `integer`, `number` | `MJJBV-012` | Compares generated model values against schema numeric literals with `BigDecimal`. |
 | `exclusiveMinimum` | `integer`, `number` | `MJJBV-013` | Requires model value greater than the schema literal. |
 | `exclusiveMaximum` | `integer`, `number` | `MJJBV-014` | Requires model value less than the schema literal. |
 | `multipleOf` | `integer`, `number` | `MJJBV-021` | Uses `BigDecimal` remainder checks over generated Java numeric values. |

@@ -1,7 +1,7 @@
 # TASK-0042: Numeric Semantics Decision
 
 Task ID: `TASK-0042`
-Status: `ready-for-implementation`
+Status: `complete`
 Gate: Post-v1 hardening and simplification
 Depends on: `TASK-0041`
 Specification references: JSON Schema Draft 2020-12 numeric validation semantics; `docs/standards-baseline.md`; `docs/architecture/validation-architecture.md`

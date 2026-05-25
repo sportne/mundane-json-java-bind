@@ -33,7 +33,7 @@ Supported object fields are:
 | optional `string` | `Optional<String>` |
 | required `integer` | `long` |
 | optional `integer` | `Optional<Long>` |
-| required `number` | `double` |
+| required `number` | finite Java `double` |
 | optional `number` | `Optional<Double>` |
 | required `boolean` | `boolean` |
 | optional `boolean` | `Optional<Boolean>` |
@@ -94,9 +94,13 @@ supported `format` values) over present declared names and generated map keys.
 `dependentRequired` validates generated property presence and reports missing
 dependent names at their property paths.
 
-`multipleOf` uses decimal arithmetic over generated integer values and finite
-generated `double` number values. The profile does not preserve arbitrary JSON
-decimal precision beyond the generated Java `double` representation.
+Numeric semantics follow
+[`ADR-0003`](adr/ADR-0003-current-profile-number-bindings.md). `integer`
+bindings retain Java `long` precision. `number` bindings use finite Java
+`double` values; readers, writers, and validators do not preserve arbitrary
+JSON decimal precision or numeric lexical form. `multipleOf` uses decimal
+arithmetic over generated integer values and finite generated `double` number
+values.
 `uniqueItems` is supported for homogeneous scalar arrays and uses JSON Schema
 scalar equality, including normalized decimal equality for finite generated
 `number` arrays.
@@ -195,10 +199,10 @@ as `/properties/value/allOf`.
 | `maxLength` | Validation | Supported | Generated validators enforce string upper bounds by Unicode code point count. |
 | `pattern` | Validation | Supported with profile limits | Java `Pattern` is compiled during generation and checked with JSON Schema search semantics. |
 | `format` | Validation | Supported with profile limits | Only `date`, `date-time`, and `uuid` assertions are supported. |
-| `minimum` | Validation | Supported | Generated validators compare numeric values against exact schema literals. |
-| `maximum` | Validation | Supported | Generated validators compare numeric values against exact schema literals. |
-| `exclusiveMinimum` | Validation | Supported | Generated validators compare numeric values against exact schema literals. |
-| `exclusiveMaximum` | Validation | Supported | Generated validators compare numeric values against exact schema literals. |
+| `minimum` | Validation | Supported | Generated validators compare generated numeric values against schema literals. |
+| `maximum` | Validation | Supported | Generated validators compare generated numeric values against schema literals. |
+| `exclusiveMinimum` | Validation | Supported | Generated validators compare generated numeric values against schema literals. |
+| `exclusiveMaximum` | Validation | Supported | Generated validators compare generated numeric values against schema literals. |
 | `multipleOf` | Validation | Supported with profile limits | Generated validators enforce divisibility for numeric scalar fields, numeric map values, and homogeneous numeric array items over generated Java numeric values. |
 | `uniqueItems` | Validation | Supported with profile limits | Generated validators enforce uniqueness for homogeneous scalar arrays. |
 | `maxContains` | Validation | Deferred - poor tradeoff | Depends on deferred `contains` support. |
@@ -281,6 +285,10 @@ the original JSON property names.
 Generated writers emit deterministic schema property order, skip absent
 optional fields, write explicit nullable nulls, and validate JSON number
 syntax before writing numeric literals.
+
+Numeric output follows the generated Java value rather than the original JSON
+lexical form: `integer` values write with `Long.toString`, and finite `number`
+values write with `Double.toString`.
 
 Generated validators operate on generated model instances and return
 `ValidationResult` values. Validation failures use stable `MJJBV-*` codes and

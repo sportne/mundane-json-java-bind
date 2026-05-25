@@ -45,8 +45,9 @@ Nested object property bindings are supported as a profile shape rather than a
 new keyword: object-valued properties use the existing `type`, `properties`,
 `required`, and `additionalProperties` keywords with closed-object semantics.
 Object-valued `additionalProperties` and one-entry `patternProperties` are
-supported when their value schema maps to a deterministic `Map<String, T>` value type; `additionalProperties: true`
-remains outside the profile because it implies generic JSON value binding.
+supported when their value schema maps to a deterministic `Map<String, T>`
+value type; `additionalProperties: true` remains outside the profile because
+it implies generic JSON value binding.
 
 Object validation keywords are generated validators only. `minProperties` and
 `maxProperties` use generated property-presence semantics, `propertyNames`
@@ -68,8 +69,10 @@ outside the profile.
 `multipleOf` is supported for generated numeric scalar fields and homogeneous
 numeric array items over generated Java numeric values. Integer bindings retain
 integral precision; `number` bindings use finite Java `double` values and do
-not preserve arbitrary JSON decimal precision. `uniqueItems` is supported for
-homogeneous scalar arrays.
+not preserve arbitrary JSON decimal precision or numeric lexical form. This
+numeric binding decision is recorded in
+[`ADR-0003`](adr/ADR-0003-current-profile-number-bindings.md). `uniqueItems` is
+supported for homogeneous scalar arrays.
 
 Supported `format` assertions are limited to `date`, `date-time`, and `uuid`.
 Other known format values are rejected by the schema profile until deliberately
@@ -89,7 +92,7 @@ generated root-object binding shape instead of interpreted dynamically; see
 
 | Supported category | Representative upstream fixture files | TASK-0022 coverage | Skip policy |
 |---|---|---|---|
-| Scalar `type` | `tests/draft2020-12/type.json` | String and boolean valid/invalid cases projected through a `value` property. | Root scalar schemas and broader integer equivalence are skipped as `ROOT_NON_OBJECT_BINDING` or `NUMERIC_SEMANTICS_DEFERRED`. |
+| Scalar `type` | `tests/draft2020-12/type.json` | String and boolean valid/invalid cases projected through a `value` property. | Root scalar schemas and broader numeric equivalence are skipped as `ROOT_NON_OBJECT_BINDING` or `NUMERIC_SEMANTICS_DEFERRED`. |
 | String length | `tests/draft2020-12/minLength.json`, `tests/draft2020-12/maxLength.json` | Boundary success and failure cases for generated string validators. | Non-string applicability cases remain outside the generated binding projection. |
 | Numeric bounds | `tests/draft2020-12/minimum.json`, `maximum.json`, `exclusiveMinimum.json`, `exclusiveMaximum.json` | Boundary success and failure cases for generated `number` validators. | Broader numeric equivalence and unsupported numeric keywords stay deferred. |
 | Numeric divisibility | `tests/draft2020-12/multipleOf.json` | Integer and number success/failure cases for generated validators. | Broader numeric equivalence outside generated numeric shapes remains skipped. |
