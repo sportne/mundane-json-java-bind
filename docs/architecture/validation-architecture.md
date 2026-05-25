@@ -23,6 +23,23 @@ fail-fast mode. Both modes use `ValidationErrors`; generated code must stop
 after the first failed `add` call in fail-fast mode and return all accumulated
 errors in accumulate mode.
 
+## Source Generation Shape
+
+Validator source generation intentionally remains direct Java emission rather
+than a separate validation-plan intermediate representation. `ValidatorFeatureSet`
+owns helper and import selection, while the validator emitter owns the Java
+source shape for field, array, map, nested object, object keyword, literal, and
+tagged-branch validation.
+
+This is an explicit simplicity decision. The current validation feature set does
+not yet have enough repeated cross-cutting rule generation to justify a new
+internal rule model. A future validator-plan module should be reconsidered only
+when new validation support would otherwise duplicate the same rule decisions
+across scalar fields, array items, map values, nested objects, and tagged
+branches. If introduced later, it must preserve generated-source behavior,
+diagnostic codes, instance paths, schema locations, and the no-runtime-schema
+interpretation boundary.
+
 Array validators enforce collection constraints on generated model lists.
 `minItems` and `maxItems` failures are reported at the array field path with
 stable generated-validator codes `MJJBV-005` and `MJJBV-006`. Validation that

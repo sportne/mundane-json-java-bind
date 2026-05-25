@@ -151,14 +151,40 @@ fields, nullable fields, arrays, and maps each need variants of string,
 numeric, and literal validation logic.
 
 Recommended simplification: do not start with a large rewrite. First remove
-shared traversal and source-text duplication. Then consider a validation-plan
-module that lowers `BindingModel` into rule descriptions such as "string facet
-on field", "numeric facet on array item", and "object property count". The
-emitter would then only render rules.
+shared traversal, source-text duplication, repeated helper/import selection, and
+hot-path literal construction. Then reassess whether a validation-plan module
+would hide enough real branching complexity to justify a new internal model.
 
 Risk: high. This is where a shallow abstraction would be worse than the current
 long file. Any validation-plan module must hide real branching complexity and
 must be tested through generated-source behavior.
+
+### Validator-Plan Decision After Follow-Up Work
+
+Decision: defer a validator-plan module for now. Do not create implementation
+tasks for it until a future validation feature creates repeated cross-cutting
+rules that cannot stay local to `ValidatorSourceEmitter`, `ValidatorFeatureSet`,
+`BindingTraversal`, `PatternConstantSet`, and `BigDecimalConstantSet`.
+
+The follow-up simplification and performance work changed the tradeoff:
+
+| Evidence | Effect on the decision |
+|---|---|
+| Shared binding traversal is no longer duplicated in each emitter. | A future validation feature can find fields, maps, nested objects, and tagged branches through one helper instead of learning each emitter's recursive walk. |
+| Generated regex and numeric schema literals are now emitted as static constants. | The highest-leverage validator performance fixes landed without adding a validation-rule IR. |
+| Helper and import selection moved to `ValidatorFeatureSet`. | The feature-detection logic now has a small, tested home outside the source renderer. |
+| `ValidatorSourceEmitter` still owns rule rendering. | The remaining complexity is mostly source-shape-specific Java emission; extracting it into an intermediate plan today would risk becoming a one-to-one mirror of existing methods. |
+
+The current design therefore keeps simplicity better by preserving direct
+emission. The next acceptable trigger for a validator-plan task is not file
+length by itself; it is repeated validation behavior that crosses scalar fields,
+array items, map values, nested objects, and tagged branches in a way that cannot
+be factored behind the existing helpers without duplicating condition logic.
+
+If that trigger appears, the future design should be explicit and narrow: lower
+only validation rules, preserve the existing generated Java output by golden
+tests, keep diagnostics and schema locations stable, and avoid runtime schema
+interpretation.
 
 ### 5. Core Generator Tests Are Doing Repetitive Fixture Work
 
@@ -196,7 +222,7 @@ done mechanically.
 | 3 | Split `BindingModelBuilder` naming into a `JavaNameAllocator`. | Naming is self-contained and currently far from the schema-shape code that calls it. |
 | 4 | Split `BindingModelBuilder` literal/annotation reading. | Canonical JSON and literal extraction are coherent and independently testable. |
 | 5 | Evaluate an `ObjectShapeFlattener` module for constrained `allOf`. | Good locality gain, but higher diagnostic-location risk. |
-| 6 | Only after the above, design a validator-plan module. | Highest potential payoff, highest risk of creating a shallow abstraction. |
+| 6 | Defer a validator-plan module until repeated cross-cutting validation rules justify a real planning layer. | Highest potential payoff, highest risk of creating a shallow abstraction; current helper extractions lowered the immediate need. |
 | 7 | Reduce `CoreGeneratorTest` fixture repetition. | Useful after emitter behavior is stable, but less urgent than production generator locality. |
 
 ## Non-Recommendations
@@ -220,4 +246,5 @@ These should be created only after the maintainer chooses to proceed:
 - Extract Java name allocation from `BindingModelBuilder`.
 - Extract literal and annotation reading from `BindingModelBuilder`.
 - Evaluate constrained `allOf` flattening as a dedicated internal module.
-- Design a validator-plan module after smaller simplifications land.
+- Reassess a validator-plan module only after future validation growth creates
+  repeated cross-cutting rule generation that the current helpers cannot absorb.
