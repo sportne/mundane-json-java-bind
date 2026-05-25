@@ -15,7 +15,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -26,60 +25,6 @@ import java.util.regex.PatternSyntaxException;
 
 /** Builds the first-slice binding IR from profile-validated schema syntax. */
 public final class BindingModelBuilder {
-  private static final Set<String> JAVA_KEYWORDS =
-      Set.of(
-          "abstract",
-          "assert",
-          "boolean",
-          "break",
-          "byte",
-          "case",
-          "catch",
-          "char",
-          "class",
-          "const",
-          "continue",
-          "default",
-          "do",
-          "double",
-          "else",
-          "enum",
-          "extends",
-          "final",
-          "finally",
-          "float",
-          "for",
-          "goto",
-          "if",
-          "implements",
-          "import",
-          "instanceof",
-          "int",
-          "interface",
-          "long",
-          "native",
-          "new",
-          "package",
-          "private",
-          "protected",
-          "public",
-          "return",
-          "short",
-          "static",
-          "strictfp",
-          "super",
-          "switch",
-          "synchronized",
-          "this",
-          "throw",
-          "throws",
-          "transient",
-          "try",
-          "void",
-          "volatile",
-          "while",
-          "_");
-
   public BindingBuildResult build(SchemaSyntaxValue root, String packageName, String rootTypeName) {
     Objects.requireNonNull(root, "root");
     Objects.requireNonNull(packageName, "packageName");
@@ -200,7 +145,7 @@ public final class BindingModelBuilder {
                 "Tagged oneOf branch tag values must be unique.", tagProperty.get().pointer()));
         continue;
       }
-      String branchTypeName = toJavaTypeName(tagProperty.get().value(), index);
+      String branchTypeName = JavaNameAllocator.branchTypeName(tagProperty.get().value(), index);
       if (!branchTypeNames.add(branchTypeName) || !objectTypeNames.add(branchTypeName)) {
         diagnostics.add(
             nameCollision(
@@ -298,7 +243,8 @@ public final class BindingModelBuilder {
         if (valueType.isEmpty()) {
           continue;
         }
-        String javaFieldName = uniqueJavaFieldName(property.name(), javaNames, property.pointer());
+        String javaFieldName =
+            JavaNameAllocator.uniqueFieldName(property.name(), javaNames, property.pointer());
         fields.add(
             new FieldBinding(
                 property.name(),
@@ -378,7 +324,7 @@ public final class BindingModelBuilder {
       }
       patternProperties.ifPresent(map -> javaNames.put(map.javaFieldName(), map.schemaPointer()));
       String javaFieldName =
-          uniqueJavaFieldName(
+          JavaNameAllocator.uniqueFieldName(
               "additionalProperties", javaNames, additionalProperties.get().pointer());
       return Optional.of(
           MapBinding.additionalProperties(javaFieldName, valueType.get(), value.pointer()));
@@ -447,7 +393,7 @@ public final class BindingModelBuilder {
       javaNames.put(field.javaFieldName(), field.schemaPointer());
     }
     String javaFieldName =
-        uniqueJavaFieldName("patternProperties", javaNames, patternMember.pointer());
+        JavaNameAllocator.uniqueFieldName("patternProperties", javaNames, patternMember.pointer());
     return Optional.of(
         MapBinding.patternProperties(
             javaFieldName, valueType.get(), valueSchema.pointer(), patternMember.name()));
@@ -921,7 +867,8 @@ public final class BindingModelBuilder {
     ObjectValue properties = propertiesObject(bindingSchema);
     RequiredNames requiredNames = requiredNames(bindingSchema);
     diagnostics.addAll(requiredNames.diagnostics());
-    String javaTypeName = uniqueJavaTypeName(parentTypeName, propertyName, objectTypeNames);
+    String javaTypeName =
+        JavaNameAllocator.uniqueNestedTypeName(parentTypeName, propertyName, objectTypeNames);
     List<FieldBinding> fields =
         objectFields(properties, requiredNames, null, javaTypeName, objectTypeNames, diagnostics);
     Optional<MapBinding> patternProperties =
@@ -1295,119 +1242,6 @@ public final class BindingModelBuilder {
               candidates.get(1).pointer()));
     }
     return Optional.empty();
-  }
-
-  private static String toJavaFieldName(String propertyName) {
-    ArrayList<String> words = new ArrayList<>();
-    StringBuilder current = new StringBuilder();
-    for (int index = 0; index < propertyName.length(); index++) {
-      char character = propertyName.charAt(index);
-      if (isAsciiLetterOrDigit(character)) {
-        current.append(character);
-      } else if (current.length() > 0) {
-        words.add(current.toString());
-        current.setLength(0);
-      }
-    }
-    if (current.length() > 0) {
-      words.add(current.toString());
-    }
-    if (words.isEmpty()) {
-      words.add("value");
-    }
-    StringBuilder result = new StringBuilder(firstWord(words.getFirst()));
-    for (int index = 1; index < words.size(); index++) {
-      result.append(subsequentWord(words.get(index)));
-    }
-    if (Character.isDigit(result.charAt(0))) {
-      result.insert(0, "value");
-    }
-    String fieldName = result.toString();
-    if (JAVA_KEYWORDS.contains(fieldName)) {
-      return fieldName + "Value";
-    }
-    return fieldName;
-  }
-
-  private static String uniqueJavaFieldName(
-      String propertyName, Map<String, JsonPointer> javaNames, JsonPointer pointer) {
-    String baseName = toJavaFieldName(propertyName);
-    String candidate = baseName;
-    int suffix = 2;
-    while (javaNames.containsKey(candidate)) {
-      candidate = baseName + suffix;
-      suffix++;
-    }
-    javaNames.put(candidate, pointer);
-    return candidate;
-  }
-
-  private static String uniqueJavaTypeName(
-      String parentTypeName, String propertyName, Set<String> typeNames) {
-    String baseName = parentTypeName + toJavaTypeName(propertyName, 0);
-    String candidate = baseName;
-    int suffix = 2;
-    while (typeNames.contains(candidate)) {
-      candidate = baseName + suffix;
-      suffix++;
-    }
-    typeNames.add(candidate);
-    return candidate;
-  }
-
-  private static String toJavaTypeName(String tagValue, int index) {
-    ArrayList<String> words = new ArrayList<>();
-    StringBuilder current = new StringBuilder();
-    for (int characterIndex = 0; characterIndex < tagValue.length(); characterIndex++) {
-      char character = tagValue.charAt(characterIndex);
-      if (isAsciiLetterOrDigit(character)) {
-        current.append(character);
-      } else if (current.length() > 0) {
-        words.add(current.toString());
-        current.setLength(0);
-      }
-    }
-    if (current.length() > 0) {
-      words.add(current.toString());
-    }
-    if (words.isEmpty()) {
-      return "Variant" + (index + 1);
-    }
-    StringBuilder result = new StringBuilder(subsequentWord(words.getFirst()));
-    for (int wordIndex = 1; wordIndex < words.size(); wordIndex++) {
-      result.append(subsequentWord(words.get(wordIndex)));
-    }
-    if (Character.isDigit(result.charAt(0))) {
-      result.insert(0, "Variant");
-    }
-    String typeName = result.toString();
-    if (JAVA_KEYWORDS.contains(typeName.toLowerCase(Locale.ROOT))) {
-      return typeName + "Variant";
-    }
-    return typeName;
-  }
-
-  private static String firstWord(String word) {
-    String normalized = normalizeWord(word);
-    return normalized.substring(0, 1).toLowerCase(Locale.ROOT) + normalized.substring(1);
-  }
-
-  private static String subsequentWord(String word) {
-    String normalized = normalizeWord(word);
-    return normalized.substring(0, 1).toUpperCase(Locale.ROOT) + normalized.substring(1);
-  }
-
-  private static String normalizeWord(String word) {
-    if (word.chars().anyMatch(Character::isLowerCase)) {
-      return word;
-    }
-    return word.toLowerCase(Locale.ROOT);
-  }
-
-  private static boolean isAsciiLetterOrDigit(char character) {
-    return (character >= 'a' && character <= 'z')
-        || (character >= 'A' && character <= 'Z')
-        || (character >= '0' && character <= '9');
   }
 
   private static final class FlattenedObjectMembers {
