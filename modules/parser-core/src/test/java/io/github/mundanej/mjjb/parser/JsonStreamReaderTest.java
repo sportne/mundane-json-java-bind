@@ -272,9 +272,21 @@ final class JsonStreamReaderTest {
   }
 
   @Test
+  void fromReaderUsesChunkedReads() throws JsonReadException {
+    CountingReader source = new CountingReader("\"chunked\"");
+    JsonStreamReader reader = JsonStreamReader.fromReader("test.json", source);
+
+    assertEquals("chunked", reader.nextString());
+
+    assertTrue(source.readCallCount() <= 2);
+    assertTrue(source.maxRequestedLength() > 1);
+    assertTrue(source.maxReturnedLength() > 1);
+  }
+
+  @Test
   void streamsLargeArraysFromReaderIncrementally() throws JsonReadException {
     StringBuilder sourceBuilder = new StringBuilder("[");
-    for (int i = 0; i < 512; i++) {
+    for (int i = 0; i < 4096; i++) {
       if (i > 0) {
         sourceBuilder.append(',');
       }
@@ -289,7 +301,7 @@ final class JsonStreamReaderTest {
     assertTrue(reader.hasNext());
     assertEquals("0", reader.nextNumberLiteral());
     assertTrue(source.readCount() < sourceBuilder.length());
-    for (int i = 1; i < 512; i++) {
+    for (int i = 1; i < 4096; i++) {
       assertTrue(reader.hasNext());
       assertEquals(Integer.toString(i), reader.nextNumberLiteral());
     }
@@ -300,7 +312,7 @@ final class JsonStreamReaderTest {
 
   @Test
   void streamsMediumObjectArrayDocumentFromReader() throws JsonReadException {
-    String sourceText = mediumObjectArrayDocument(128);
+    String sourceText = mediumObjectArrayDocument(512);
     CountingReader source = new CountingReader(sourceText);
     JsonStreamReader reader = JsonStreamReader.fromReader("medium.json", source);
     int sum = 0;
@@ -319,7 +331,7 @@ final class JsonStreamReaderTest {
     assertFalse(reader.hasNext());
     reader.endObject();
     assertTrue(source.readCount() < sourceText.length());
-    for (int i = 1; i < 128; i++) {
+    for (int i = 1; i < 512; i++) {
       assertTrue(reader.hasNext());
       reader.beginObject();
       assertEquals("id", reader.nextName());
@@ -336,8 +348,68 @@ final class JsonStreamReaderTest {
     assertFalse(reader.hasNext());
     reader.endObject();
 
-    assertEquals(8128, sum);
+    assertEquals(130816, sum);
     assertEquals(JsonToken.END_DOCUMENT, reader.peek());
+  }
+
+  @Test
+  void readsLongReaderStringAcrossChunkBoundaries() throws JsonReadException {
+    String prefix = "a".repeat(5000);
+    JsonStreamReader reader =
+        JsonStreamReader.fromReader(
+            "long-string.json", new CountingReader("\"" + prefix + "\\u0042\""));
+
+    assertEquals(prefix + "B", reader.nextString());
+    assertEquals(JsonToken.END_DOCUMENT, reader.peek());
+  }
+
+  @Test
+  void readsLongReaderNumberAcrossChunkBoundaries() throws JsonReadException {
+    String number = "-1" + "2".repeat(5000) + ".25e+2";
+    JsonStreamReader reader =
+        JsonStreamReader.fromReader("long-number.json", new CountingReader(number));
+
+    assertEquals(number, reader.nextNumberLiteral());
+    assertEquals(JsonToken.END_DOCUMENT, reader.peek());
+  }
+
+  @Test
+  void reportsReaderBackedInvalidJsonLocationsAcrossChunks() throws JsonReadException {
+    String input = "{\"records\":[\n" + "{\"value\":\"" + "a".repeat(5000) + "\\x\"}\n]}";
+    JsonStreamReader reader =
+        JsonStreamReader.fromReader("reader-invalid.json", new CountingReader(input));
+
+    reader.beginObject();
+    assertEquals("records", reader.nextName());
+    reader.beginArray();
+    assertTrue(reader.hasNext());
+    reader.beginObject();
+    assertEquals("value", reader.nextName());
+    JsonReadException exception = assertThrows(JsonReadException.class, reader::nextString);
+
+    assertEquals("MJJBP-013", exception.diagnostic().code());
+    assertEquals("reader-invalid.json", exception.diagnostic().location().sourceName());
+    assertEquals(2, exception.diagnostic().location().lineNumber());
+    assertEquals(5013, exception.diagnostic().location().columnNumber());
+  }
+
+  @Test
+  void rejectsReaderThatReturnsZeroCharacters() {
+    JsonStreamReader reader =
+        JsonStreamReader.fromReader(
+            "zero-read.json",
+            new Reader() {
+              @Override
+              public int read(char[] buffer, int offset, int length) {
+                return 0;
+              }
+
+              @Override
+              public void close() {}
+            });
+
+    JsonReadException exception = assertThrows(JsonReadException.class, reader::peek);
+    assertEquals("MJJBP-023", exception.diagnostic().code());
   }
 
   private static void assertReadExceptionCode(String input, String code) {
@@ -377,6 +449,9 @@ final class JsonStreamReaderTest {
     private final String source;
     private int index;
     private int readCount;
+    private int readCallCount;
+    private int maxRequestedLength;
+    private int maxReturnedLength;
 
     private CountingReader(String source) {
       this.source = source;
@@ -384,12 +459,17 @@ final class JsonStreamReaderTest {
 
     @Override
     public int read(char[] buffer, int offset, int length) {
+      readCallCount++;
+      maxRequestedLength = Math.max(maxRequestedLength, length);
       if (index >= source.length()) {
         return -1;
       }
-      buffer[offset] = source.charAt(index++);
-      readCount++;
-      return 1;
+      int read = Math.min(length, source.length() - index);
+      source.getChars(index, index + read, buffer, offset);
+      index += read;
+      readCount += read;
+      maxReturnedLength = Math.max(maxReturnedLength, read);
+      return read;
     }
 
     @Override
@@ -397,6 +477,18 @@ final class JsonStreamReaderTest {
 
     private int readCount() {
       return readCount;
+    }
+
+    private int readCallCount() {
+      return readCallCount;
+    }
+
+    private int maxRequestedLength() {
+      return maxRequestedLength;
+    }
+
+    private int maxReturnedLength() {
+      return maxReturnedLength;
     }
   }
 }

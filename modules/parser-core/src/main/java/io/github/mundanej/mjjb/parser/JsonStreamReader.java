@@ -14,9 +14,12 @@ import java.util.Objects;
 
 /** Dependency-free streaming JSON reader for generated bindings. */
 public final class JsonStreamReader implements JsonReader {
+  private static final int READ_BUFFER_SIZE = 4096;
+
   private final String sourceName;
   private final StringBuilder input = new StringBuilder();
   private final Reader reader;
+  private final char[] readBuffer;
   private final ArrayDeque<Context> stack = new ArrayDeque<>();
   private boolean endOfInput;
   private int index;
@@ -30,6 +33,7 @@ public final class JsonStreamReader implements JsonReader {
   public JsonStreamReader(String sourceName, String input) {
     this.sourceName = Objects.requireNonNull(sourceName, "sourceName");
     this.reader = null;
+    this.readBuffer = null;
     this.input.append(Objects.requireNonNull(input, "input"));
     this.endOfInput = true;
   }
@@ -37,6 +41,7 @@ public final class JsonStreamReader implements JsonReader {
   private JsonStreamReader(String sourceName, Reader reader) {
     this.sourceName = Objects.requireNonNull(sourceName, "sourceName");
     this.reader = Objects.requireNonNull(reader, "reader");
+    this.readBuffer = new char[READ_BUFFER_SIZE];
   }
 
   public static JsonStreamReader fromStringReader(String input) throws IOException {
@@ -415,11 +420,13 @@ public final class JsonStreamReader implements JsonReader {
   private boolean hasChar(int position) throws JsonReadException {
     while (position >= input.length() && !endOfInput) {
       try {
-        int read = reader.read();
+        int read = reader.read(readBuffer, 0, readBuffer.length);
         if (read == -1) {
           endOfInput = true;
+        } else if (read > 0) {
+          input.append(readBuffer, 0, read);
         } else {
-          input.append((char) read);
+          throw error("MJJBP-023", "Unable to read JSON input: reader returned no characters.");
         }
       } catch (IOException exception) {
         throw error("MJJBP-023", "Unable to read JSON input: " + exception.getMessage());

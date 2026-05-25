@@ -43,7 +43,8 @@ the schema-known property set and reject duplicates with schema-specific paths.
 ## Streaming Behavior
 
 String-backed readers use the provided input directly. Reader-backed parsing is
-incremental and does not drain the `Reader` at construction time.
+incremental and does not drain the `Reader` at construction time. It fills from
+the caller's `Reader` in reusable chunks rather than one character at a time.
 
 The current implementation buffers consumed characters so it can expose stable
 offsets and simple literal slicing. It still streams from the caller's

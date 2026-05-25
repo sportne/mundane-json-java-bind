@@ -74,9 +74,9 @@ generic JSON object graph. Generated readers construct only the requested Java
 binding model.
 
 `JsonStreamReader` currently retains consumed input in its internal character
-buffer while reading from a `Reader`. This is a known v1 boundary: token handling
-is streaming and object-graph-free, but the parser is not yet a fixed-size
-sliding-window input buffer.
+buffer while reading reusable chunks from a `Reader`. This is a known v1
+boundary: token handling is streaming and object-graph-free, but the parser is
+not yet a fixed-size sliding-window input buffer.
 
 ## Not Yet Measured
 
