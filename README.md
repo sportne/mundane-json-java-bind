@@ -100,7 +100,7 @@ plugins {
 }
 
 dependencies {
-  implementation 'io.github.mundanej:mjjb-runtime-core:1.1.0'
+  implementation 'io.github.mundanej:mjjb-runtime-core:1.1.1'
 }
 
 mjjb {
@@ -119,9 +119,9 @@ does not add runtime dependencies for the consuming project. See
 
 ## GitHub Release Artifacts
 
-The current release version is `1.1.0`. This project publishes artifacts only
+The current release version is `1.1.1`. This project publishes artifacts only
 as GitHub Release assets, not to Maven Central. Download the
-`mjjb-1.1.0-maven-repository.zip` asset from the `v1.1.0` GitHub release,
+`mjjb-1.1.1-maven-repository.zip` asset from the `v1.1.1` GitHub release,
 verify its SHA-256 sidecar if desired, unzip it, and point your build at the
 unpacked local Maven repository.
 
