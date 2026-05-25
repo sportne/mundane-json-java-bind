@@ -28,6 +28,7 @@ import java.util.TreeSet;
 public final class ValidatorSourceEmitter {
   public String emit(BindingModel model) {
     Objects.requireNonNull(model, "model");
+    ValidatorFeatureSet features = ValidatorFeatureSet.from(model);
     ArrayList<String> lines = new ArrayList<>();
     lines.add("package " + model.packageName() + ";");
     lines.add("");
@@ -97,7 +98,7 @@ public final class ValidatorSourceEmitter {
     for (ObjectBinding object : nestedObjects(model)) {
       lines.addAll(objectValidatorLines(model.rootTypeName(), object));
     }
-    if (hasNumberField(model)) {
+    if (features.numberField()) {
       lines.add("");
       lines.add(
           "  private static boolean validateFinite("
@@ -110,7 +111,7 @@ public final class ValidatorSourceEmitter {
               + "ValidationError.of(\"MJJBV-004\", \"Expected finite JSON number.\", path));");
       lines.add("  }");
     }
-    if (hasArrayWithMinItems(model)) {
+    if (features.arrayWithMinItems()) {
       lines.add("");
       lines.add(
           "  private static boolean validateMinItems("
@@ -124,7 +125,7 @@ public final class ValidatorSourceEmitter {
               + "\" array items.\", path));");
       lines.add("  }");
     }
-    if (hasArrayWithMaxItems(model)) {
+    if (features.arrayWithMaxItems()) {
       lines.add("");
       lines.add(
           "  private static boolean validateMaxItems("
@@ -138,46 +139,46 @@ public final class ValidatorSourceEmitter {
               + "\" array items.\", path));");
       lines.add("  }");
     }
-    if (hasMinPropertiesConstraint(model)) {
+    if (features.minPropertiesConstraint()) {
       lines.addAll(validateMinPropertiesHelper());
     }
-    if (hasMaxPropertiesConstraint(model)) {
+    if (features.maxPropertiesConstraint()) {
       lines.addAll(validateMaxPropertiesHelper());
     }
-    if (hasMinLengthFacet(model)) {
+    if (features.minLengthFacet()) {
       lines.addAll(validateMinLengthHelper());
     }
-    if (hasMaxLengthFacet(model)) {
+    if (features.maxLengthFacet()) {
       lines.addAll(validateMaxLengthHelper());
     }
-    if (hasPatternFacet(model)) {
+    if (features.patternFacet()) {
       lines.addAll(validatePatternHelper(patternConstants));
     }
-    if (hasFormatFacet(model)) {
+    if (features.formatFacet()) {
       lines.addAll(validateFormatHelper());
     }
-    if (hasMinimumFacet(model)) {
+    if (features.minimumFacet()) {
       lines.addAll(validateMinimumHelper());
     }
-    if (hasMaximumFacet(model)) {
+    if (features.maximumFacet()) {
       lines.addAll(validateMaximumHelper());
     }
-    if (hasExclusiveMinimumFacet(model)) {
+    if (features.exclusiveMinimumFacet()) {
       lines.addAll(validateExclusiveMinimumHelper());
     }
-    if (hasExclusiveMaximumFacet(model)) {
+    if (features.exclusiveMaximumFacet()) {
       lines.addAll(validateExclusiveMaximumHelper());
     }
-    if (hasMultipleOfFacet(model)) {
+    if (features.multipleOfFacet()) {
       lines.addAll(validateMultipleOfHelper());
     }
-    if (hasUniqueItemsConstraint(model)) {
+    if (features.uniqueItemsConstraint()) {
       lines.addAll(validateUniqueItemsHelper());
     }
-    if (hasEnumConstraint(model)) {
+    if (features.enumConstraint()) {
       lines.addAll(validateEnumHelper());
     }
-    if (hasConstConstraint(model)) {
+    if (features.constConstraint()) {
       lines.addAll(validateConstHelper());
     }
     if (!decimalConstants.empty()) {
@@ -265,25 +266,24 @@ public final class ValidatorSourceEmitter {
   }
 
   private static List<String> imports(BindingModel model) {
+    ValidatorFeatureSet features = ValidatorFeatureSet.from(model);
     Set<String> imports = new TreeSet<>();
     imports.add("io.github.mundanej.mjjb.runtime.JsonPath");
     imports.add("io.github.mundanej.mjjb.runtime.ValidationError");
     imports.add("io.github.mundanej.mjjb.runtime.ValidationErrors");
     imports.add("io.github.mundanej.mjjb.runtime.ValidationMode");
     imports.add("io.github.mundanej.mjjb.runtime.ValidationResult");
-    if (hasNumericFacet(model)
-        || hasNumberLiteralConstraint(model)
-        || hasNumberUniqueItems(model)) {
+    if (features.requiresBigDecimal()) {
       imports.add("java.math.BigDecimal");
     }
     imports.add("java.util.Objects");
-    if (hasFormatFacet(model)) {
+    if (features.formatFacet()) {
       imports.add("java.time.LocalDate");
       imports.add("java.time.OffsetDateTime");
       imports.add("java.time.format.DateTimeParseException");
       imports.add("java.util.UUID");
     }
-    if (hasPatternFacet(model)) {
+    if (features.patternFacet()) {
       imports.add("java.util.regex.Pattern");
     }
     List<MapBinding> maps = allMaps(model);
@@ -1058,12 +1058,6 @@ public final class ValidatorSourceEmitter {
     return lines;
   }
 
-  private static boolean hasNumberField(BindingModel model) {
-    return allFields(model).stream().anyMatch(field -> field.scalarType() == JavaScalarType.NUMBER)
-        || allMaps(model).stream()
-            .anyMatch(map -> !map.object() && map.scalarType() == JavaScalarType.NUMBER);
-  }
-
   private static List<String> validateStringFacetLines(
       FieldBinding field, String valueExpression, String guard, String pathExpression) {
     return validateStringFacetLines(
@@ -1335,36 +1329,6 @@ public final class ValidatorSourceEmitter {
     return lines;
   }
 
-  private static boolean hasArrayWithMinItems(BindingModel model) {
-    return allFields(model).stream()
-            .anyMatch(field -> field.array() && field.valueType().minItems().isPresent())
-        || allMaps(model).stream()
-            .anyMatch(map -> map.array() && map.valueType().minItems().isPresent());
-  }
-
-  private static boolean hasArrayWithMaxItems(BindingModel model) {
-    return allFields(model).stream()
-            .anyMatch(field -> field.array() && field.valueType().maxItems().isPresent())
-        || allMaps(model).stream()
-            .anyMatch(map -> map.array() && map.valueType().maxItems().isPresent());
-  }
-
-  private static boolean hasUniqueItemsConstraint(BindingModel model) {
-    return allFields(model).stream()
-            .anyMatch(field -> field.array() && field.valueType().uniqueItems())
-        || allMaps(model).stream().anyMatch(map -> map.array() && map.valueType().uniqueItems());
-  }
-
-  private static boolean hasMinPropertiesConstraint(BindingModel model) {
-    return allObjects(model).stream()
-        .anyMatch(object -> object.validationConstraints().minProperties().isPresent());
-  }
-
-  private static boolean hasMaxPropertiesConstraint(BindingModel model) {
-    return allObjects(model).stream()
-        .anyMatch(object -> object.validationConstraints().maxProperties().isPresent());
-  }
-
   private static String arrayGuard(FieldBinding field, String ownerExpression) {
     String fieldExpression = accessor(field, ownerExpression);
     if (field.valueType().nullable()) {
@@ -1452,48 +1416,6 @@ public final class ValidatorSourceEmitter {
     return indentAll(lines, indent);
   }
 
-  private static boolean hasMinLengthFacet(BindingModel model) {
-    return allFields(model).stream()
-            .anyMatch(field -> field.valueType().facets().minLength().isPresent())
-        || allMaps(model).stream().anyMatch(map -> map.valueType().facets().minLength().isPresent())
-        || allObjects(model).stream()
-            .anyMatch(
-                object ->
-                    object
-                        .validationConstraints()
-                        .propertyNames()
-                        .map(facets -> facets.minLength().isPresent())
-                        .orElse(false));
-  }
-
-  private static boolean hasMaxLengthFacet(BindingModel model) {
-    return allFields(model).stream()
-            .anyMatch(field -> field.valueType().facets().maxLength().isPresent())
-        || allMaps(model).stream().anyMatch(map -> map.valueType().facets().maxLength().isPresent())
-        || allObjects(model).stream()
-            .anyMatch(
-                object ->
-                    object
-                        .validationConstraints()
-                        .propertyNames()
-                        .map(facets -> facets.maxLength().isPresent())
-                        .orElse(false));
-  }
-
-  private static boolean hasPatternFacet(BindingModel model) {
-    return allFields(model).stream()
-            .anyMatch(field -> field.valueType().facets().pattern().isPresent())
-        || allMaps(model).stream().anyMatch(map -> map.valueType().facets().pattern().isPresent())
-        || allObjects(model).stream()
-            .anyMatch(
-                object ->
-                    object
-                        .validationConstraints()
-                        .propertyNames()
-                        .map(facets -> facets.pattern().isPresent())
-                        .orElse(false));
-  }
-
   private static PatternConstantSet validatorPatternConstants(BindingModel model) {
     PatternConstantSet constants = new PatternConstantSet();
     allFields(model).stream()
@@ -1511,85 +1433,6 @@ public final class ValidatorSourceEmitter {
         .flatMap(Optional::stream)
         .forEach(constants::add);
     return constants;
-  }
-
-  private static boolean hasFormatFacet(BindingModel model) {
-    return allFields(model).stream()
-            .anyMatch(field -> field.valueType().facets().format().isPresent())
-        || allMaps(model).stream().anyMatch(map -> map.valueType().facets().format().isPresent())
-        || allObjects(model).stream()
-            .anyMatch(
-                object ->
-                    object
-                        .validationConstraints()
-                        .propertyNames()
-                        .map(facets -> facets.format().isPresent())
-                        .orElse(false));
-  }
-
-  private static boolean hasMinimumFacet(BindingModel model) {
-    return allFields(model).stream()
-            .anyMatch(field -> field.valueType().facets().minimum().isPresent())
-        || allMaps(model).stream().anyMatch(map -> map.valueType().facets().minimum().isPresent());
-  }
-
-  private static boolean hasMaximumFacet(BindingModel model) {
-    return allFields(model).stream()
-            .anyMatch(field -> field.valueType().facets().maximum().isPresent())
-        || allMaps(model).stream().anyMatch(map -> map.valueType().facets().maximum().isPresent());
-  }
-
-  private static boolean hasExclusiveMinimumFacet(BindingModel model) {
-    return allFields(model).stream()
-            .anyMatch(field -> field.valueType().facets().exclusiveMinimum().isPresent())
-        || allMaps(model).stream()
-            .anyMatch(map -> map.valueType().facets().exclusiveMinimum().isPresent());
-  }
-
-  private static boolean hasExclusiveMaximumFacet(BindingModel model) {
-    return allFields(model).stream()
-            .anyMatch(field -> field.valueType().facets().exclusiveMaximum().isPresent())
-        || allMaps(model).stream()
-            .anyMatch(map -> map.valueType().facets().exclusiveMaximum().isPresent());
-  }
-
-  private static boolean hasMultipleOfFacet(BindingModel model) {
-    return allFields(model).stream()
-            .anyMatch(field -> field.valueType().facets().multipleOf().isPresent())
-        || allMaps(model).stream()
-            .anyMatch(map -> map.valueType().facets().multipleOf().isPresent());
-  }
-
-  private static boolean hasNumericFacet(BindingModel model) {
-    return allFields(model).stream()
-            .anyMatch(field -> field.valueType().facets().hasNumericFacets())
-        || allMaps(model).stream().anyMatch(map -> map.valueType().facets().hasNumericFacets());
-  }
-
-  private static boolean hasEnumConstraint(BindingModel model) {
-    return allFields(model).stream().anyMatch(field -> field.valueType().literals().hasEnum())
-        || allMaps(model).stream().anyMatch(map -> map.valueType().literals().hasEnum());
-  }
-
-  private static boolean hasConstConstraint(BindingModel model) {
-    return allFields(model).stream().anyMatch(field -> field.valueType().literals().hasConst())
-        || allMaps(model).stream().anyMatch(map -> map.valueType().literals().hasConst());
-  }
-
-  private static boolean hasNumberLiteralConstraint(BindingModel model) {
-    return allFields(model).stream()
-            .anyMatch(
-                field ->
-                    field.scalarType() == JavaScalarType.NUMBER
-                        && (field.valueType().literals().hasEnum()
-                            || field.valueType().literals().hasConst()))
-        || allMaps(model).stream()
-            .anyMatch(
-                map ->
-                    !map.object()
-                        && map.scalarType() == JavaScalarType.NUMBER
-                        && (map.valueType().literals().hasEnum()
-                            || map.valueType().literals().hasConst()));
   }
 
   private static BigDecimalConstantSet validatorDecimalConstants(BindingModel model) {
@@ -1631,21 +1474,6 @@ public final class ValidatorSourceEmitter {
         .filter(literal -> literal.kind() != LiteralValue.Kind.NULL)
         .map(LiteralValue::value)
         .forEach(constants::add);
-  }
-
-  private static boolean hasNumberUniqueItems(BindingModel model) {
-    return allFields(model).stream()
-            .anyMatch(
-                field ->
-                    field.array()
-                        && field.valueType().uniqueItems()
-                        && field.scalarType() == JavaScalarType.NUMBER)
-        || allMaps(model).stream()
-            .anyMatch(
-                map ->
-                    map.array()
-                        && map.valueType().uniqueItems()
-                        && map.scalarType() == JavaScalarType.NUMBER);
   }
 
   private static List<String> validateMinLengthHelper() {
