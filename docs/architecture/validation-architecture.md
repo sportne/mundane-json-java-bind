@@ -68,11 +68,11 @@ item paths for array items.
 
 Numeric validation follows
 [`ADR-0003`](../adr/ADR-0003-current-profile-number-bindings.md). Schema
-numeric literals are preserved as strings during generation and compared with
-generated Java model values through `BigDecimal`. For `number`, the compared
-model value is the finite Java `double` already present in the generated model;
-validators do not recover arbitrary JSON decimal precision lost during reader
-parsing or direct Java construction.
+numeric literals are preserved as strings during generation for diagnostic text
+and emitted as private static final `BigDecimal` constants for comparison. For
+`number`, the compared model value is the finite Java `double` already present
+in the generated model; validators do not recover arbitrary JSON decimal
+precision lost during reader parsing or direct Java construction.
 
 | Keyword | Applies to | Code | Notes |
 |---|---|---|---|

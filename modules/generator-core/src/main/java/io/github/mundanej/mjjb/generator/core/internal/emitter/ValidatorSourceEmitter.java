@@ -37,8 +37,14 @@ public final class ValidatorSourceEmitter {
     lines.add("");
     lines.add("public final class " + validatorTypeName(model) + " {");
     PatternConstantSet patternConstants = validatorPatternConstants(model);
+    BigDecimalConstantSet decimalConstants = validatorDecimalConstants(model);
     if (!patternConstants.empty()) {
       lines.addAll(patternConstants.declarations("  "));
+    }
+    if (!decimalConstants.empty()) {
+      lines.addAll(decimalConstants.declarations("  "));
+    }
+    if (!patternConstants.empty() || !decimalConstants.empty()) {
       lines.add("");
     }
     lines.add("  private " + validatorTypeName(model) + "() {}");
@@ -173,6 +179,9 @@ public final class ValidatorSourceEmitter {
     }
     if (hasConstConstraint(model)) {
       lines.addAll(validateConstHelper());
+    }
+    if (!decimalConstants.empty()) {
+      lines.addAll(decimalHelper(decimalConstants));
     }
     lines.add("}");
     lines.add("");
@@ -1583,6 +1592,47 @@ public final class ValidatorSourceEmitter {
                             || map.valueType().literals().hasConst()));
   }
 
+  private static BigDecimalConstantSet validatorDecimalConstants(BindingModel model) {
+    BigDecimalConstantSet constants = new BigDecimalConstantSet();
+    allFields(model).forEach(field -> addNumericConstants(constants, field));
+    allMaps(model).forEach(map -> addNumericConstants(constants, map));
+    return constants;
+  }
+
+  private static void addNumericConstants(BigDecimalConstantSet constants, FieldBinding field) {
+    addFacetConstants(constants, field.valueType().facets());
+    if (field.scalarType() == JavaScalarType.NUMBER) {
+      addLiteralConstants(constants, field.valueType().literals());
+    }
+  }
+
+  private static void addNumericConstants(BigDecimalConstantSet constants, MapBinding map) {
+    addFacetConstants(constants, map.valueType().facets());
+    if (!map.object() && map.scalarType() == JavaScalarType.NUMBER) {
+      addLiteralConstants(constants, map.valueType().literals());
+    }
+  }
+
+  private static void addFacetConstants(BigDecimalConstantSet constants, FacetConstraints facets) {
+    facets.minimum().ifPresent(constants::add);
+    facets.maximum().ifPresent(constants::add);
+    facets.exclusiveMinimum().ifPresent(constants::add);
+    facets.exclusiveMaximum().ifPresent(constants::add);
+    facets.multipleOf().ifPresent(constants::add);
+  }
+
+  private static void addLiteralConstants(
+      BigDecimalConstantSet constants, LiteralConstraints literals) {
+    literals.enumValues().stream()
+        .filter(literal -> literal.kind() != LiteralValue.Kind.NULL)
+        .map(LiteralValue::value)
+        .forEach(constants::add);
+    literals.constValue().stream()
+        .filter(literal -> literal.kind() != LiteralValue.Kind.NULL)
+        .map(LiteralValue::value)
+        .forEach(constants::add);
+  }
+
   private static boolean hasNumberUniqueItems(BindingModel model) {
     return allFields(model).stream()
             .anyMatch(
@@ -1738,7 +1788,7 @@ public final class ValidatorSourceEmitter {
         "",
         "  private static boolean validateMinimum(",
         "      ValidationErrors errors, BigDecimal value, String minimum, JsonPath path) {",
-        "    if (value.compareTo(new BigDecimal(minimum)) >= 0) {",
+        "    if (value.compareTo(decimal(minimum)) >= 0) {",
         "      return true;",
         "    }",
         "    return errors.add(",
@@ -1752,7 +1802,7 @@ public final class ValidatorSourceEmitter {
         "",
         "  private static boolean validateMaximum(",
         "      ValidationErrors errors, BigDecimal value, String maximum, JsonPath path) {",
-        "    if (value.compareTo(new BigDecimal(maximum)) <= 0) {",
+        "    if (value.compareTo(decimal(maximum)) <= 0) {",
         "      return true;",
         "    }",
         "    return errors.add(",
@@ -1766,7 +1816,7 @@ public final class ValidatorSourceEmitter {
         "",
         "  private static boolean validateExclusiveMinimum(",
         "      ValidationErrors errors, BigDecimal value, String exclusiveMinimum, JsonPath path) {",
-        "    if (value.compareTo(new BigDecimal(exclusiveMinimum)) > 0) {",
+        "    if (value.compareTo(decimal(exclusiveMinimum)) > 0) {",
         "      return true;",
         "    }",
         "    return errors.add(",
@@ -1782,7 +1832,7 @@ public final class ValidatorSourceEmitter {
         "",
         "  private static boolean validateExclusiveMaximum(",
         "      ValidationErrors errors, BigDecimal value, String exclusiveMaximum, JsonPath path) {",
-        "    if (value.compareTo(new BigDecimal(exclusiveMaximum)) < 0) {",
+        "    if (value.compareTo(decimal(exclusiveMaximum)) < 0) {",
         "      return true;",
         "    }",
         "    return errors.add(",
@@ -1798,7 +1848,7 @@ public final class ValidatorSourceEmitter {
         "",
         "  private static boolean validateMultipleOf(",
         "      ValidationErrors errors, BigDecimal value, String multipleOf, JsonPath path) {",
-        "    if (value.remainder(new BigDecimal(multipleOf)).compareTo(BigDecimal.ZERO) == 0) {",
+        "    if (value.remainder(decimal(multipleOf)).compareTo(BigDecimal.ZERO) == 0) {",
         "      return true;",
         "    }",
         "    return errors.add(",
@@ -1807,6 +1857,19 @@ public final class ValidatorSourceEmitter {
         "            \"Expected number to be a multiple of \" + multipleOf + \".\",",
         "            path));",
         "  }");
+  }
+
+  private static List<String> decimalHelper(BigDecimalConstantSet decimalConstants) {
+    ArrayList<String> lines = new ArrayList<>();
+    lines.add("");
+    lines.add("  private static BigDecimal decimal(String literal) {");
+    lines.add("    return switch (literal) {");
+    lines.addAll(decimalConstants.lookupCases("      "));
+    lines.add(
+        "      default -> throw new IllegalArgumentException(\"Unknown generated numeric literal.\");");
+    lines.add("    };");
+    lines.add("  }");
+    return lines;
   }
 
   private static List<String> validateUniqueItemsHelper() {
@@ -1890,7 +1953,7 @@ public final class ValidatorSourceEmitter {
       case NUMBER ->
           "BigDecimal.valueOf("
               + valueExpression
-              + ").compareTo(new BigDecimal("
+              + ").compareTo(decimal("
               + stringLiteral(literal.value())
               + ")) == 0";
       case BOOLEAN -> valueExpression + " == " + literal.value();

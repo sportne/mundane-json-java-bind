@@ -9,6 +9,10 @@ import java.math.BigDecimal;
 import java.util.Objects;
 
 public final class GeneratedBindingsJsonValidator {
+  private static final BigDecimal DECIMAL_1 = new BigDecimal("5");
+  private static final BigDecimal DECIMAL_2 = new BigDecimal("0.25");
+  private static final BigDecimal DECIMAL_3 = new BigDecimal("2");
+
   private GeneratedBindingsJsonValidator() {}
 
   public static ValidationResult validate(GeneratedBindings value) {
@@ -93,7 +97,7 @@ public final class GeneratedBindingsJsonValidator {
 
   private static boolean validateMultipleOf(
       ValidationErrors errors, BigDecimal value, String multipleOf, JsonPath path) {
-    if (value.remainder(new BigDecimal(multipleOf)).compareTo(BigDecimal.ZERO) == 0) {
+    if (value.remainder(decimal(multipleOf)).compareTo(BigDecimal.ZERO) == 0) {
       return true;
     }
     return errors.add(
@@ -128,5 +132,14 @@ public final class GeneratedBindingsJsonValidator {
       index++;
     }
     return true;
+  }
+
+  private static BigDecimal decimal(String literal) {
+    return switch (literal) {
+      case "5" -> DECIMAL_1;
+      case "0.25" -> DECIMAL_2;
+      case "2" -> DECIMAL_3;
+      default -> throw new IllegalArgumentException("Unknown generated numeric literal.");
+    };
   }
 }

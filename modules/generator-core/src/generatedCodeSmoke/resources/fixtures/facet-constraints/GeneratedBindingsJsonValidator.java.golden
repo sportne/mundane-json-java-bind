@@ -16,6 +16,10 @@ import java.util.regex.Pattern;
 public final class GeneratedBindingsJsonValidator {
   private static final Pattern PATTERN_1 = Pattern.compile("^[A-Z]+$");
   private static final Pattern PATTERN_2 = Pattern.compile("^[a-z]+$");
+  private static final BigDecimal DECIMAL_1 = new BigDecimal("1");
+  private static final BigDecimal DECIMAL_2 = new BigDecimal("10");
+  private static final BigDecimal DECIMAL_3 = new BigDecimal("0");
+  private static final BigDecimal DECIMAL_4 = new BigDecimal("100");
 
   private GeneratedBindingsJsonValidator() {}
 
@@ -257,7 +261,7 @@ public final class GeneratedBindingsJsonValidator {
 
   private static boolean validateMinimum(
       ValidationErrors errors, BigDecimal value, String minimum, JsonPath path) {
-    if (value.compareTo(new BigDecimal(minimum)) >= 0) {
+    if (value.compareTo(decimal(minimum)) >= 0) {
       return true;
     }
     return errors.add(
@@ -267,7 +271,7 @@ public final class GeneratedBindingsJsonValidator {
 
   private static boolean validateMaximum(
       ValidationErrors errors, BigDecimal value, String maximum, JsonPath path) {
-    if (value.compareTo(new BigDecimal(maximum)) <= 0) {
+    if (value.compareTo(decimal(maximum)) <= 0) {
       return true;
     }
     return errors.add(
@@ -277,7 +281,7 @@ public final class GeneratedBindingsJsonValidator {
 
   private static boolean validateExclusiveMinimum(
       ValidationErrors errors, BigDecimal value, String exclusiveMinimum, JsonPath path) {
-    if (value.compareTo(new BigDecimal(exclusiveMinimum)) > 0) {
+    if (value.compareTo(decimal(exclusiveMinimum)) > 0) {
       return true;
     }
     return errors.add(
@@ -289,7 +293,7 @@ public final class GeneratedBindingsJsonValidator {
 
   private static boolean validateExclusiveMaximum(
       ValidationErrors errors, BigDecimal value, String exclusiveMaximum, JsonPath path) {
-    if (value.compareTo(new BigDecimal(exclusiveMaximum)) < 0) {
+    if (value.compareTo(decimal(exclusiveMaximum)) < 0) {
       return true;
     }
     return errors.add(
@@ -297,5 +301,15 @@ public final class GeneratedBindingsJsonValidator {
             "MJJBV-014",
             "Expected number to be less than " + exclusiveMaximum + ".",
             path));
+  }
+
+  private static BigDecimal decimal(String literal) {
+    return switch (literal) {
+      case "1" -> DECIMAL_1;
+      case "10" -> DECIMAL_2;
+      case "0" -> DECIMAL_3;
+      case "100" -> DECIMAL_4;
+      default -> throw new IllegalArgumentException("Unknown generated numeric literal.");
+    };
   }
 }

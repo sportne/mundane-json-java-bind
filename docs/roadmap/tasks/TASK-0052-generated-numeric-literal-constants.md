@@ -1,7 +1,7 @@
 # TASK-0052: Generated Numeric Literal Constants
 
 Task ID: `TASK-0052`
-Status: `ready-for-implementation`
+Status: `complete`
 Gate: Performance and simplicity follow-up
 Depends on: `TASK-0051`
 Specification references: `docs/adr/ADR-0003-current-profile-number-bindings.md`; `docs/architecture/generated-code-contract.md`; `docs/architecture/validation-architecture.md`

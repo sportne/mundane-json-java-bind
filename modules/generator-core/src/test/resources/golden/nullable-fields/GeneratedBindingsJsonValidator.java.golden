@@ -9,6 +9,8 @@ import java.math.BigDecimal;
 import java.util.Objects;
 
 public final class GeneratedBindingsJsonValidator {
+  private static final BigDecimal DECIMAL_1 = new BigDecimal("10");
+
   private GeneratedBindingsJsonValidator() {}
 
   public static ValidationResult validate(GeneratedBindings value) {
@@ -153,7 +155,7 @@ public final class GeneratedBindingsJsonValidator {
 
   private static boolean validateMaximum(
       ValidationErrors errors, BigDecimal value, String maximum, JsonPath path) {
-    if (value.compareTo(new BigDecimal(maximum)) <= 0) {
+    if (value.compareTo(decimal(maximum)) <= 0) {
       return true;
     }
     return errors.add(
@@ -177,5 +179,12 @@ public final class GeneratedBindingsJsonValidator {
     }
     return errors.add(
         ValidationError.of("MJJBV-016", "Expected value to match const.", path));
+  }
+
+  private static BigDecimal decimal(String literal) {
+    return switch (literal) {
+      case "10" -> DECIMAL_1;
+      default -> throw new IllegalArgumentException("Unknown generated numeric literal.");
+    };
   }
 }

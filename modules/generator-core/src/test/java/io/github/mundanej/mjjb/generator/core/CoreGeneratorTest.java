@@ -716,6 +716,49 @@ final class CoreGeneratorTest {
   }
 
   @Test
+  void generatedNumericSchemaLiteralsUseConstantsOutsideHotPaths() throws IOException {
+    Path schema = tempDir.resolve("schema.json");
+    Files.writeString(
+        schema,
+        """
+        {
+          "type": "object",
+          "properties": {
+            "count": {"type": "integer", "minimum": 1, "maximum": 10, "multipleOf": 1},
+            "score": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "exclusiveMaximum": 10,
+              "multipleOf": 0.25,
+              "enum": [1.5, 2e0],
+              "const": 1.5
+            }
+          },
+          "required": ["count", "score"],
+          "additionalProperties": false
+        }
+        """);
+
+    GeneratorResult result =
+        new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
+
+    assertTrue(result.successful());
+    String validatorSource =
+        Files.readString(
+            GeneratedFixtureAssertions.sourceNamed(result, "GeneratedBindingsJsonValidator.java"));
+    assertTrue(validatorSource.contains("private static final BigDecimal DECIMAL_1"));
+    assertTrue(validatorSource.contains("private static BigDecimal decimal(String literal)"));
+    assertFalse(validatorSource.contains("new BigDecimal(minimum)"));
+    assertFalse(validatorSource.contains("new BigDecimal(maximum)"));
+    assertFalse(validatorSource.contains("new BigDecimal(exclusiveMinimum)"));
+    assertFalse(validatorSource.contains("new BigDecimal(exclusiveMaximum)"));
+    assertFalse(validatorSource.contains("new BigDecimal(multipleOf)"));
+    assertFalse(validatorSource.contains("compareTo(new BigDecimal("));
+    generatedSourceVerifier.compileGeneratedSources(
+        "numeric-constants", result.generatedSources(), tempDir.resolve("numeric-classes"));
+  }
+
+  @Test
   void reportsInvalidJsonNumbersInSchemaInput() throws IOException {
     assertInvalidSchema("{\"minimum\":1.}", "/minimum");
     assertInvalidSchema("{\"minimum\":1e}", "/minimum");

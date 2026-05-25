@@ -9,6 +9,9 @@ import java.math.BigDecimal;
 import java.util.Objects;
 
 public final class GeneratedBindingsJsonValidator {
+  private static final BigDecimal DECIMAL_1 = new BigDecimal("1.5");
+  private static final BigDecimal DECIMAL_2 = new BigDecimal("2e0");
+
   private GeneratedBindingsJsonValidator() {}
 
   public static ValidationResult validate(GeneratedBindings value) {
@@ -63,10 +66,10 @@ public final class GeneratedBindingsJsonValidator {
       }
     }
     if (value.score() != null && value.score().isPresent() && Double.isFinite(value.score().orElseThrow())) {
-      if (!validateEnum(errors, BigDecimal.valueOf(value.score().orElseThrow()).compareTo(new BigDecimal("1.5")) == 0 || BigDecimal.valueOf(value.score().orElseThrow()).compareTo(new BigDecimal("2e0")) == 0, JsonPath.ROOT.property("score"))) {
+      if (!validateEnum(errors, BigDecimal.valueOf(value.score().orElseThrow()).compareTo(decimal("1.5")) == 0 || BigDecimal.valueOf(value.score().orElseThrow()).compareTo(decimal("2e0")) == 0, JsonPath.ROOT.property("score"))) {
         return errors.toResult();
       }
-      if (!validateConst(errors, BigDecimal.valueOf(value.score().orElseThrow()).compareTo(new BigDecimal("1.5")) == 0, JsonPath.ROOT.property("score"))) {
+      if (!validateConst(errors, BigDecimal.valueOf(value.score().orElseThrow()).compareTo(decimal("1.5")) == 0, JsonPath.ROOT.property("score"))) {
         return errors.toResult();
       }
     }
@@ -148,5 +151,13 @@ public final class GeneratedBindingsJsonValidator {
     }
     return errors.add(
         ValidationError.of("MJJBV-016", "Expected value to match const.", path));
+  }
+
+  private static BigDecimal decimal(String literal) {
+    return switch (literal) {
+      case "1.5" -> DECIMAL_1;
+      case "2e0" -> DECIMAL_2;
+      default -> throw new IllegalArgumentException("Unknown generated numeric literal.");
+    };
   }
 }

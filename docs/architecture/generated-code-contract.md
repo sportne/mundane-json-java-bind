@@ -57,8 +57,9 @@ Numeric bindings follow
 [`ADR-0003`](../adr/ADR-0003-current-profile-number-bindings.md):
 `integer` maps to Java `long`, while `number` maps to finite Java `double`.
 Generated validators compare schema numeric literals with generated Java values
-using `BigDecimal`, but arbitrary JSON decimal precision and lexical numeric
-form are not preserved by the current `number` binding.
+using generated private static final `BigDecimal` constants, but arbitrary JSON
+decimal precision and lexical numeric form are not preserved by the current
+`number` binding.
 
 Closed object properties map to nested records owned by the root generated
 type:
