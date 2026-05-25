@@ -1,7 +1,7 @@
 # TASK-0049: Generator Test Fixture Cleanup
 
 Task ID: `TASK-0049`
-Status: `ready-for-implementation`
+Status: `complete`
 Gate: Generator simplification implementation
 Depends on: `TASK-0048`
 Specification references: `docs/architecture/generator-simplification-audit.md`; `docs/architecture/generated-code-contract.md`

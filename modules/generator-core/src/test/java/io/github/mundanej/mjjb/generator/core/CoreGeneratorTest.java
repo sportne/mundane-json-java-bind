@@ -10,19 +10,17 @@ import io.github.mundanej.mjjb.generator.api.GeneratorResult;
 import io.github.mundanej.mjjb.generator.core.generated.GeneratedSourceVerifier;
 import io.github.mundanej.mjjb.schema.model.SchemaReferenceResolver;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class CoreGeneratorTest {
   @TempDir Path tempDir;
   private final GeneratedSourceVerifier generatedSourceVerifier = new GeneratedSourceVerifier();
+  private final GeneratedFixtureAssertions fixtureAssertions = new GeneratedFixtureAssertions();
 
   @Test
   void rejectsUnsupportedDraft202012KeywordWithDeterministicDiagnostic() throws IOException {
@@ -49,40 +47,8 @@ final class CoreGeneratorTest {
     GeneratorResult result =
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
-    assertTrue(result.successful());
-    assertEquals(4, result.generatedSources().size());
-    Path modelSource = sourceNamed(result, "GeneratedBindings.java");
-    Path writerSource = sourceNamed(result, "GeneratedBindingsJsonWriter.java");
-    Path readerSource = sourceNamed(result, "GeneratedBindingsJsonReader.java");
-    Path validatorSource = sourceNamed(result, "GeneratedBindingsJsonValidator.java");
-    assertEquals(golden("empty-object", "GeneratedBindings.java"), Files.readString(modelSource));
-    assertEquals(
-        golden("empty-object", "GeneratedBindingsJsonWriter.java"), Files.readString(writerSource));
-    assertEquals(
-        golden("empty-object", "GeneratedBindingsJsonReader.java"), Files.readString(readerSource));
-    assertEquals(
-        golden("empty-object", "GeneratedBindingsJsonValidator.java"),
-        Files.readString(validatorSource));
-    generatedSourceVerifier.verifyGolden(
-        "empty-object", modelSource, goldenBytes("empty-object", "GeneratedBindings.java"));
-    generatedSourceVerifier.verifyGolden(
-        "empty-object",
-        writerSource,
-        goldenBytes("empty-object", "GeneratedBindingsJsonWriter.java"));
-    generatedSourceVerifier.verifyGolden(
-        "empty-object",
-        readerSource,
-        goldenBytes("empty-object", "GeneratedBindingsJsonReader.java"));
-    generatedSourceVerifier.verifyGolden(
-        "empty-object",
-        validatorSource,
-        goldenBytes("empty-object", "GeneratedBindingsJsonValidator.java"));
-    generatedSourceVerifier.verifyAllowedTokens("empty-object", modelSource);
-    generatedSourceVerifier.verifyAllowedTokens("empty-object", writerSource);
-    generatedSourceVerifier.verifyAllowedTokens("empty-object", readerSource);
-    generatedSourceVerifier.verifyAllowedTokens("empty-object", validatorSource);
-    generatedSourceVerifier.compileGeneratedSources(
-        "empty-object", result.generatedSources(), tempDir.resolve("empty-object-classes"));
+    fixtureAssertions.verifyDefaultFixture(
+        "empty-object", result, tempDir.resolve("empty-object-classes"));
   }
 
   @Test
@@ -108,40 +74,8 @@ final class CoreGeneratorTest {
     GeneratorResult result =
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
-    assertTrue(result.successful());
-    assertEquals(4, result.generatedSources().size());
-    Path modelSource = sourceNamed(result, "GeneratedBindings.java");
-    Path writerSource = sourceNamed(result, "GeneratedBindingsJsonWriter.java");
-    Path readerSource = sourceNamed(result, "GeneratedBindingsJsonReader.java");
-    Path validatorSource = sourceNamed(result, "GeneratedBindingsJsonValidator.java");
-    assertEquals(golden("mixed-scalar", "GeneratedBindings.java"), Files.readString(modelSource));
-    assertEquals(
-        golden("mixed-scalar", "GeneratedBindingsJsonWriter.java"), Files.readString(writerSource));
-    assertEquals(
-        golden("mixed-scalar", "GeneratedBindingsJsonReader.java"), Files.readString(readerSource));
-    assertEquals(
-        golden("mixed-scalar", "GeneratedBindingsJsonValidator.java"),
-        Files.readString(validatorSource));
-    generatedSourceVerifier.verifyGolden(
-        "mixed-scalar", modelSource, goldenBytes("mixed-scalar", "GeneratedBindings.java"));
-    generatedSourceVerifier.verifyGolden(
-        "mixed-scalar",
-        writerSource,
-        goldenBytes("mixed-scalar", "GeneratedBindingsJsonWriter.java"));
-    generatedSourceVerifier.verifyGolden(
-        "mixed-scalar",
-        readerSource,
-        goldenBytes("mixed-scalar", "GeneratedBindingsJsonReader.java"));
-    generatedSourceVerifier.verifyGolden(
-        "mixed-scalar",
-        validatorSource,
-        goldenBytes("mixed-scalar", "GeneratedBindingsJsonValidator.java"));
-    generatedSourceVerifier.verifyAllowedTokens("mixed-scalar", modelSource);
-    generatedSourceVerifier.verifyAllowedTokens("mixed-scalar", writerSource);
-    generatedSourceVerifier.verifyAllowedTokens("mixed-scalar", readerSource);
-    generatedSourceVerifier.verifyAllowedTokens("mixed-scalar", validatorSource);
-    generatedSourceVerifier.compileGeneratedSources(
-        "mixed-scalar", result.generatedSources(), tempDir.resolve("mixed-scalar-classes"));
+    fixtureAssertions.verifyDefaultFixture(
+        "mixed-scalar", result, tempDir.resolve("mixed-scalar-classes"));
   }
 
   @Test
@@ -166,22 +100,8 @@ final class CoreGeneratorTest {
     GeneratorResult result =
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
-    assertTrue(result.successful());
-    assertEquals(4, result.generatedSources().size());
-    Path modelSource = sourceNamed(result, "GeneratedBindings.java");
-    Path writerSource = sourceNamed(result, "GeneratedBindingsJsonWriter.java");
-    Path readerSource = sourceNamed(result, "GeneratedBindingsJsonReader.java");
-    Path validatorSource = sourceNamed(result, "GeneratedBindingsJsonValidator.java");
-    assertEquals(golden("array-scalar", "GeneratedBindings.java"), Files.readString(modelSource));
-    assertEquals(
-        golden("array-scalar", "GeneratedBindingsJsonWriter.java"), Files.readString(writerSource));
-    assertEquals(
-        golden("array-scalar", "GeneratedBindingsJsonReader.java"), Files.readString(readerSource));
-    assertEquals(
-        golden("array-scalar", "GeneratedBindingsJsonValidator.java"),
-        Files.readString(validatorSource));
-    generatedSourceVerifier.compileGeneratedSources(
-        "array-scalar", result.generatedSources(), tempDir.resolve("array-scalar-classes"));
+    fixtureAssertions.verifyDefaultFixture(
+        "array-scalar", result, tempDir.resolve("array-scalar-classes"));
   }
 
   @Test
@@ -212,27 +132,8 @@ final class CoreGeneratorTest {
     GeneratorResult result =
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
-    assertTrue(result.successful());
-    assertEquals(4, result.generatedSources().size());
-    Path modelSource = sourceNamed(result, "GeneratedBindings.java");
-    Path writerSource = sourceNamed(result, "GeneratedBindingsJsonWriter.java");
-    Path readerSource = sourceNamed(result, "GeneratedBindingsJsonReader.java");
-    Path validatorSource = sourceNamed(result, "GeneratedBindingsJsonValidator.java");
-    assertEquals(
-        golden("facet-constraints", "GeneratedBindings.java"), Files.readString(modelSource));
-    assertEquals(
-        golden("facet-constraints", "GeneratedBindingsJsonWriter.java"),
-        Files.readString(writerSource));
-    assertEquals(
-        golden("facet-constraints", "GeneratedBindingsJsonReader.java"),
-        Files.readString(readerSource));
-    assertEquals(
-        golden("facet-constraints", "GeneratedBindingsJsonValidator.java"),
-        Files.readString(validatorSource));
-    generatedSourceVerifier.compileGeneratedSources(
-        "facet-constraints",
-        result.generatedSources(),
-        tempDir.resolve("facet-constraints-classes"));
+    fixtureAssertions.verifyDefaultFixture(
+        "facet-constraints", result, tempDir.resolve("facet-constraints-classes"));
   }
 
   @Test
@@ -261,27 +162,8 @@ final class CoreGeneratorTest {
     GeneratorResult result =
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
-    assertTrue(result.successful());
-    assertEquals(4, result.generatedSources().size());
-    Path modelSource = sourceNamed(result, "GeneratedBindings.java");
-    Path writerSource = sourceNamed(result, "GeneratedBindingsJsonWriter.java");
-    Path readerSource = sourceNamed(result, "GeneratedBindingsJsonReader.java");
-    Path validatorSource = sourceNamed(result, "GeneratedBindingsJsonValidator.java");
-    assertEquals(
-        golden("literal-constraints", "GeneratedBindings.java"), Files.readString(modelSource));
-    assertEquals(
-        golden("literal-constraints", "GeneratedBindingsJsonWriter.java"),
-        Files.readString(writerSource));
-    assertEquals(
-        golden("literal-constraints", "GeneratedBindingsJsonReader.java"),
-        Files.readString(readerSource));
-    assertEquals(
-        golden("literal-constraints", "GeneratedBindingsJsonValidator.java"),
-        Files.readString(validatorSource));
-    generatedSourceVerifier.compileGeneratedSources(
-        "literal-constraints",
-        result.generatedSources(),
-        tempDir.resolve("literal-constraints-classes"));
+    fixtureAssertions.verifyDefaultFixture(
+        "literal-constraints", result, tempDir.resolve("literal-constraints-classes"));
   }
 
   @Test
@@ -308,25 +190,8 @@ final class CoreGeneratorTest {
     GeneratorResult result =
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
-    assertTrue(result.successful());
-    assertEquals(4, result.generatedSources().size());
-    Path modelSource = sourceNamed(result, "GeneratedBindings.java");
-    Path writerSource = sourceNamed(result, "GeneratedBindingsJsonWriter.java");
-    Path readerSource = sourceNamed(result, "GeneratedBindingsJsonReader.java");
-    Path validatorSource = sourceNamed(result, "GeneratedBindingsJsonValidator.java");
-    assertEquals(
-        golden("nullable-fields", "GeneratedBindings.java"), Files.readString(modelSource));
-    assertEquals(
-        golden("nullable-fields", "GeneratedBindingsJsonWriter.java"),
-        Files.readString(writerSource));
-    assertEquals(
-        golden("nullable-fields", "GeneratedBindingsJsonReader.java"),
-        Files.readString(readerSource));
-    assertEquals(
-        golden("nullable-fields", "GeneratedBindingsJsonValidator.java"),
-        Files.readString(validatorSource));
-    generatedSourceVerifier.compileGeneratedSources(
-        "nullable-fields", result.generatedSources(), tempDir.resolve("nullable-fields-classes"));
+    fixtureAssertions.verifyDefaultFixture(
+        "nullable-fields", result, tempDir.resolve("nullable-fields-classes"));
   }
 
   @Test
@@ -366,22 +231,8 @@ final class CoreGeneratorTest {
     GeneratorResult result =
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
-    assertTrue(result.successful());
-    assertEquals(4, result.generatedSources().size());
-    Path modelSource = sourceNamed(result, "GeneratedBindings.java");
-    Path writerSource = sourceNamed(result, "GeneratedBindingsJsonWriter.java");
-    Path readerSource = sourceNamed(result, "GeneratedBindingsJsonReader.java");
-    Path validatorSource = sourceNamed(result, "GeneratedBindingsJsonValidator.java");
-    assertEquals(golden("tagged-oneof", "GeneratedBindings.java"), Files.readString(modelSource));
-    assertEquals(
-        golden("tagged-oneof", "GeneratedBindingsJsonWriter.java"), Files.readString(writerSource));
-    assertEquals(
-        golden("tagged-oneof", "GeneratedBindingsJsonReader.java"), Files.readString(readerSource));
-    assertEquals(
-        golden("tagged-oneof", "GeneratedBindingsJsonValidator.java"),
-        Files.readString(validatorSource));
-    generatedSourceVerifier.compileGeneratedSources(
-        "tagged-oneof", result.generatedSources(), tempDir.resolve("tagged-oneof-classes"));
+    fixtureAssertions.verifyDefaultFixture(
+        "tagged-oneof", result, tempDir.resolve("tagged-oneof-classes"));
   }
 
   @Test
@@ -425,14 +276,8 @@ final class CoreGeneratorTest {
 
     GeneratorResult result = generateWithMetadata(schema);
 
-    assertTrue(result.successful());
-    assertEquals(5, result.generatedSources().size());
-    Path metadataSource = sourceNamed(result, "GeneratedBindingsJsonSchemaMetadata.java");
-    assertEquals(
-        golden("metadata-basic", "GeneratedBindingsJsonSchemaMetadata.java"),
-        Files.readString(metadataSource));
-    generatedSourceVerifier.compileGeneratedSources(
-        "metadata-basic", result.generatedSources(), tempDir.resolve("metadata-basic-classes"));
+    fixtureAssertions.verifyMetadataFixture(
+        "metadata-basic", result, tempDir.resolve("metadata-basic-classes"));
   }
 
   @Test
@@ -473,14 +318,8 @@ final class CoreGeneratorTest {
 
     GeneratorResult result = generateWithMetadata(schema);
 
-    assertTrue(result.successful());
-    assertEquals(5, result.generatedSources().size());
-    Path metadataSource = sourceNamed(result, "GeneratedBindingsJsonSchemaMetadata.java");
-    assertEquals(
-        golden("metadata-tagged", "GeneratedBindingsJsonSchemaMetadata.java"),
-        Files.readString(metadataSource));
-    generatedSourceVerifier.compileGeneratedSources(
-        "metadata-tagged", result.generatedSources(), tempDir.resolve("metadata-tagged-classes"));
+    fixtureAssertions.verifyMetadataFixture(
+        "metadata-tagged", result, tempDir.resolve("metadata-tagged-classes"));
   }
 
   @Test
@@ -502,10 +341,11 @@ final class CoreGeneratorTest {
 
     assertTrue(result.successful());
     assertEquals(4, result.generatedSources().size());
-    Path modelSource = sourceNamed(result, "CustomRoot.java");
-    Path writerSource = sourceNamed(result, "CustomRootJsonWriter.java");
-    Path readerSource = sourceNamed(result, "CustomRootJsonReader.java");
-    Path validatorSource = sourceNamed(result, "CustomRootJsonValidator.java");
+    Path modelSource = GeneratedFixtureAssertions.sourceNamed(result, "CustomRoot.java");
+    Path writerSource = GeneratedFixtureAssertions.sourceNamed(result, "CustomRootJsonWriter.java");
+    Path readerSource = GeneratedFixtureAssertions.sourceNamed(result, "CustomRootJsonReader.java");
+    Path validatorSource =
+        GeneratedFixtureAssertions.sourceNamed(result, "CustomRootJsonValidator.java");
     assertTrue(Files.readString(modelSource).contains("public record CustomRoot()"));
     assertTrue(
         Files.readString(writerSource)
@@ -694,7 +534,8 @@ final class CoreGeneratorTest {
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
     assertTrue(result.successful());
-    String modelSource = Files.readString(sourceNamed(result, "GeneratedBindings.java"));
+    String modelSource =
+        Files.readString(GeneratedFixtureAssertions.sourceNamed(result, "GeneratedBindings.java"));
     assertTrue(modelSource.contains("GeneratedBindingsProfile profile"));
     assertTrue(modelSource.contains("record GeneratedBindingsProfile("));
   }
@@ -737,7 +578,8 @@ final class CoreGeneratorTest {
         new CoreGenerator().generate(GeneratorRequest.of(List.of(schema), tempDir.resolve("out")));
 
     assertTrue(result.successful());
-    String modelSource = Files.readString(sourceNamed(result, "GeneratedBindings.java"));
+    String modelSource =
+        Files.readString(GeneratedFixtureAssertions.sourceNamed(result, "GeneratedBindings.java"));
     assertTrue(modelSource.contains("sealed interface GeneratedBindings"));
     assertTrue(modelSource.contains("record Card("));
     assertTrue(modelSource.contains("record Bank("));
@@ -886,29 +728,5 @@ final class CoreGeneratorTest {
                 GeneratorRequest.DEFAULT_ROOT_TYPE_NAME,
                 Map.of(),
                 true));
-  }
-
-  private static Path sourceNamed(GeneratorResult result, String fileName) {
-    return result.generatedSources().stream()
-        .filter(source -> fileName.equals(sourceFileName(source)))
-        .findFirst()
-        .orElseThrow();
-  }
-
-  private static String sourceFileName(Path source) {
-    Path sourceFileName = source.getFileName();
-    return sourceFileName == null ? "" : sourceFileName.toString();
-  }
-
-  private static String golden(String name, String fileName) throws IOException {
-    return new String(goldenBytes(name, fileName), StandardCharsets.UTF_8);
-  }
-
-  private static byte[] goldenBytes(String name, String fileName) throws IOException {
-    String resourceName = "/golden/" + name + "/" + fileName + ".golden";
-    try (InputStream stream = CoreGeneratorTest.class.getResourceAsStream(resourceName)) {
-      Objects.requireNonNull(stream, "missing test resource " + resourceName);
-      return stream.readAllBytes();
-    }
   }
 }
