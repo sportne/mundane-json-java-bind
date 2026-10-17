@@ -10,3 +10,7 @@
 # Binary files should be left untouched
 *.jar           binary
 
+# Generated-source comparisons and golden files must retain their exact LF bytes.
+examples/**/generated-src/** text eol=lf
+*.golden text eol=lf
+
