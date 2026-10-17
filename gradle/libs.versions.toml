@@ -6,11 +6,11 @@ archunit = "1.4.2"
 jacoco = "0.8.14"
 checkstyle = "13.4.2"
 spotbugs = "4.9.8"
-spotbugsPlugin = "6.5.4"
+spotbugsPlugin = "6.5.13"
 spotlessPlugin = "8.5.1"
-errorpronePlugin = "5.1.0"
+errorpronePlugin = "5.1.1"
 errorproneCore = "2.49.0"
-graalNativePlugin = "1.1.0"
+graalNativePlugin = "1.1.14"
 
 [libraries]
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
